@@ -22,7 +22,7 @@ local _, ns = ...
 local Database = {}
 ns.Database = Database
 
-Database.SCHEMA = 1
+Database.SCHEMA = 2
 
 -- Fills dst with what's missing from defaults (tables merged deeply). A value whose type differs from
 -- its default's is replaced by the default (a corrupted or hand-edited file).
@@ -60,6 +60,29 @@ migrations[1] = function(root)
 	Move("social", "friends", "show")
 	Move("social", "friendsShare", "share")
 	Move("social", "shareAsked", "asked")
+end
+
+-- 2: boats, zeppelins, the tram, their routes and live icons become the Transports module's. Their values
+-- as the engine kept them (PerfectMap's switches) become the module's settings; the engine's keys stay, as
+-- what the module writes while it runs (Engine/Core.lua turns them off at each load).
+migrations[2] = function(root)
+	local engine = root.engine
+	local pins = type(engine.pins) == "table" and engine.pins or {}
+	local m = root.modules.transports or {}
+	root.modules.transports = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	local set = m.settings
+	local function Copy(key, value)
+		if set[key] == nil and type(value) == "boolean" then set[key] = value end
+	end
+	Copy("boats", pins.boat)
+	Copy("zeppelins", pins.zeppelin)
+	Copy("tram", pins.tram)
+	Copy("airships", pins.airship)
+	Copy("enemyHarbors", engine.enemyHarbors)
+	Copy("routesAll", engine.routes)
+	Copy("tracking", engine.vessels)
+	Copy("share", engine.vesselSync)
 end
 
 -- (for tests)

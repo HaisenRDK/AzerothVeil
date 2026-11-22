@@ -3,6 +3,7 @@
 -- AzerothVeil changes: the namespace is published by Core/Init.lua (_G.AzerothVeil); the settings live in
 -- AzerothVeilDB.engine (Core/Database.lua); the classic (Blizzard) look only; /av; module start-up signalled.
 local ADDON, FM = ...
+local L = FM.L
 
 FM.W, FM.H = 1002, 668            -- Azeroth (947) art size: the map's world units
 FM.WORLD = 947
@@ -49,6 +50,9 @@ FM.defaults = {
 	replaceQuestLog = true,          -- L, and every "show this quest", open this map's quest log
 	questPanel = true,               -- the quest log docked beside the map
 }
+
+-- (AzerothVeil: the icon kinds the Transports module owns)
+FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram" }
 
 local function Merge(dst, src)
 	for k, v in pairs(src) do
@@ -215,6 +219,11 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		if not db.enemyHarborsOff then db.enemyHarbors = nil db.enemyHarborsOff = true end
 		root.engine = Merge(db, FM.defaults)
 		FM.db = root.engine
+		-- (AzerothVeil: these switches belong to the Transports module (Modules/Transports.lua): its own
+		-- settings are kept in AzerothVeilDB.modules.transports; here they're only what it writes while it
+		-- runs. Off until it starts, so nothing of it shows while it's disabled)
+		for _, k in ipairs(FM.TRANSPORT_PINS) do FM.db.pins[k] = false end
+		FM.db.routes, FM.db.vessels, FM.db.vesselSync, FM.db.enemyHarbors = false, false, false, false
 		-- (AzerothVeil: the classic look, always: Blizzard's own frames, never the modern one)
 		FM.db.style = "classic"
 		FM.Style.ApplyTheme(FM.db.style)
@@ -245,7 +254,7 @@ SlashCmdList.AZEROTHVEIL = function(msg)
 	elseif msg == "reset" then
 		FM.db.window = { mapW = FM.defaults.window.mapW }
 		if FM.Map then FM.Map.ApplyWindow() end
-		FM.Print("window reset")
+		FM.Print(L["window reset"])
 	elseif msg:match("^sailings") then
 		if FM.Vessels then FM.Vessels.Status(msg:match("^sailings%s+(%a+)")) end
 	elseif msg == "addons" then
@@ -253,7 +262,7 @@ SlashCmdList.AZEROTHVEIL = function(msg)
 	elseif msg == "find" then
 		if FM.Map then FM.Map.Show() FM.Map.CenterOnPlayer() end
 	elseif msg == "help" then
-		FM.Print("/av - open/close  |  /av config - settings & modules  |  /av modules [enable|disable <name>] - modules  |  /av stats - performance  |  /av reset - window position  |  /av find - centre on you  |  /av sailings [log|test] - boats & zeppelins shared  |  /av addons - other addons' icons")
+		FM.Print(L["/av - open/close  |  /av config - settings & modules  |  /av modules [enable|disable <name>] - modules  |  /av stats - performance  |  /av reset - window position  |  /av find - centre on you  |  /av sailings [log|test] - boats & zeppelins shared  |  /av addons - other addons' icons"])
 	else
 		FM.Toggle()
 	end

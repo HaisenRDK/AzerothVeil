@@ -10,6 +10,7 @@
 -- And every "show this quest" the game asks for opens this map's quest log (QuestLog.lua).
 -- Only frames near the view exist; everything is gathered again only when the game says it changed.
 local _, FM = ...
+local L = FM.L
 local Q = {}
 FM.Quests = Q
 
@@ -133,7 +134,7 @@ local function POIEnter(self)
 	if waypoint then
 		GameTooltip:AddLine("- " .. waypoint, 1, 1, 1, true)
 	elseif C_QuestLog.IsComplete(q) then
-		GameTooltip:AddLine(QUEST_WATCH_QUEST_READY or "Ready for turn-in", 1, 1, 1, true)
+		GameTooltip:AddLine(QUEST_WATCH_QUEST_READY or L["Ready for turn-in"], 1, 1, 1, true)
 	else
 		for _, o in ipairs(C_QuestLog.GetQuestObjectives(q) or {}) do
 			if o.text and not o.finished then GameTooltip:AddLine("- " .. o.text, 1, 1, 1, true) end
@@ -434,7 +435,7 @@ local function OfferEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT", 5, 2)
 	GameTooltip:SetText(o.name or "", 1, 0.82, 0)
 	if o.line and o.line ~= "" then GameTooltip:AddLine(o.line, 0.8, 0.8, 0.8, true) end
-	GameTooltip:AddLine(AVAILABLE_QUEST or "Available Quest", 1, 1, 1)
+	GameTooltip:AddLine(AVAILABLE_QUEST or L["Available Quest"], 1, 1, 1)
 	GameTooltip:Show()
 end
 
@@ -699,9 +700,9 @@ local function MirrorQuestie()
 				if d.Type == "manual" then
 					lines[1] = nil
 				elseif d.Type == "available" then
-					lines[1] = { "Quest available", 0.6, 0.9, 0.6, 11 }
+					lines[1] = { L["Quest available"], 0.6, 0.9, 0.6, 11 }
 				elseif d.Type == "complete" then
-					lines[1] = { "Turn in", 1, 0.82, 0.2, 11 }
+					lines[1] = { L["Turn in"], 1, 0.82, 0.2, 11 }
 				elseif d.ObjectiveData and d.ObjectiveData.Description then
 					lines[1] = { d.ObjectiveData.Description, 1, 1, 1, 11 }
 				end
@@ -712,7 +713,7 @@ local function MirrorQuestie()
 					-- (the icon's path as Questie gave it: Forever Quest Tint keeps it, the texture may answer a file ID)
 					fqt = FM.Tint.IconTinted(d.Id) and FM.Tint.QuestieIconTintable(icon.fqtIcon or file, r, g, b) or nil,
 					psize = min(max(icon:GetWidth() or 16, 12), 22),
-					title = quest and (quest.name or quest.Name) or d.Name or "Quest", lines = lines,
+					title = quest and (quest.name or quest.Name) or d.Name or L["Quest"], lines = lines,
 					qicon = icon,      -- (Questie's own frame: its tooltip and its click, Pins.lua)
 				}
 			end
@@ -759,7 +760,7 @@ local function NewQuestieMapPin(parent, pool)
 		end
 		local quest = data.QuestData
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(quest and (quest.name or quest.Name) or data.Name or "Quest")
+		GameTooltip:SetText(quest and (quest.name or quest.Name) or data.Name or L["Quest"])
 		if data.ObjectiveData and data.ObjectiveData.Description then
 			GameTooltip:AddLine(data.ObjectiveData.Description, 1, 1, 1, true)
 		end

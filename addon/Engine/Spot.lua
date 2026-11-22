@@ -2,6 +2,7 @@
 -- pin on that spot (or take it off) or to copy where it is ("Zone 45.2, 63.1": the game can't write
 -- the clipboard, so it's shown selected, for Ctrl+C). Built the first time it's used.
 local _, FM = ...
+local L = FM.L
 local SP = {}
 FM.Spot = SP
 local S, Geo = FM.Style, FM.Geo
@@ -41,7 +42,7 @@ local function Copier()
 	copier.box = box
 	local hint = S.Text(copier, 10, S.DIM)
 	hint:SetPoint("BOTTOMLEFT", 10, 7)
-	hint:SetText("Ctrl+C to copy   Enter: close")
+	hint:SetText(L["Ctrl+C to copy   Enter: close"])
 	copier:Hide()
 	return copier
 end
@@ -98,12 +99,12 @@ function SP.Open(u, v)
 	local list = {}
 	if mapID then
 		local has = C_Map.HasUserWaypoint and C_Map.HasUserWaypoint()
-		list[#list + 1] = { has and "Move the map pin here" or "Place a map pin here", "Interface\\AddOns\\AzerothVeil\\Media\\ring",
+		list[#list + 1] = { has and L["Move the map pin here"] or L["Place a map pin here"], "Interface\\AddOns\\AzerothVeil\\Media\\ring",
 			function() FM.Pins.PlaceAt(u, v) end, "Waypoint-MapPin-ChatIcon" }
 		if has then
-			list[#list + 1] = { "Remove the map pin", "Interface\\Buttons\\UI-GroupLoot-Pass-Up", function() FM.Pins.ClearPin() end }
+			list[#list + 1] = { L["Remove the map pin"], "Interface\\Buttons\\UI-GroupLoot-Pass-Up", function() FM.Pins.ClearPin() end }
 		end
-		list[#list + 1] = { "Copy coordinates", "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", Copy }
+		list[#list + 1] = { L["Copy coordinates"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", Copy }
 	end
 	for _, r in ipairs(rows) do r:Hide() end
 	local y = -26

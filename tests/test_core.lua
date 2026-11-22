@@ -301,5 +301,148 @@ test("duplicate names and bad setting types are refused", function()
 	assert(not pcall(ns.Modules.Register, ns.Modules, { name = "b", settings = { { key = "k", type = "color" } } }), "bad type refused")
 end)
 
+
+---------------------------------------------------------------------------
+-- Modules/Transports.lua, on a stand-in engine that records what it's told
+---------------------------------------------------------------------------
+local function LoadTransports(saved, engineDb)
+	local ns = LoadCore(saved)
+	local st = { started = false, stops = 0, tracking = false, sharing = false, routes = false, rebuilds = 0, view = nil }
+	ns.W = 1002
+	ns.db = engineDb or { pins = {} }       -- (the engine's FM.db: what the module writes into)
+	ns.Vessels = {
+		Start = function() st.started = true end,
+		Stop = function() st.started = false st.stops = st.stops + 1 st.tracking, st.sharing = false, false end,
+		SetTracking = function(on) st.tracking = on end,
+		SetSharing = function(on) st.sharing = on end,
+		SyncChanged = function() st.synced = true end,
+	}
+	ns.Routes = { SetEnabled = function(on) st.routes = on end }
+	ns.Pins = { RebuildPlaces = function() st.rebuilds = st.rebuilds + 1 end, Ensure = function() end,
+		InvalidatePlaces = function() st.rebuilds = st.rebuilds + 1 end }
+	st.scale, st.vw = 2, 800
+	ns.Map = {
+		IsShown = function() return false end,
+		MarkDirty = function() end,
+		ViewNow = function() return 0, 0, st.scale, st.vw, 533 end,
+		SetView = function(u, v, across) st.view = { u, v, across } end,
+	}
+	local chunk = assert(loadfile(ADDON_DIR .. "Modules/Transports.lua"))
+	chunk("AzerothVeil", ns)
+	return ns, st
+end
+
+print("Transports module")
+test("on by default: the engine's switches written, tracking and sharing running", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	local db = ns.db
+	eq(ns.Modules:IsActive("transports"), true, "active")
+	eq(db.pins.boat, true, "boats") eq(db.pins.zeppelin, true, "zeppelins")
+	eq(db.pins.tram, true, "tram") eq(db.pins.airship, false, "airships off by default")
+	eq(db.routes, false, "all routes off by default") eq(st.routes, true, "route lines on")
+	eq(db.vessels, true, "live boats") eq(db.vesselSync, true, "sync")
+	eq(st.started, true, "vessels started") eq(st.tracking, true, "tracking timer") eq(st.sharing, true, "sharing")
+	eq(type(ns.Pins.OnTravelClick), "function", "click to travel")
+end)
+test("disabled: nothing of it shows or runs, its settings kept", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	ns.Modules:Disable("transports")
+	local db = ns.db
+	for _, k in ipairs({ "boat", "zeppelin", "tram", "airship" }) do eq(db.pins[k], false, "pins." .. k) end
+	eq(db.routes, false, "routes") eq(db.vessels, false, "vessels") eq(db.vesselSync, false, "sync")
+	eq(db.enemyHarbors, false, "enemy harbors")
+	eq(st.started, false, "vessels stopped") eq(st.stops, 1, "Stop called")
+	eq(st.tracking, false, "no tracking timer") eq(st.sharing, false, "no messages")
+	eq(st.routes, false, "no route lines")
+	eq(ns.Pins.OnTravelClick, nil, "click to travel gone")
+	eq(ns.Modules:GetSetting("transports", "boats"), true, "setting kept")
+	eq(ns.Modules:IsOptionActive("transports", "boats"), false, "but not active")
+	ns.Modules:Enable("transports")
+	eq(db.pins.boat, true, "back on") eq(st.tracking, true, "tracking back")
+end)
+test("disabled at login: the engine is never started", function()
+	local ns, st = LoadTransports({ modules = { transports = { enabled = false } } })
+	Boot(ns)
+	eq(st.started, false, "never started")
+	eq(ns.Modules:IsActive("transports"), false, "inactive")
+end)
+test("tracking off stops the 0.8 s timer and the sharing under it", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("transports", "tracking", false)
+	eq(st.tracking, false, "timer stopped") eq(st.sharing, false, "sharing stopped (its parent is off)")
+	eq(ns.db.vessels, false, "no live boats") eq(ns.db.vesselSync, false, "no sync")
+	eq(ns.Modules:GetSetting("transports", "share"), true, "share setting kept")
+	ns.Modules:SetSetting("transports", "tracking", true)
+	eq(st.tracking, true, "timer back") eq(st.sharing, true, "sharing back")
+end)
+test("parent options: route lines and other transports", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("transports", "routesAll", true)
+	eq(ns.db.routes, true, "all routes")
+	ns.Modules:SetSetting("transports", "routes", false)
+	eq(st.routes, false, "no lines at all") eq(ns.db.routes, false, "all routes off with their parent")
+	ns.Modules:SetSetting("transports", "airships", true)
+	ns.Modules:SetSetting("transports", "others", false)
+	eq(ns.db.pins.tram, false, "tram off with its parent") eq(ns.db.pins.airship, false, "airships too")
+end)
+test("the other faction's harbors: rebuilt only when it changes", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	local before = st.rebuilds
+	ns.Modules:SetSetting("transports", "zeppelins", false)
+	eq(st.rebuilds, before, "no rebuild")
+	ns.Modules:SetSetting("transports", "enemyHarbors", true)
+	eq(st.rebuilds, before + 1, "rebuilt")
+end)
+test("click: straight to the way's other end, at OpenMap's zoom or closer", function()
+	local ns, st = LoadTransports(nil)
+	Boot(ns)
+	ns.Pins.OnTravelClick({ travel = { { u = 100, v = 200 } } })
+	eq(st.view[1], 100, "u") eq(st.view[2], 200, "v")
+	eq(math.abs(st.view[3] - 1002 / 6) < 1e-9, true, "zoomed in to OpenMap's 6")
+	st.scale = 10                                 -- (closer already: 80 units across)
+	ns.Pins.OnTravelClick({ travel = { { u = 1, v = 2 } } })
+	eq(st.view[3], 80, "kept as close")
+	st.view = nil
+	ns.Pins.OnTravelClick({ travel = { { dest = "?" } } })
+	eq(st.view, nil, "no destination: nothing")
+	ns.Modules:SetSetting("transports", "clickTravel", false)
+	eq(ns.Pins.OnTravelClick, nil, "option off: no click")
+end)
+test("migration 2: PerfectMap's transport switches become the module's settings", function()
+	local saved = { schema = 1, engine = { pins = { boat = false, airship = true }, routes = true, vessels = false, vesselSync = false, enemyHarbors = true } }
+	local ns = LoadTransports(saved, nil)
+	Boot(ns)
+	local get = function(k) return ns.Modules:GetSetting("transports", k) end
+	eq(get("boats"), false, "boats") eq(get("airships"), true, "airships") eq(get("routesAll"), true, "routes")
+	eq(get("tracking"), false, "tracking") eq(get("share"), false, "share") eq(get("enemyHarbors"), true, "enemy")
+	eq(get("zeppelins"), true, "missing: default") eq(_G.AzerothVeilDB.schema, 2, "schema 2")
+end)
+
+print("Localisation")
+local function LoadLocale(locale)
+	stub.reset()
+	stub.locale = locale
+	local ns = {}
+	for _, file in ipairs({ "Core/Init.lua", "Locales/enUS.lua", "Locales/frFR.lua" }) do
+		assert(loadfile(ADDON_DIR .. file))("AzerothVeil", ns)
+	end
+	stub.locale = nil
+	return ns
+end
+test("French client: French texts; English as the fallback", function()
+	local fr = LoadLocale("frFR")
+	eq(fr.L["Enable this module"], "Activer le module", "translated")
+	eq(fr.L["Some text nobody translated"], "Some text nobody translated", "fallback")
+	local en = LoadLocale("enUS")
+	eq(en.L["Enable this module"], "Enable this module", "English")
+	local de = LoadLocale("deDE")
+	eq(de.L["Transports"], "Transports", "another language: English")
+end)
+
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

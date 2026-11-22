@@ -9,6 +9,7 @@
 --  * Its art: the client's own map of it (C_Map art layer), drawn over its whole place, as the cities'.
 -- Its name at the bottom and the right-click's hint, as a dungeon's map has them.
 local _, FM = ...
+local L = FM.L
 local I = {}
 FM.Isles = I
 
@@ -123,7 +124,7 @@ function I.Init(parent, over)
 	title:SetPoint("BOTTOM", 0, 12)
 	hint = S.Text(overlay, 10, S.DIM)
 	hint:SetPoint("RIGHT", overlay, "BOTTOMRIGHT", -54, 17)
-	hint:SetText("Right-click: back to the world")
+	hint:SetText(L["Right-click: back to the world"])
 end
 
 function I.Layout(left, top, scale, vw, vh)

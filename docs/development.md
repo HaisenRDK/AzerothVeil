@@ -35,7 +35,7 @@ n'utilise jamais de lien symbolique.
   (`.reference/`), et appelée défensivement (`pcall`, test d'existence) si elle peut manquer.
 - Valeurs d'unités : passer par `ns.Plain` (valeurs « secrètes » du moteur 12.x).
 - Modifications du moteur : minimales, commentées `-- AzerothVeil: ...`. Voir `git diff 00f834f -- addon/`.
-- Textes nouveaux via `L["English"]`, traduction dans `Locales/frFR.lua`.
+- **Tout texte visible via `L["English"]`**, traduction dans `Locales/frFR.lua` (vérifié par `check.sh`).
 
 ## Commandes en jeu
 
@@ -47,15 +47,39 @@ n'utilise jamais de lien symbolique.
 | `/av stats` | performances du moteur |
 | `/av help` | toutes les commandes |
 
-## Checklist de validation en jeu (à faire après chaque déploiement important)
+## Checklist de validation en jeu (v0.2.0)
 
-1. **PerfectMap désactivé** dans la liste des AddOns (sinon conflit sur M), AzerothVeil activé.
-2. Aucune erreur Lua au chargement (`/console scriptErrors 1`).
-3. M ouvre la carte AzerothVeil (cadre Blizzard classique, titre « AzerothVeil ») ; molette, drag,
-   survol des zones, passage entre zones, zoom très proche (terrain) et très lointain (monde).
-4. Icônes (vol, donjons, PNJ), clic sur un donjon → carte intérieure, clic droit → menu.
-5. L ouvre le journal ; Échap ferme la carte ; en combat, la carte s'ouvre/ferme sans erreur.
-6. Options > AddOns > AzerothVeil : module « Amis & guilde » listé ; décocher → réglages grisés,
-   `/av modules` indique « désactivé » ; recocher → réglages identiques à avant.
-7. `/reload` : l'état des modules et les réglages sont conservés.
-8. `/av stats` : temps de rafraîchissement comparable à PerfectMap (`/pmap stats` dans PerfectMap).
+Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console scriptErrors 1`.
+
+**Général**
+1. Aucune erreur Lua au chargement ; la carte (M) se comporte comme avant (zoom, déplacement, survol).
+2. Client en français : menu ⚙ de la carte, infobulles des icônes, journal de quêtes, carte de donjon en
+   français. Les noms de zones et villes sont ceux du jeu.
+
+**Fenêtre d'options**
+3. `/av config` ouvre la fenêtre (cadre Blizzard classique), `/av config` à nouveau la ferme ; croix et
+   Échap la ferment ; Options > AddOns > AzerothVeil a un bouton qui l'ouvre.
+4. Déplacer la fenêtre par sa barre de titre ; impossible de la sortir de l'écran ; `/reload` : elle
+   rouvre au même endroit.
+5. Pour chaque module : titre et case « Activer le module » sur la même ligne. Décocher : réglages grisés
+   avec leurs valeurs ; recocher : valeurs inchangées.
+6. En combat : `/av config` puis Échap ne bloque aucune touche du jeu.
+
+**Transports**
+7. Ports, tours des zeppelins, tram visibles. À Tanaris (ou tout quai à plusieurs trajets) : **un point
+   par trajet**, jamais regroupés, même en dézoomant.
+8. Clic sur un point : la carte va **directement** à l'autre extrémité, sans menu ni infobulle
+   supplémentaire, y compris entre continents ; clic sur le quai d'arrivée : retour. Tram : va à l'autre station.
+   Option « Clic : aller à la destination » décochée : le clic ne fait plus rien.
+9. Tracés : au survol d'un quai, les lignes de ses trajets s'affichent et finissent sur leur propre point ;
+   « Toujours afficher tous les tracés » et le bouton des outils de la carte (en bas à gauche) ;
+   « Afficher les tracés » décoché : aucune ligne, même au survol.
+10. Options bateaux / zeppelins / autres transports (et leurs enfants) : effet immédiat, carte ouverte ou non.
+11. Suivi : bateaux et zeppelins en mouvement visibles une fois connus ; `/av sailings` répond.
+    Suivi décoché : plus de bateaux en mouvement, `/av sailings` indique que le suivi est désactivé.
+12. Module Transports désactivé : aucune icône de transport, aucun tracé, aucun bateau en mouvement ;
+    `/av sailings` indique le suivi désactivé ; réactivation : tout revient avec les mêmes réglages.
+13. `/av stats` : temps de rafraîchissement comparable à la v0.1.0.
+
+**Amis & guilde** (non-régression)
+14. Activation / désactivation et réglages comme en v0.1.0, depuis la nouvelle fenêtre.

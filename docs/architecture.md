@@ -15,11 +15,11 @@ AzerothVeil/                     dépôt Git (WSL)
 │   │   ├── Database.lua         AzerothVeilDB : schéma, valeurs par défaut, migrations
 │   │   ├── ModuleManager.lua    enregistrement, cycle de vie, dépendances, réglages
 │   │   └── Bootstrap.lua        chargé en dernier : réglages → modules, démarrage au login
-│   ├── Locales/                 enUS (clés), frFR
+│   ├── Locales/                 enUS (clés), frFR (core, modules, options et textes visibles du moteur)
 │   ├── Engine/                  moteur cartographique hérité de PerfectMap 1.5.6 (noms de fichiers d'origine)
 │   │   └── Data/                données (générées hors jeu par les outils de PerfectMap/OpenMap)
 │   ├── Modules/                 modules fonctionnels (un fichier ou dossier par module)
-│   ├── UI/                      composants d'interface AzerothVeil (options centrales)
+│   ├── UI/                      Controls.lua (contrôles générés depuis les déclarations), Options.lua (fenêtre)
 │   ├── Media/                   ressources graphiques (PerfectMap + futures)
 │   └── Tiles/                   pyramide de tuiles de la carte (60 Mo)
 ├── scripts/                     check.sh, deploy.sh, deploy.conf.example (deploy.local.conf ignoré)
@@ -40,7 +40,7 @@ dans `Engine/` (Quests.lua, Tint.lua, AddonPins.lua).
 1. `Core/Init.lua` → `Locales/*` → `Core/Callbacks`, `Events`, `Database`, `ModuleManager`
 2. `Engine/*` dans l'ordre exact de PerfectMap
 3. `Modules/*` (chaque module s'enregistre ; rien ne s'exécute)
-4. `UI/Options.lua`
+4. `UI/Controls.lua`, `UI/Options.lua`
 5. `Core/Bootstrap.lua`
 
 ### Séquence de démarrage
@@ -53,7 +53,7 @@ ADDON_LOADED (Engine/Core.lua)
 PLAYER_LOGIN (Core/Bootstrap.lua)
    └ avertissement si PerfectMap est aussi chargé
    └ Modules:Start() → Evaluate() : Initialize + Enable des modules actifs
-   └ Options.Register() → page dans Options > AddOns
+   └ Options.Register() → page dans Options > AddOns (bouton qui ouvre la fenêtre AzerothVeil)
 ```
 
 ## 2. Le cœur
@@ -135,15 +135,30 @@ coût CPU nul). Conséquences :
 
 Le moteur PerfectMap n'est pas réécrit. Un sous-système devient piloté par un module en lui ajoutant
 des points d'entrée `Start/Stop` et en faisant de ses `Layout/Tick` des retours immédiats quand il est
-arrêté — c'est fait pour `Engine/Friends.lua` (module `social`). Les options correspondantes quittent
-alors `FM.db` pour les réglages du module (migration de schéma).
+arrêté. Les options correspondantes quittent `FM.db` pour les réglages du module (migration de schéma).
+
+| Module | Moteur piloté | Mécanisme |
+|---|---|---|
+| `social` (Amis & guilde) | `Engine/Friends.lua` | `Friends.Start(cfg)/Stop()` ; lit les réglages du module en direct (`F.cfg`) |
+| `transports` | `Engine/Vessels.lua`, `Routes.lua`, `Pins.lua` | `Vessels.Start/Stop/SetTracking/SetSharing`, `Routes.SetEnabled`, `Pins.OnTravelClick` ; le module **écrit** les interrupteurs que le moteur lit (`FM.db.pins.boat/zeppelin/tram/airship`, `routes`, `vessels`, `vesselSync`, `enemyHarbors`) : ce sont des valeurs effectives, remises à `false` à chaque chargement (`Engine/Core.lua`) et tant que le module est désactivé ; ses vrais réglages sont dans `AzerothVeilDB.modules.transports` |
+
+**Transports — détails.**
+- Un point par trajet, comme OpenMap (PerfectMap fusionnait les quais proches en une icône) : chaque
+  icône connaît la destination de son trajet (`pin.travel`) ; les icônes de transport ne sont jamais
+  regroupées par « Sum identical icons » (`noJoin`). Les tracés se terminent sur le point de leur trajet.
+- Clic (repris d'OpenMap `DockClick` → `GlideToWorld(pin.to, 6)`) : sans menu ni infobulle, la carte va
+  directement à l'autre extrémité (`Map.SetView`), au zoom 6 d'OpenMap ou plus près si on l'était déjà.
+  Retour : cliquer sur le quai d'arrivée (trajet retour) ou navigation habituelle.
+- Suivi des bateaux conservé tel quel (`CheckTriggers`, 0,8 s, fréquence inchangée) mais son ticker
+  n'existe que si le module est actif **et** l'option « Suivi » activée ; le réseau (`PerfectMapSail`)
+  n'écoute et n'envoie que si « Partager » (enfant de « Suivi ») est actif.
 
 ## 4. Configuration et persistance
 
 `AzerothVeilDB` (SavedVariables, compte) :
 
 ```lua
-{ schema = 1,
+{ schema = 2,
   engine  = { ... },    -- réglages de PerfectMap, mêmes clés (FM.db)
   modules = { social = { enabled = true, settings = { show = true, share = false, asked = false } } },
   core    = { optionsModule = "social" } }
@@ -151,19 +166,27 @@ alors `FM.db` pour les réglages du module (migration de schéma).
 
 - Valeurs par défaut fusionnées à chaque chargement ; une valeur de mauvais type est remise par défaut.
 - **Migrations** : `Database.migrations[n]` amène un schéma n-1 à n, exécutées une fois dans l'ordre ;
-  un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : déplacement des
-  options amis/guilde du moteur vers le module `social`.
+  un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : options amis/guilde
+  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports`.
 - Les anciennes migrations internes de PerfectMap (dans `Engine/Core.lua`) sont conservées telles quelles
   sur `engine`.
 
 ### Interface de configuration
 
-`Options > AddOns > AzerothVeil` (ou `/av config`) : liste des modules à gauche (couleur = état), à
-droite la description, la case « Activer ce module », l'état/raison, puis les réglages **générés depuis
-la déclaration** (`header`, `toggle`, `range`). Réglages grisés mais visibles quand le module est off.
-Composants natifs uniquement : `InsetFrameTemplate`, `UICheckButtonTemplate`,
-`MinimalSliderWithSteppersTemplate`, `UIPanelButtonTemplate`, polices `GameFont*`.
-Les réglages historiques de la carte restent dans le menu ⚙ de la carte.
+Fenêtre indépendante `AzerothVeilOptionsWindow` (`/av config`, menu ⚙ de la carte, ou bouton de la page
+Options > AddOns > AzerothVeil) : cadre classique de Blizzard (`PortraitFrameTemplate` sans portrait,
+comme la fenêtre de la carte), déplaçable par sa barre de titre, gardée à l'écran, position mémorisée
+(`AzerothVeilDB.core.optionsWindow`), fermée par sa croix ou Échap (capture clavier à la manière de la
+carte, jamais `UISpecialFrames` ; jamais activée en combat).
+- Gauche : les modules (couleur = état). Droite : **en-tête générique** pour tout module — titre et case
+  « Activer le module » sur la même ligne — puis description, état/raison, bouton de rechargement si
+  nécessaire, et les réglages **générés depuis la déclaration** (`UI/Controls.lua` : `header`, `toggle`,
+  `range`, indentation des options enfants). Grisés mais visibles quand le module ou l'option parente
+  est off. Aucun réglage n'est stocké par l'UI : tout passe par le ModuleManager.
+- Composants natifs : `InsetFrameTemplate`, `UICheckButtonTemplate`, `MinimalSliderWithSteppersTemplate`,
+  `UIPanelButtonTemplate`, polices `GameFont*`.
+- Les réglages historiques de la carte restent dans son menu ⚙ (ceux des modules y sont remplacés par
+  un bouton vers la fenêtre).
 
 ## 5. Contrat des intégrations tierces
 
@@ -176,9 +199,16 @@ Les réglages historiques de la carte restent dans le menu ⚙ de la carte.
 
 ## 6. Traductions
 
-`L["Texte anglais"]` renvoie la traduction du client ou la clé. `Locales/frFR.lua` ne s'exécute que sur un
-client français. Le code nouveau passe par `L[]` ; les textes du moteur PerfectMap restent en anglais et
-seront traduits au fil des modifications.
+- Langue détectée par `GetLocale()` ; `L["Texte anglais"]` renvoie la traduction ou, à défaut, la clé
+  anglaise (repli). `Locales/frFR.lua` ne s'exécute que sur un client français.
+- **Obligatoire** : tout texte visible (titres, options, infobulles, messages) passe par `L[]`, y compris
+  dans le moteur. `scripts/check_locales.py` (étape 6 de `check.sh`) échoue si une clé n'a pas sa
+  traduction française.
+- Noms propres : ceux que le jeu fournit (zones, villes, PNJ, quêtes) viennent de ses API, déjà
+  localisés (ex. `C_Map.GetMapInfo(id).name` pour le tram) ; les autres suivent les noms du client français.
+- Ajouter une langue : créer `Locales/xxXX.lua` sur le modèle de frFR, l'ajouter au `.toc` et à
+  `TRANSLATIONS` dans `scripts/check_locales.py`.
+- Les messages de diagnostic (`/av stats`, `/av sailings`, `/av addons`) restent en anglais.
 
 ## 7. Compromis et limitations
 

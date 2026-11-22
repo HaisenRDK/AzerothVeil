@@ -2,6 +2,7 @@
 -- left side (Map, Places, Townsfolk, Professions, Quests, Social), each page in two columns, every
 -- row with its icon (the Map page's plain). Built the first time it opens; the last tab is remembered.
 local _, FM = ...
+local L = FM.L
 local M = {}
 FM.Menu = M
 
@@ -106,8 +107,8 @@ local function PinList(page, title, list)
 	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
 	a:Section(title)
 	b:Section(" ")
-	a:Buttons({ { "Show all", function() SetAll(list, true) end } })
-	b:Buttons({ { "Hide all", function() SetAll(list, false) end } })
+	a:Buttons({ { L["Show all"], function() SetAll(list, true) end } })
+	b:Buttons({ { L["Hide all"], function() SetAll(list, false) end } })
 	local half = math.ceil(#list / 2)
 	for i, cat in ipairs(list) do (i <= half and a or b):Pin(cat) end
 	return math.min(a.y, b.y)
@@ -120,44 +121,44 @@ local BUILD = {}
 
 function BUILD.map(page)
 	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	a:Section("Map")
+	a:Section(L["Map"])
 	-- (AzerothVeil: no "Classic style" switch: Blizzard's classic look is the only one)
-	a:Option("Open with M", nil, "replaceM", { "Open with M",
-		"M opens this map instead of Blizzard's. Outside combat, so do the map buttons, map pins in chat, quests' \"show on map\" and other addons." },
+	a:Option(L["Open with M"], nil, "replaceM", { L["Open with M"],
+		L["M opens this map instead of Blizzard's. Outside combat, so do the map buttons, map pins in chat, quests' \"show on map\" and other addons."] },
 		FM.ApplyBindings)
-	a:Switch("Centre on me when opened", nil,
+	a:Switch(L["Centre on me when opened"], nil,
 		function() return FM.db.reopen == "player" end,
 		function(v) FM.db.reopen = v and "player" or "last" end,
-		{ "Centre on me when opened", "Off: it opens where you left it." })
-	a:Option("Remember last zoom", nil, "rememberZoom", { "Remember last zoom",
-		"The map opens at the zoom you closed it at.", "Off: it always opens at the same zoom." })
-	a:Option("Highlight zone under cursor", nil, "hoverHighlight", { "Highlight zone under cursor",
-		"The zone under the mouse lights up, as on Blizzard's continent map." }, function() FM.Map.MarkDirty() end)
-	a:Option("Dungeon maps inside", nil, "dungeonMaps", { "Dungeon maps inside",
-		"Inside a dungeon, raid or battleground the map shows its own map, every floor, you and your group on it.",
-		"A right-click on it, or the header's World button, goes back to the world." }, function() FM.Dungeon.Update() end)
-	a:Option("Bosses on dungeon maps", nil, "dungeonBosses", { "Bosses on dungeon maps",
-		"Where each boss stands on a dungeon's map, with its portrait and level, as MapUtils shows them." },
+		{ L["Centre on me when opened"], L["Off: it opens where you left it."] })
+	a:Option(L["Remember last zoom"], nil, "rememberZoom", { L["Remember last zoom"],
+		L["The map opens at the zoom you closed it at."], L["Off: it always opens at the same zoom."] })
+	a:Option(L["Highlight zone under cursor"], nil, "hoverHighlight", { L["Highlight zone under cursor"],
+		L["The zone under the mouse lights up, as on Blizzard's continent map."] }, function() FM.Map.MarkDirty() end)
+	a:Option(L["Dungeon maps inside"], nil, "dungeonMaps", { L["Dungeon maps inside"],
+		L["Inside a dungeon, raid or battleground the map shows its own map, every floor, you and your group on it."],
+		L["A right-click on it, or the header's World button, goes back to the world."] }, function() FM.Dungeon.Update() end)
+	a:Option(L["Bosses on dungeon maps"], nil, "dungeonBosses", { L["Bosses on dungeon maps"],
+		L["Where each boss stands on a dungeon's map, with its portrait and level, as MapUtils shows them."] },
 		function() FM.Dungeon.Refresh() end)
-	a:Option("Sum identical icons", nil, "joinIcons", { "Sum identical icons",
-		"Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom.",
-		"Off: every icon on its own." },
+	a:Option(L["Sum identical icons"], nil, "joinIcons", { L["Sum identical icons"],
+		L["Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom."],
+		L["Off: every icon on its own."] },
 		function() FM.Map.MarkDirty() end)
-	a:Option("Other addons' icons", nil, "addonPins", { "Other addons' icons",
-		"Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and others) show on this one, exactly where they put them, with their own tooltips and clicks.",
-		"They show two steps of the wheel closer than the townsfolk." }, function() FM.AddonPins.Refresh() end)
-	a:Option("Fade while moving", nil, "fadeMoving", { "Fade while moving",
-		"The map turns see-through while you move." })
-	b:Section("Detail")
-	b:Option("Caves up close", nil, "underground", { "Caves up close",
-		"Zoom right in on a cave, mine, crypt or dungeon entrance and its own map surfaces: Blizzard's where it drew one, else the game's minimap of it inside." },
+	a:Option(L["Other addons' icons"], nil, "addonPins", { L["Other addons' icons"],
+		L["Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and others) show on this one, exactly where they put them, with their own tooltips and clicks."],
+		L["They show two steps of the wheel closer than the townsfolk."] }, function() FM.AddonPins.Refresh() end)
+	a:Option(L["Fade while moving"], nil, "fadeMoving", { L["Fade while moving"],
+		L["The map turns see-through while you move."] })
+	b:Section(L["Detail"])
+	b:Option(L["Caves up close"], nil, "underground", { L["Caves up close"],
+		L["Zoom right in on a cave, mine, crypt or dungeon entrance and its own map surfaces: Blizzard's where it drew one, else the game's minimap of it inside."] },
 		function() FM.Map.MarkDirty() end)
-	b:Option("Minimap terrain up close", nil, "minimapTerrain", { "Minimap terrain up close",
-		"Zoomed right in, the ground turns into the minimap's own: trees, rocks, roads and buildings.",
-		"The sea stays the map's." }, function() FM.Map.MarkDirty() end)
-	b:Option("Fishing skill of zones", nil, "zoneFishing", { "Fishing skill of zones",
-		"Under the zone's name: the fishing skill its waters want." }, function() FM.Map.ResetHover() end)
-	b:Slider("Icon size", nil, 0.6, 1.6, 0.05,
+	b:Option(L["Minimap terrain up close"], nil, "minimapTerrain", { L["Minimap terrain up close"],
+		L["Zoomed right in, the ground turns into the minimap's own: trees, rocks, roads and buildings."],
+		L["The sea stays the map's."] }, function() FM.Map.MarkDirty() end)
+	b:Option(L["Fishing skill of zones"], nil, "zoneFishing", { L["Fishing skill of zones"],
+		L["Under the zone's name: the fishing skill its waters want."] }, function() FM.Map.ResetHover() end)
+	b:Slider(L["Icon size"], nil, 0.6, 1.6, 0.05,
 		function() return FM.db.iconScale end,
 		function(v) FM.db.iconScale = v FM.Pins.ApplyScale() end, "%.2f")
 	return math.min(a.y, b.y)
@@ -166,93 +167,73 @@ end
 function BUILD.places(page)
 	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
 	local P = FM.Pins
-	a:Section("Places")
+	a:Section(L["Places"])
 	for _, cat in ipairs(Cats("places")) do
 		a:Pin(cat)
 		if cat.key == "flight" then
 			-- (the flight masters' own icon: they show in it, in red)
-			local r = a:Option("Enemy flight masters", cat.icon, "enemyFlight", { "Enemy flight masters",
-				"The other faction's flight masters too, in red." }, function() P.RebuildFlights() end)
+			local r = a:Option(L["Enemy flight masters"], cat.icon, "enemyFlight", { L["Enemy flight masters"],
+				L["The other faction's flight masters too, in red."] }, function() P.RebuildFlights() end)
 			if r.icon then r.icon:SetVertexColor(P.ENEMY_TINT[1], P.ENEMY_TINT[2], P.ENEMY_TINT[3]) end
 		end
 	end
-	b:Section("Boats & zeppelins")
-	for _, cat in ipairs(Cats("transport")) do
-		-- (harbors: yours in your faction's look, the other faction's in theirs)
-		b:Pin(cat, nil, nil, cat.key == "boat" and P.FactionArt("harbor") or nil)
-		if cat.key == "boat" then
-			b:Option("Enemy harbors", P.EnemyArt("harbor"), "enemyHarbors", { "Enemy harbors",
-				"The other faction's harbors too, with their boats' routes (their boats named in red in the tooltip)." },
-				function() P.RebuildPlaces() end)
-		end
-	end
-	b:Option("All routes", MEDIA .. "routes", "routes", { "All routes",
-		"Every boat and zeppelin route at once: a thin line along the way it sails, Alliance boats blue, the rest red.",
-		"Off: a harbor's or zeppelin tower's routes show with the cursor on it.",
-		"Shown with their harbors' and towers' icons. Also the routes button in the map's tools, bottom left." }, function(v)
-			if FM.Map.routesButton then FM.Map.routesButton:SetActive(v) end
-			FM.Map.MarkDirty()
-		end)
-	b:Option("Live transport icons", P.FactionArt("boat"), "vessels", { "Live transport icons",
-		"Each boat and zeppelin where it is right now, moving along its route.",
-		"Known once someone has seen it sail: you aboard it, or someone sharing transports' locations." }, function() FM.Map.MarkDirty() end)
+	-- (AzerothVeil: boats, zeppelins, the tram, their routes and live icons are the Transports module's
+	-- settings (Modules/Transports.lua), set in the central options, greyed out while it's off)
+	b:Section(L["Boats & zeppelins"])
+	b:Buttons({ { L["Transports settings..."], function() M.Hide() if FM.Options then FM.Options.Open("transports") end end } })
 	return math.min(a.y, b.y)
 end
 
-function BUILD.townsfolk(page) return PinList(page, "Townsfolk", Cats("townsfolk")) end
-function BUILD.professions(page) return PinList(page, "Profession trainers", Cats("professions")) end
+function BUILD.townsfolk(page) return PinList(page, L["Townsfolk"], Cats("townsfolk")) end
+function BUILD.professions(page) return PinList(page, L["Profession trainers"], Cats("professions")) end
 
 function BUILD.quests(page)
 	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
 	local function QuestOption(label, icon, key, tip)
 		a:Option(label, icon, key, tip, function() FM.Quests.OnToggle() end)
 	end
-	a:Section("On the map")
-	QuestOption("Objectives & turn-ins", "Interface\\GossipFrame\\ActiveQuestIcon", "questPOI",
-		{ "Objectives & turn-ins", "The quest log's quests, as Blizzard's map shows them." })
-	QuestOption("Quests to pick up", "Interface\\GossipFrame\\AvailableQuestIcon", "questOffers",
-		{ "Quests to pick up", "The quests you can take, as Blizzard's map shows them." })
-	QuestOption("Quest areas", ICON .. "INV_Misc_Map_01", "questAreas",
-		{ "Quest areas", "The blue area of the followed quest, and of the one under the mouse." })
+	a:Section(L["On the map"])
+	QuestOption(L["Objectives & turn-ins"], "Interface\\GossipFrame\\ActiveQuestIcon", "questPOI",
+		{ L["Objectives & turn-ins"], L["The quest log's quests, as Blizzard's map shows them."] })
+	QuestOption(L["Quests to pick up"], "Interface\\GossipFrame\\AvailableQuestIcon", "questOffers",
+		{ L["Quests to pick up"], L["The quests you can take, as Blizzard's map shows them."] })
+	QuestOption(L["Quest areas"], ICON .. "INV_Misc_Map_01", "questAreas",
+		{ L["Quest areas"], L["The blue area of the followed quest, and of the one under the mouse."] })
 	for _, cat in ipairs(Cats("quests")) do
 		if not cat.external or _G.Questie then
 			-- (with Questie's own logo)
-			a:Pin(cat, nil, { cat.label, "Questie's quest, objective and turn-in icons, with its own tooltips." },
+			a:Pin(cat, nil, { cat.label, L["Questie's quest, objective and turn-in icons, with its own tooltips."] },
 				_G.Questie and "Interface\\AddOns\\Questie\\Icons\\questie.png" or nil)
 		end
 	end
-	b:Section("Quest log")
-	b:Option("Replace Blizzard's quest log", "Interface\\QuestFrame\\UI-QuestLog-BookIcon", "replaceQuestLog",
-		{ "Replace Blizzard's quest log", "L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu." },
+	b:Section(L["Quest log"])
+	b:Option(L["Replace Blizzard's quest log"], "Interface\\QuestFrame\\UI-QuestLog-BookIcon", "replaceQuestLog",
+		{ L["Replace Blizzard's quest log"], L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] },
 		FM.ApplyBindings)
-	b:Switch("Quest log beside the map", ICON .. "INV_Misc_Book_09",
+	b:Switch(L["Quest log beside the map"], ICON .. "INV_Misc_Book_09",
 		function() return FM.db.questPanel end,
 		function(v) FM.QuestLog.SetShown(v) end,
-		{ "Quest log beside the map", "Docked to the map's right: the window grows, the map keeps its shape." })
+		{ L["Quest log beside the map"], L["Docked to the map's right: the window grows, the map keeps its shape."] })
 	return math.min(a.y, b.y)
 end
 
 function BUILD.social(page)
 	local a = NewColumn(page, 0, COL_W * 2 + GAP)
-	a:Section("Friends & guild")
+	a:Section(L["Friends & guild"])
 	-- (AzerothVeil: these are the "Friends & guild" module's settings (Modules/Social.lua), set in the central
 	-- options with the module itself: one place for them, greyed out while the module is off)
 	a:Buttons({ { (FM.L and FM.L["Friends & guild settings..."]) or "Friends & guild settings...",
 		function() M.Hide() if FM.Options then FM.Options.Open("social") end end } })
-	a:Section("Boats & zeppelins")
-	a:Option("Share transports location", ICON .. "INV_Letter_15", "vesselSync", { "Share transports location",
-		"Trade where and when each boat and zeppelin was seen with other AzerothVeil and PerfectMap users (your guild, your group and your friends), for the live transport icons.",
-		"/av sailings: what has been heard." }, function() FM.Vessels.SyncChanged() end)
 	return a.y
 end
 
 local TABS = {
-	{ key = "map", label = "Map", icon = ICON .. "INV_Misc_Map_01" },
-	{ key = "places", label = "Places", icon = "Interface\\Minimap\\Dungeon" },
-	{ key = "townsfolk", label = "Townsfolk", icon = TRACK .. "innkeeper" },
-	{ key = "professions", label = "Professions", icon = "Interface\\GossipFrame\\TrainerGossipIcon", native = 16 },
-	{ key = "quests", label = "Quests", icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
-	{ key = "social", label = "Social", icon = "Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon" },
+	{ key = "map", label = L["Map"], icon = ICON .. "INV_Misc_Map_01" },
+	{ key = "places", label = L["Places"], icon = "Interface\\Minimap\\Dungeon" },
+	{ key = "townsfolk", label = L["Townsfolk"], icon = TRACK .. "innkeeper" },
+	{ key = "professions", label = L["Professions"], icon = "Interface\\GossipFrame\\TrainerGossipIcon", native = 16 },
+	{ key = "quests", label = L["Quests"], icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
+	{ key = "social", label = L["Social"], icon = "Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon" },
 }
 
 ---------------------------------------------------------------------------
@@ -310,8 +291,8 @@ local function Build()
 	panel:EnableMouseWheel(true)
 	panel:SetScript("OnMouseWheel", function() end)
 	if blizz then
-		if panel.SetTitle then panel:SetTitle("Options")
-		elseif panel.TitleText then panel.TitleText:SetText("Options") end
+		if panel.SetTitle then panel:SetTitle(L["Options"])
+		elseif panel.TitleText then panel.TitleText:SetText(L["Options"]) end
 		if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, panel) end
 		if panel.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
 			pcall(NineSliceUtil.ApplyLayoutByName, panel.NineSlice, "ButtonFrameTemplateNoPortrait")
@@ -379,7 +360,7 @@ local function Build()
 	foot:SetPoint("BOTTOMRIGHT", -PAD, 8)
 	foot:SetJustifyH("LEFT")
 	foot:SetWordWrap(false)
-	foot:SetText("Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help")
+	foot:SetText(L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help"])
 
 	Select(pages[FM.db.menuTab or ""] and FM.db.menuTab or "map")
 end

@@ -5,20 +5,27 @@
 - [x] Audit de PerfectMap 1.5.6, copie de référence locale
 - [x] Adaptation minimale sous le nom AzerothVeil (style classique uniquement)
 - [x] Cœur : Callbacks, Events, Database (schéma + migrations), ModuleManager, Bootstrap
-- [x] Options centrales déclaratives dans la fenêtre Options du jeu
+- [x] Options centrales déclaratives
 - [x] Module pilote « Amis & guilde » (`social`) piloté de bout en bout
 - [x] Contrôles statiques, tests unitaires du cœur, déploiement WSL → Windows
-- [ ] **Validation en jeu** (voir checklist de `docs/development.md`)
+- [x] Validation en jeu (confirmée par l'utilisateur)
 
-## Étape 1 — Consolidation
+## Étape 1 — Consolidation (v0.2.0)
 
-- Valider en jeu le comportement PerfectMap complet et le module `social` (activation/désactivation).
-- Module **Transports** (le plus simple à extraire, déjà isolé) : `Vessels.lua` (ticker 0,8 s permanent),
-  `Routes.lua`, catégories de pins bateau/zeppelin/tram/vol ; options « traits de voyage »
-  (`routes`), live, partage. Introduire à cette occasion l'API « réglage moteur ↔ module ».
-- Traduire en français les textes du moteur au fil des modifications.
+- [x] Validation en jeu de la v0.1.0 (carte, module Amis & guilde)
+- [x] Fenêtre d'options indépendante, déplaçable, en-tête générique des modules
+- [x] Localisation centralisée et obligatoire (frFR/enUS), textes visibles du moteur traduits
+- [x] Module **Transports** : un point par trajet comme OpenMap, tracés, suivi des bateaux conservé
+  (et désactivable), partage, clic vers la destination
+- [ ] Validation en jeu de la v0.2.0 (checklist de `docs/development.md`)
+- [ ] Transports, pistes : maîtres de vol (aujourd'hui une catégorie « Lieux » du moteur), clic sur
+  les bateaux en mouvement
 
 ## Étape 2 — Donjons
+
+Approche validée : d'abord les données déjà présentes et les API natives, **sans dépendance à
+DungeonJournal** ; l'intégration DungeonJournal sera étudiée ensuite. Les onglets quêtes / boss /
+récompenses ne sont pas développés tant que ce n'est pas demandé.
 
 - Module **Donjons** sur `Dungeon.lua` : entrées interactives, carte intérieure, étages, retour à la
   position précédente sur la carte du monde.

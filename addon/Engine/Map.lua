@@ -5,6 +5,7 @@
 -- The zone under the cursor lights up with Blizzard's own highlight art for it (as OpenMap does).
 -- Built the first time it opens; while it's closed, nothing runs at all.
 local ADDON_NAME, FM = ...
+local L = FM.L
 local Map = {}
 FM.Map = Map
 -- one step of the wheel; how much of the world is across the view when M opens it on you
@@ -446,7 +447,7 @@ function Map.UpdateCorpse()
 		FM.Style.PassClicks(corpse)
 		corpse:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(CORPSE or "Your corpse", 1, 1, 1)
+			GameTooltip:SetText(CORPSE or L["Your corpse"], 1, 1, 1)
 			GameTooltip:Show()
 		end)
 		corpse:SetScript("OnLeave", GameTooltip_Hide)
@@ -714,7 +715,7 @@ local function SetZone(mapID, name, cont, u, v)
 			cardPill:Hide()
 		end
 		local fish = FM.db.zoneFishing and FM.ZONE_FISHING and FM.ZONE_FISHING[mapID]
-		if fish then zoneLines[#zoneLines + 1] = ("Fishing: %s"):format(fish) end
+		if fish then zoneLines[#zoneLines + 1] = (L["Fishing: %s"]):format(fish) end
 		ShowZoneText()
 		card:Show()
 		areaAt = 0
@@ -1048,7 +1049,7 @@ local function Build()
 	else
 		close = S.Button(header, "", 26, 20, function() Map.Hide() end)
 		close:SetPoint("RIGHT", -3, 0)
-		close.tip = "Close (Esc)"
+		close.tip = L["Close (Esc)"]
 		local cross = close:CreateTexture(nil, "ARTWORK")
 		cross:SetSize(12, 12)
 		cross:SetPoint("CENTER")
@@ -1069,7 +1070,7 @@ local function Build()
 	gear:SetSize(16, 16)
 	gear:SetPoint("CENTER")
 	gear:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-	options.tip = { "Options", "AzerothVeil's settings." }
+	options.tip = { L["Options"], L["AzerothVeil's settings."] }
 	Map.optionsButton = options
 	-- Questie's settings, when it's there: its own icon, left of the options
 	local left = options
@@ -1081,13 +1082,13 @@ local function Build()
 		ic:SetSize(close.fm and 14 or 16, close.fm and 14 or 16)
 		ic:SetPoint("CENTER")
 		ic:SetTexture("Interface\\AddOns\\Questie\\Icons\\questie.png")
-		questie.tip = { "Questie", "Questie's own settings." }
+		questie.tip = { "Questie", L["Questie's own settings."] }
 		left = questie
 	end
 	-- inside a dungeon: between its map and the world's (shown only there)
-	local dungeon = S.Button(header, "Dungeon", 70, 20, function() FM.Dungeon.TogglePeek() end)
+	local dungeon = S.Button(header, L["Dungeon"], 70, 20, function() FM.Dungeon.TogglePeek() end)
 	dungeon:SetPoint("RIGHT", left, "LEFT", -4, 0)
-	dungeon.tip = { "Dungeon / World", "Inside a dungeon: its map, or the world's." }
+	dungeon.tip = { L["Dungeon / World"], L["Inside a dungeon: its map, or the world's."] }
 	dungeon:Hide()
 	Map.dungeonButton = dungeon
 
@@ -1282,7 +1283,7 @@ local function Build()
 		self.fmActive = open
 		-- (the chevron's own art points right: turned round to point left while the log is out)
 		if open then arrowTex:SetTexCoord(1, 0, 0, 1) else arrowTex:SetTexCoord(0, 1, 0, 1) end
-		self.tip = open and { "Quest log", "Fold it away (L)." } or { "Quest log", "Bring it out (L)." }
+		self.tip = open and { L["Quest log"], L["Fold it away (L)."] } or { L["Quest log"], L["Bring it out (L)."] }
 		self.bg:SetVertexColor(0, 0, 0, 0.55)
 	end
 	fold:SetScript("OnLeave", function(self) self.bg:SetVertexColor(0, 0, 0, 0.55) S.HideTip() end)
@@ -1315,26 +1316,32 @@ local function Build()
 		self.icon:SetVertexColor(tools:IsShown() and S.ACCENT[1] or 0.85, tools:IsShown() and S.ACCENT[2] or 0.85, tools:IsShown() and S.ACCENT[3] or 0.85, 1)
 	end)
 	toolsButton:SetPoint("BOTTOMLEFT", view, "BOTTOMLEFT", 8, 6)
-	toolsButton.tip = { "Map tools", "Click: show or hide the map's tools." }
+	toolsButton.tip = { L["Map tools"], L["Click: show or hide the map's tools."] }
 	tools:SetPoint("LEFT", toolsButton, "RIGHT", 4, 0)
 
 	-- (in the row: the routes, lit in the accent colour while they show)
 	local routesButton = IconButton(tools, "routes", 14, function(self)
-		FM.db.routes = not FM.db.routes
+		-- (AzerothVeil: the Transports module's "always show every route" setting; nothing while it's off)
+		local MM = FM.Modules
+		if not (MM and MM:IsOptionEditable("transports", "routesAll")) then
+			FM.Print(FM.L["Turn on the Transports module and its route lines first (/av config)."])
+			return
+		end
+		MM:SetSetting("transports", "routesAll", not MM:GetSetting("transports", "routesAll"))
 		self:SetActive(FM.db.routes)
-		if FM.Menu and FM.Menu.Refresh then FM.Menu.Refresh() end
+		if FM.Options and FM.Options.Refresh then FM.Options.Refresh() end
 		dirty = true
 	end)
 	function routesButton:SetActive(on)
 		self.fmActive = on
 		if on then self.icon:SetVertexColor(S.ACCENT[1], S.ACCENT[2], S.ACCENT[3], 1) else self.icon:SetVertexColor(0.7, 0.7, 0.7, 0.7) end
-		self.tip = { "Boat & zeppelin routes", on and "All shown: click to show each only over its dock." or "Each over its dock: click to show them all." }
+		self.tip = { L["Boat & zeppelin routes"], on and L["All shown: click to show each only over its dock."] or L["Each over its dock: click to show them all."] }
 		self.bg:SetVertexColor(0, 0, 0, 0.55)
 	end
 	routesButton:SetActive(FM.db.routes)
 	-- (... and centre on me)
 	local centerButton = IconButton(tools, "locate", 15, function() Map.CenterOnMe() end)
-	centerButton.tip = { "Center on me", "The map on where you are, as M opens it (inside a dungeon: its map)." }
+	centerButton.tip = { L["Center on me"], L["The map on where you are, as M opens it (inside a dungeon: its map)."] }
 	local row = { routesButton }
 	-- (... and, with a gathering addon loaded (GatherMate2, Gatherer...), its herb and ore icons on and off)
 	if FM.AddonPins and FM.AddonPins.HasGathering() then
@@ -1347,8 +1354,8 @@ local function Build()
 		function gatherButton:SetActive(on)
 			self.fmActive = on
 			if on then self.icon:SetVertexColor(S.ACCENT[1], S.ACCENT[2], S.ACCENT[3], 1) else self.icon:SetVertexColor(0.7, 0.7, 0.7, 0.7) end
-			self.tip = { "Gathering icons", (on and "Shown: click to hide them." or "Hidden: click to show them.")
-				.. "\nThe herbs, ore and other nodes of your gathering addons (GatherMate2, Gatherer...)." }
+			self.tip = { L["Gathering icons"], (on and L["Shown: click to hide them."] or L["Hidden: click to show them."])
+				.. L["\nThe herbs, ore and other nodes of your gathering addons (GatherMate2, Gatherer...)."] }
 			self.bg:SetVertexColor(0, 0, 0, 0.55)
 		end
 		gatherButton:SetActive(FM.db.gatherPins ~= false)

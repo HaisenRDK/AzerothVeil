@@ -8,7 +8,14 @@
 --    your group and your friends who use PerfectMap.
 -- Light: a 0.8 s check of where you are (a handful of points), positions every frame while the map is
 -- open, a frame per vessel in view.
+-- AzerothVeil: driven by the Transports module (Modules/Transports.lua), never started at load:
+--   V.Start() / V.Stop()   the module on / off: off, nothing is drawn, checked, sent or heard;
+--   V.SetTracking(on)      the 0.8 s check (learning each vessel's sailing while you're aboard), unchanged;
+--   V.SetSharing(on)       the addon messages (prefix PerfectMapSail) heard and sent.
+-- The switches it reads (FM.db.vessels, FM.db.vesselSync, FM.db.pins.boat / zeppelin) are written by the
+-- module from its own settings, false while it's off.
 local _, FM = ...
+local L = FM.L
 local V = {}
 FM.Vessels = V
 
@@ -198,7 +205,8 @@ local Comm = { queue = {}, nextSend = 0, received = {}, pending = {}, announce =
 -- (what went out and came in, for /av sailings)
 local stats = { sent = 0, failed = 0, lastFail = nil, queries = 0, data = 0, heard = {}, raw = 0, rawBy = {} }
 
-local function SyncOn() return FM.db.vessels and FM.db.vesselSync end
+V.running, V.tracking, V.sharing = false, false, false
+local function SyncOn() return V.running and V.sharing and FM.db.vessels and FM.db.vesselSync end
 
 local function Pump()
 	if #Comm.queue == 0 then
@@ -474,7 +482,7 @@ local function Observe(id, cycle)
 end
 
 local function CheckTriggers()
-	if not FM.db.vessels then return end
+	if not (V.running and V.tracking) then return end
 	local _, instanceType = GetInstanceInfo()
 	local zone = (instanceType ~= "party" and instanceType ~= "raid") and CurrentZone() or nil
 	local list = zone and zoneIndex[zone]
@@ -564,7 +572,7 @@ local function PinEnter(self, refresh)
 	local route = id and routes[id]
 	if not route then return end
 	if refresh then GameTooltip:ClearLines() else GameTooltip:SetOwner(self, "ANCHOR_CURSOR") end
-	local name = route.vessel ~= "Unnamed Vessel" and route.vessel or (route.kind == "zeppelin" and "Zeppelin" or "Boat")
+	local name = route.vessel ~= "Unnamed Vessel" and route.vessel or (route.kind == "zeppelin" and L["Zeppelin"] or L["Boat"])
 	GameTooltip:AddLine(name, 1, 0.82, 0)
 	local k = Known(id)
 	local stale = k and Stale(route, k)
@@ -572,17 +580,17 @@ local function PinEnter(self, refresh)
 		local where = p.name or ("#" .. p.number)
 		local wait = (stale and "~" or "") .. FormatTime(p.wait)
 		if p.docked then
-			local state = stale and "est. at dock, leaves in " or "docked, leaves in "
+			local state = stale and L["est. at dock, leaves in "] or L["docked, leaves in "]
 			GameTooltip:AddDoubleLine(where, state .. wait, 1, 1, 1, 0.4, 1, 0.4)
 		else
 			GameTooltip:AddDoubleLine(where, wait, 0.85, 0.85, 0.85, 1, 1, 1)
 		end
 	end
 	if k then
-		if Outdated(k) then GameTooltip:AddLine("Estimated position: last seen before this game patch", 1, 0.5, 0.3, true)
-		elseif stale then GameTooltip:AddLine("Estimated position: waiting for a newer sighting", 1, 0.5, 0.3, true) end
+		if Outdated(k) then GameTooltip:AddLine(L["Estimated position: last seen before this game patch"], 1, 0.5, 0.3, true)
+		elseif stale then GameTooltip:AddLine(L["Estimated position: waiting for a newer sighting"], 1, 0.5, 0.3, true) end
 		local by = k.s == "self" and "you" or tostring(k.s or "?")
-		GameTooltip:AddLine(("Timetable from %s, %s ago"):format(by, SecondsToTime and SecondsToTime(max(60, Now() - k.t), true) or "?"), 0.6, 0.6, 0.62, true)
+		GameTooltip:AddLine((L["Timetable from %s, %s ago"]):format(by, SecondsToTime and SecondsToTime(max(60, Now() - k.t), true) or "?"), 0.6, 0.6, 0.62, true)
 	end
 	GameTooltip:Show()
 	self.tipTime = GetTime()
@@ -698,7 +706,7 @@ end
 local function Place()
 	local n = 0
 	local pinsOn = FM.db.pins
-	if layer and FM.db.vessels and (pinsOn.boat or pinsOn.zeppelin) then
+	if layer and V.running and FM.db.vessels and (pinsOn.boat or pinsOn.zeppelin) then
 		local x1, y1 = view.left + view.vw / view.scale, view.top + view.vh / view.scale
 		local pad = 20 / view.scale
 		for id, route in pairs(routes) do
@@ -767,8 +775,9 @@ function V.Status(arg)
 		P("Sailings: message and timing diagnostics are " .. (V.log and "printed here now." or "no longer printed."))
 		return
 	end
-	if not FM.db.vessels then P("Sailings: \"Live transport icons\" is off.") return end
-	if not FM.db.vesselSync then P("Sailings: \"Share transports location\" is off: only your own sightings.") end
+	-- (AzerothVeil: the switches are the Transports module's)
+	if not FM.db.vessels then P(L["Sailings: boat & zeppelin tracking is off (Transports module, /av config)."]) return end
+	if not FM.db.vesselSync then P(L["Sailings: sharing sightings is off (Transports module): only your own sightings."]) end
 	local registered = C_ChatInfo.IsAddonMessagePrefixRegistered and C_ChatInfo.IsAddonMessagePrefixRegistered(PREFIX)
 	local by = {}
 	for k, v in pairs(stats.rawBy) do by[#by + 1] = k .. " " .. v end
@@ -799,30 +808,88 @@ function V.OnShow()
 end
 
 ---------------------------------------------------------------------------
+-- AzerothVeil: started, stopped and switched by the Transports module (PerfectMap did all of it at
+-- PLAYER_LOGIN, for good)
+---------------------------------------------------------------------------
 local ev = CreateFrame("Frame")
-ev:RegisterEvent("PLAYER_LOGIN")
-ev:RegisterEvent("CHAT_MSG_ADDON")
-pcall(ev.RegisterEvent, ev, "BN_CHAT_MSG_ADDON")
-ev:SetScript("OnEvent", function(_, event, ...)
-	if event == "PLAYER_LOGIN" then
-		for id, route in pairs(routes) do
-			local d = Decode(route)
-			decoded[id] = d
-			-- (each point on the ground, once: where a way is, to match you against it aboard)
-			d.wi, d.wx, d.wy = {}, {}, {}
-			for i = 1, d.count do d.wi[i], d.wx[i], d.wy[i] = ToWorld(route, d, i, d.x[i], d.y[i]) end
-			for mapID, flag in pairs(route.zones or {}) do
-				zoneIndex[mapID] = zoneIndex[mapID] or {}
-				zoneIndex[mapID][id] = flag
-			end
+local trackTicker, queryTimer
+local prepared, prefixRegistered = false, false
+
+-- (once: each way decoded, the clock calibrated; work done the first time the module starts)
+local function Prepare()
+	if prepared then return end
+	prepared = true
+	for id, route in pairs(routes) do
+		local d = Decode(route)
+		decoded[id] = d
+		-- (each point on the ground, once: where a way is, to match you against it aboard)
+		d.wi, d.wx, d.wy = {}, {}, {}
+		for i = 1, d.count do d.wi[i], d.wx[i], d.wy[i] = ToWorld(route, d, i, d.x[i], d.y[i]) end
+		for mapID, flag in pairs(route.zones or {}) do
+			zoneIndex[mapID] = zoneIndex[mapID] or {}
+			zoneIndex[mapID][id] = flag
 		end
-		if next(decoded) == nil then return end
-		CalibrateClock()
-		C_Timer.NewTicker(T.triggerInterval, CheckTriggers)
-		if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then C_ChatInfo.RegisterAddonMessagePrefix(PREFIX) end
-		-- (a little after login, what's missing asked for: friends are greeted first, Friends.lua)
-		C_Timer.After(20 + math.random() * 10, function() V.Query(true) end)
-	elseif event == "CHAT_MSG_ADDON" then
+	end
+	CalibrateClock()
+end
+
+function V.Start()
+	if V.running then return end
+	if next(routes) == nil then return end
+	Prepare()
+	V.running = true
+	if FM.Map and FM.Map.MarkDirty then FM.Map.MarkDirty() end
+end
+
+function V.Stop()
+	if not V.running then return end
+	V.SetTracking(false)
+	V.SetSharing(false)
+	V.running = false
+	for i = 1, #pins do pins[i]:Hide() pins[i].routeID = nil end
+	if FM.Map and FM.Map.MarkDirty then FM.Map.MarkDirty() end
+end
+
+-- the 0.8 s check of where you are (only this learns a sailing by itself): its own switch
+function V.SetTracking(on)
+	on = (on and V.running) and true or false
+	if on == V.tracking then return end
+	V.tracking = on
+	if on then
+		trackTicker = C_Timer.NewTicker(T.triggerInterval, CheckTriggers)
+	else
+		if trackTicker then trackTicker:Cancel() trackTicker = nil end
+		lastPos, candidate = nil, nil
+	end
+end
+
+-- the sightings traded with other AzerothVeil and PerfectMap users: heard and sent only while on
+function V.SetSharing(on)
+	on = (on and V.running) and true or false
+	if on == V.sharing then return end
+	V.sharing = on
+	if on then
+		if not prefixRegistered and C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
+			-- (a prefix stays registered until the next reload: harmless)
+			prefixRegistered = pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX)
+		end
+		ev:RegisterEvent("CHAT_MSG_ADDON")
+		pcall(ev.RegisterEvent, ev, "BN_CHAT_MSG_ADDON")
+		-- (a little after, what's missing asked for: friends are greeted first, Friends.lua)
+		queryTimer = C_Timer.NewTimer(20 + math.random() * 10, function() queryTimer = nil V.Query(true) end)
+	else
+		ev:UnregisterAllEvents()
+		if queryTimer then queryTimer:Cancel() queryTimer = nil end
+		if Comm.ticker then Comm.ticker:Cancel() Comm.ticker = nil end
+		if Comm.announceTimer then Comm.announceTimer:Cancel() Comm.announceTimer = nil end
+		for _, pending in pairs(Comm.pending) do if pending.timer then pending.timer:Cancel() end end
+		wipe(Comm.queue) wipe(Comm.pending) wipe(Comm.announce)
+	end
+end
+
+ev:SetScript("OnEvent", function(_, event, ...)
+	if not V.running then return end
+	if event == "CHAT_MSG_ADDON" then
 		local prefix, message, chatType, sender = ...
 		if Secret(prefix) or prefix ~= PREFIX then return end
 		-- (everything on our prefix counted, before anything is turned away: /av sailings)

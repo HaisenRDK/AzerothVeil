@@ -14,6 +14,7 @@
 -- started (and once stopped) it hears nothing, sends nothing, scans nothing and draws nothing. Its two
 -- switches are the module's settings (F.cfg: show, share, asked), no longer PerfectMap's FM.db.
 local _, FM = ...
+local L = FM.L
 local F = {}
 FM.Friends = F
 local S, Geo = FM.Style, FM.Geo
@@ -311,12 +312,12 @@ local function DotEnter(self)
 	local p = self.p
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:AddLine(Shown(self.full), ClassColor(p.class))
-	if p.level and p.level > 0 then GameTooltip:AddLine((LEVEL or "Level") .. " " .. p.level, 1, 1, 1) end
+	if p.level and p.level > 0 then GameTooltip:AddLine((LEVEL or L["Level"]) .. " " .. p.level, 1, 1, 1) end
 	local info = C_Map.GetMapInfo(p.map)
 	GameTooltip:AddLine(("%s  %.1f, %.1f"):format(info and info.name or "?", p.x * 100, p.y * 100), 1, 1, 1)
-	GameTooltip:AddLine(p.guild and (GUILD or "Guild") or (FRIEND or "Friend"), 0.6, 0.8, 1)
+	GameTooltip:AddLine(p.guild and (GUILD or L["Guild"]) or (FRIEND or L["Friend"]), 0.6, 0.8, 1)
 	local ago = GetTime() - p.at
-	if ago >= 20 then GameTooltip:AddLine(("Updated %d s ago"):format(ago), 0.6, 0.6, 0.6) end
+	if ago >= 20 then GameTooltip:AddLine((L["Updated %d s ago"]):format(ago), 0.6, 0.6, 0.6) end
 	GameTooltip:Show()
 end
 
@@ -419,23 +420,23 @@ local function BuildAsk()
 	-- (laid out top to bottom, every text wrapped inside the box: its height follows them)
 	local title = S.Text(ask, 13, S.ACCENT)
 	title:SetPoint("TOP", 0, -14)
-	title:SetText("Friends and guild")
+	title:SetText(L["Friends and guild"])
 	local text = S.Text(ask, 12)
 	text:SetPoint("TOP", title, "BOTTOM", 0, -10)
 	text:SetWidth(400)
 	text:SetJustifyH("CENTER")
 	text:SetWordWrap(true)
-	text:SetText("Your friends and guild members who use AzerothVeil, PerfectMap or OpenMap show on your map as a dot where they stand. Share where you are, so they see you on theirs?")
-	local yes = S.Button(ask, "Share where I am", 170, 22, function() Answer(true) end)
+	text:SetText(L["Your friends and guild members who use AzerothVeil, PerfectMap or OpenMap show on your map as a dot where they stand. Share where you are, so they see you on theirs?"])
+	local yes = S.Button(ask, L["Share where I am"], 170, 22, function() Answer(true) end)
 	yes:SetPoint("TOPRIGHT", text, "BOTTOM", -6, -14)
-	local no = S.Button(ask, "Not now", 170, 22, function() Answer(false) end)
+	local no = S.Button(ask, L["Not now"], 170, 22, function() Answer(false) end)
 	no:SetPoint("TOPLEFT", text, "BOTTOM", 6, -14)
 	local note = S.Text(ask, 10, S.DIM)
 	note:SetPoint("TOP", yes, "BOTTOMRIGHT", 6, -12)
 	note:SetWidth(400)
 	note:SetJustifyH("CENTER")
 	note:SetWordWrap(true)
-	note:SetText("Only your guild and friends, never from a dungeon, raid or battleground. /av config: Friends & guild.")
+	note:SetText(L["Only your guild and friends, never from a dungeon, raid or battleground. /av config: Friends & guild."])
 	function ask:Fit()
 		self:SetHeight(14 + title:GetStringHeight() + 10 + text:GetStringHeight() + 14 + 22 + 12 + note:GetStringHeight() + 14)
 	end

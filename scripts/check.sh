@@ -5,6 +5,7 @@
 #   3. globals written: only the allowed ones (luac -l: SETGLOBAL)
 #   4. leftover references to PerfectMap's names in code (paths, frames, SavedVariables)
 #   5. the core's unit tests (tests/test_core.lua)
+#   6. translations: every L["..."] of the code has its French entry (scripts/check_locales.py)
 # Lua 5.1: lua5.1/luac5.1 from PATH, else the local copy in .tools/ (see docs/development.md).
 set -euo pipefail
 
@@ -34,13 +35,13 @@ fail() { echo "  FAIL: $*"; errors=$((errors + 1)); }
 mapfile -t LUA_FILES < <(cd "$ADDON" && find . -name '*.lua' | sed 's|^\./||' | sort)
 
 # --- 1. syntax --------------------------------------------------------------
-echo "[1/5] Lua 5.1 syntax (${#LUA_FILES[@]} files)"
+echo "[1/6] Lua 5.1 syntax (${#LUA_FILES[@]} files)"
 for f in "${LUA_FILES[@]}"; do
 	if ! out="$("$LUAC" -p "$ADDON/$f" 2>&1)"; then fail "syntax error in $f: $out"; fi
 done
 
 # --- 2. toc -----------------------------------------------------------------
-echo "[2/5] .toc consistency"
+echo "[2/6] .toc consistency"
 mapfile -t TOC_FILES < <(tr -d '\r' < "$TOC" | grep -v '^\s*#' | grep -v '^\s*$' | sed 's|\\|/|g')
 for f in "${TOC_FILES[@]}"; do [[ -f "$ADDON/$f" ]] || fail "listed in the .toc but missing: $f"; done
 for f in "${LUA_FILES[@]}"; do
@@ -50,7 +51,7 @@ grep -q '^## Interface: 16001' <(tr -d '\r' < "$TOC") || fail "the .toc's Interf
 grep -q '^## SavedVariables: AzerothVeilDB' <(tr -d '\r' < "$TOC") || fail "the .toc's SavedVariables isn't AzerothVeilDB"
 
 # --- 3. globals ---------------------------------------------------------------
-echo "[3/5] globals written"
+echo "[3/6] globals written"
 # the globals the addon may write: its namespace, SavedVariables, slash command, key binding, the
 # Blizzard-required names; and the engine's (PerfectMap's) own ones, kept as they were
 ALLOWED='^(AzerothVeil|AzerothVeilDB|AzerothVeil_Toggle|SLASH_AZEROTHVEIL1|SLASH_AZEROTHVEIL2|SlashCmdList|BINDING_HEADER_AZEROTHVEIL|BINDING_NAME_AZEROTHVEIL_TOGGLE|QUESTIE_TOWNSFOLK_KEYS)$'
@@ -62,19 +63,23 @@ for f in "${LUA_FILES[@]}"; do
 done
 
 # --- 4. PerfectMap leftovers ----------------------------------------------------
-echo "[4/5] leftover PerfectMap names in code"
+echo "[4/6] leftover PerfectMap names in code"
 if grep -rnE 'AddOns\\\\PerfectMap|PerfectMapDB|PerfectMapFrame|_G\.PerfectMap|SLASH_PERFECTMAP|BINDING_[A-Z_]*PERFECTMAP' "$ADDON" --include='*.lua' --include='*.xml' --include='*.toc'; then
 	fail "PerfectMap names left in code (above)"
 fi
 
 # --- 5. unit tests -----------------------------------------------------------
-echo "[5/5] core unit tests"
+echo "[5/6] core unit tests"
 if out="$("$LUA" tests/test_core.lua "$ADDON/" 2>&1)"; then
 	echo "$out" | tail -1 | sed 's/^/  /'
 else
 	echo "$out" | grep -v '^  ok ' | sed 's/^/  /'
 	fail "unit tests"
 fi
+
+# --- 6. translations ---------------------------------------------------------
+echo "[6/6] translations"
+python3 "$ROOT/scripts/check_locales.py" "$ADDON" || fail "untranslated texts"
 
 if (( errors > 0 )); then
 	echo "check: $errors problem(s)"

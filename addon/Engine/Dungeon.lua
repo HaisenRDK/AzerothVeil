@@ -6,6 +6,7 @@
 -- buttons along its top. Back to the world: the header's World button, or a right-click on it.
 -- Nothing runs while it's closed.
 local _, FM = ...
+local L = FM.L
 local D = {}
 FM.Dungeon = D
 local S = FM.Style
@@ -148,7 +149,7 @@ local function Floors(names, current)
 	end
 	for _, r in ipairs(floorRows) do r:Hide() end
 	if not names or #names < 2 then floorPanel:Hide() return end
-	floorHead:SetText(("FLOORS  |cff9a9a9a%d / %d|r"):format(current, #names))
+	floorHead:SetText((L["FLOORS  |cff9a9a9a%d / %d|r"]):format(current, #names))
 	local y = -26
 	for i, name in ipairs(names) do
 		local r = floorRows[i]
@@ -191,7 +192,7 @@ function D.Choose(insts, anchor, name)
 		S.Panel(chooser, { 0.05, 0.055, 0.06, 0.96 })
 		chooser.head = S.Text(chooser, 11, S.ACCENT)
 		chooser.head:SetPoint("TOPLEFT", 10, -8)
-		chooser.head:SetText("CHOOSE A DUNGEON")
+		chooser.head:SetText(L["CHOOSE A DUNGEON"])
 	end
 	for _, r in ipairs(chooserRows) do r:Hide() end
 	-- (each entry: an instance, or one part of one as the entrance names it: { id, name, raid, lo, hi })
@@ -263,7 +264,7 @@ local function InstanceButton()
 		arrow:SetTexture("Interface\\Buttons\\Arrow-Down-Up")
 		arrow:SetSize(14, 14)
 		arrow:SetPoint("RIGHT", -6, -2)
-		instButton.tip = { "Dungeons here", "This entrance leads to more than one: pick another." }
+		instButton.tip = { L["Dungeons here"], L["This entrance leads to more than one: pick another."] }
 	end
 	if view and view.insts and #view.insts > 1 then
 		local info = FM.Pins.InstanceInfo and FM.Pins.InstanceInfo(view.inst) or {}
@@ -306,9 +307,9 @@ local function BossEnter(self)
 	GameTooltip:SetText(b[1], 1, 0.82, 0)
 	if b[2] then
 		local c = GetQuestDifficultyColor and GetQuestDifficultyColor(b[2])
-		GameTooltip:AddLine((LEVEL or "Level") .. " " .. (b[5] or b[2]), c and c.r or 1, c and c.g or 1, c and c.b or 1)
+		GameTooltip:AddLine((LEVEL or L["Level"]) .. " " .. (b[5] or b[2]), c and c.r or 1, c and c.g or 1, c and c.b or 1)
 	elseif b[4] == 3 then
-		GameTooltip:AddLine("Boss", 1, 0.3, 0.3)
+		GameTooltip:AddLine(L["Boss"], 1, 0.3, 0.3)
 	end
 	GameTooltip:Show()
 end
@@ -425,7 +426,7 @@ local function Entrance(i, x, y, raid)
 		e.tex:SetAllPoints()
 		e:SetScript("OnEnter", function(self)
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(self.raid and "Raid entrance" or "Dungeon entrance", 1, 0.82, 0)
+			GameTooltip:SetText(self.raid and L["Raid entrance"] or L["Dungeon entrance"], 1, 0.82, 0)
 			GameTooltip:Show()
 		end)
 		e:SetScript("OnLeave", GameTooltip_Hide)
@@ -448,7 +449,7 @@ local function List(bosses)
 		S.Panel(listPanel, { 0.05, 0.055, 0.06, 0.9 })
 		listPanel.head = S.Text(listPanel, 11, S.ACCENT)
 		listPanel.head:SetPoint("TOPLEFT", 10, -8)
-		listPanel.head:SetText("ALSO HERE")
+		listPanel.head:SetText(L["ALSO HERE"])
 	end
 	for _, r in ipairs(listRows) do r:Hide() end
 	if #bosses == 0 then listPanel:Hide() return end
@@ -733,7 +734,7 @@ local function DrawData()
 	credit:SetShown(f.credit ~= nil)
 	PlaceBosses(view.inst, view.floor, f.name)
 	local names = {}
-	for i, fl in ipairs(floors) do names[i] = fl.name or ("Floor " .. i) end
+	for i, fl in ipairs(floors) do names[i] = fl.name or (L["Floor "] .. i) end
 	Floors(names, view.floor)
 end
 
@@ -911,8 +912,8 @@ local function ReadFlags(now)
 					t:SetTexture(path)
 					t:SetTexCoord(0, 1, 0, 1)
 				end
-				t.name = text and tex:find("Horde") and "Horde Flag"
-					or text and tex:find("Alliance") and "Alliance Flag" or "Flag"
+				t.name = text and tex:find("Horde") and L["Horde Flag"]
+					or text and tex:find("Alliance") and L["Alliance Flag"] or L["Flag"]
 			end
 			PlaceIcon(t, x, y)
 		end
@@ -1136,7 +1137,7 @@ local function Show(v, fromIcon)
 	if not layer:IsShown() then layer:Show() end
 	Draw()
 	if FM.Map.dungeonButton then
-		FM.Map.dungeonButton.label:SetText("World")
+		FM.Map.dungeonButton.label:SetText(L["World"])
 		FM.Map.dungeonButton:Show()
 	end
 end
@@ -1149,7 +1150,7 @@ local function Close()
 	EndBattlegroundTip()
 	local inside = D.Inside() and FM.db.dungeonMaps ~= false
 	if FM.Map.dungeonButton then
-		FM.Map.dungeonButton.label:SetText("Dungeon")
+		FM.Map.dungeonButton.label:SetText(L["Dungeon"])
 		FM.Map.dungeonButton:SetShown(inside)
 	end
 end
@@ -1387,16 +1388,16 @@ function D.Init(view_, level)
 	title:SetPoint("BOTTOM", 0, 12)
 	credit = S.Text(mapForeground, 10, S.DIM)
 	credit:SetPoint("BOTTOMLEFT", 10, 8)
-	credit:SetText("Map drawn by Santiago Reyes  \194\183  sreyesmaps.com")
+	credit:SetText(L["Map drawn by Santiago Reyes  \194\183  sreyesmaps.com"])
 	credit:Hide()
 	noMap = S.Text(mapForeground, 13, S.DIM)
 	noMap:SetPoint("CENTER")
-	noMap:SetText("The game has no map of this place.")
+	noMap:SetText(L["The game has no map of this place."])
 	noMap:Hide()
 	local hint = S.Text(mapForeground, 10, S.DIM)
 	-- (left of the quest log's arrow in the corner, 22 px wide at 24 px in and 6 up: level with its middle)
 	hint:SetPoint("RIGHT", layer, "BOTTOMRIGHT", -54, 17)
-	hint:SetText("Right-click: back to the world")
+	hint:SetText(L["Right-click: back to the world"])
 	if UnitPositionFrameMixin then
 		unitPins = CreateUnitLayer(foregroundLevel + 1)
 		local playerLevel = foregroundLevel + FM.Quests.PLAYER_PIN_LEVEL

@@ -3,6 +3,7 @@
 -- share / abandon). Replaces Blizzard's quest log beside its map. Built the first time it shows;
 -- rebuilt only while shown, at most a few times a second.
 local _, FM = ...
+local L = FM.L
 local QL = {}
 local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 FM.QuestLog = QL
@@ -175,7 +176,7 @@ local function NewRow()
 	b.check:SetScript("OnEnter", function(self)
 		self.hot = true
 		ShowCheck(self)
-		S.ShowTip(self, { "Track", "Show it in the objective tracker." })
+		S.ShowTip(self, { L["Track"], L["Show it in the objective tracker."] })
 	end)
 	b.check:SetScript("OnLeave", function(self)
 		self.hot = nil
@@ -326,7 +327,7 @@ local function ObjectivesText(questID, complete, dashes)
 	if complete and dashes then
 		local index = C_QuestLog.GetLogIndexForQuestID(questID)
 		local done = index and GetQuestLogCompletionText and GetQuestLogCompletionText(index)
-		return "- " .. (done or QUEST_WATCH_QUEST_READY or "Ready to turn in")
+		return "- " .. (done or QUEST_WATCH_QUEST_READY or L["Ready to turn in"])
 	end
 	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
 		if o.text and o.text ~= "" then
@@ -337,13 +338,13 @@ local function ObjectivesText(questID, complete, dashes)
 			end
 		end
 	end
-	if complete then out[#out + 1] = TICK .. "|cff40e040Ready to turn in|r" end
+	if complete then out[#out + 1] = TICK .. L["|cff40e040Ready to turn in|r"] end
 	return table.concat(out, "\n")
 end
 
 -- a dungeon's or raid's quest: its icon, left of its name (as the game tags it: dungeon, heroic, raid)
 local KIND_TAGS = { [81] = "dungeon", [85] = "dungeon", [62] = "raid", [88] = "raid", [89] = "raid", [41] = "pvp" }
-local KIND_LABEL = { dungeon = "Dungeon", raid = "Raid", pvp = "PvP" }
+local KIND_LABEL = { dungeon = L["Dungeon"], raid = L["Raid"], pvp = L["PvP"] }
 local pvpIcon
 -- (PvP: the game's crossed swords)
 local function PvPIcon()
@@ -382,19 +383,19 @@ end
 -- objectives' icons are Questie's (Media\Questie, so they show without it). A click on it is the row's.
 local QI = "Interface\\AddOns\\AzerothVeil\\Media\\Questie\\"
 local OBJECTIVE_MARK = {
-	monster = { QI .. "slay", "Kill" },
-	player = { QI .. "slay", "Defeat players" },
-	item = { QI .. "loot", "Collect" },
-	object = { QI .. "object", "Use" },
-	event = { QI .. "event", "Explore" },
-	reputation = { QI .. "reputation", "Reputation" },
-	log = { QI .. "interact", "Do" },
+	monster = { QI .. "slay", L["Kill"] },
+	player = { QI .. "slay", L["Defeat players"] },
+	item = { QI .. "loot", L["Collect"] },
+	object = { QI .. "object", L["Use"] },
+	event = { QI .. "event", L["Explore"] },
+	reputation = { QI .. "reputation", L["Reputation"] },
+	log = { QI .. "interact", L["Do"] },
 }
 local TAG_MARK = {
-	group = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", "Group quest" },
-	elite = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", "Elite" },
-	event = { QI .. "eventquest", "World event" },
-	legendary = { "Interface\\Icons\\INV_Misc_Orb_05", "Legendary" },
+	group = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Group quest"] },
+	elite = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Elite"] },
+	event = { QI .. "eventquest", L["World event"] },
+	legendary = { "Interface\\Icons\\INV_Misc_Orb_05", L["Legendary"] },
 }
 local function TagMark(questID)
 	local kind = Kind(questID)
@@ -404,17 +405,17 @@ local function TagMark(questID)
 	local name = type(tag.tagName) == "string" and tag.tagName or ""
 	if tag.tagID == 21 then
 		local _, class = UnitClass("player")
-		return { class and ("Interface\\Icons\\ClassIcon_" .. class:sub(1, 1) .. class:sub(2):lower()) or TAG_MARK.elite[1], "Class quest" }
+		return { class and ("Interface\\Icons\\ClassIcon_" .. class:sub(1, 1) .. class:sub(2):lower()) or TAG_MARK.elite[1], L["Class quest"] }
 	end
 	if tag.tagID == 82 then return TAG_MARK.event end
 	if tag.tagID == 83 then return TAG_MARK.legendary end
-	if name:find("Elite") then return TAG_MARK.elite end
+	if name:find(L["Elite"]) then return TAG_MARK.elite end
 	if tag.tagID == 1 then return TAG_MARK.group end
 end
 -- the quest's mark: { icon, what it is, the first thing still to do (or nil) }
 local function QuestMark(questID, info, complete, failed)
-	if failed then return { "Interface\\RaidFrame\\ReadyCheck-NotReady", "Failed" } end
-	if complete then return { QI .. "complete", "Ready to hand in" } end
+	if failed then return { "Interface\\RaidFrame\\ReadyCheck-NotReady", L["Failed"] } end
+	if complete then return { QI .. "complete", L["Ready to hand in"] } end
 	local todo, otype
 	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
 		if not o.finished and o.text and o.text ~= "" then todo, otype = o.text, o.type break end
@@ -423,11 +424,11 @@ local function QuestMark(questID, info, complete, failed)
 	if m then return { m[1], m[2], todo } end
 	local freq = info and info.frequency
 	if freq and freq ~= 0 then
-		return { QI .. "repeatable", (Enum and Enum.QuestFrequency and freq == Enum.QuestFrequency.Daily) and "Daily" or "Repeatable", todo }
+		return { QI .. "repeatable", (Enum and Enum.QuestFrequency and freq == Enum.QuestFrequency.Daily) and L["Daily"] or L["Repeatable"], todo }
 	end
 	local o = otype and OBJECTIVE_MARK[otype]
 	if o then return { o[1], o[2], todo } end
-	return { QI .. "incomplete", "Quest", todo }
+	return { QI .. "incomplete", L["Quest"], todo }
 end
 
 local function MarkEnter(self)
@@ -532,7 +533,7 @@ local function BuildList()
 					-- (Forever Quest Tint: its sign on a quest new in Forever, its colour on the objectives if it
 					-- recolours them, Tint.lua)
 					local title = FM.Tint.MarkTitle(q, ("(%d) %s"):format(info.level or 0, info.title or "?"))
-					if failed then title = title .. "  |cffff4040Failed|r" end
+					if failed then title = title .. L["  |cffff4040Failed|r"] end
 					local or_, og, ob = FM.Tint.ObjectiveColour(q)
 					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(0.9, 0.9, 0.9) end
 					-- (its icon left of the name: what kind of quest it is)
@@ -545,10 +546,10 @@ local function BuildList()
 	if count == 0 or (query ~= "" and shownQuests == 0) then
 		local b = Row()
 		b.title:SetTextColor(S.DIM[1], S.DIM[2], S.DIM[3])
-		y = Place(b, y + 6, 10, count == 0 and "No quests." or "No quest matches.", nil, nil)
+		y = Place(b, y + 6, 10, count == 0 and L["No quests."] or L["No quest matches."], nil, nil)
 	end
 	local maxQ = Constants and Constants.QuestLogConsts and Constants.QuestLogConsts.MAXIMUM_NUM_QUESTS_LOG_CAN_ACCEPT or 25
-	topTitle:SetText(("Quests: |cffffffff%d/%d|r"):format(count, maxQ))
+	topTitle:SetText((L["Quests: |cffffffff%d/%d|r"]):format(count, maxQ))
 	return y + 6
 end
 
@@ -657,14 +658,14 @@ local function Rewards(questID)
 	if C_QuestLog.ShouldShowQuestRewards and Try(C_QuestLog.ShouldShowQuestRewards, questID) == false then return receive, choose end
 	local xp = Try(GetQuestLogRewardXP, questID) or Try(GetQuestLogRewardXP)
 	if xp and xp > 0 then
-		receive[#receive + 1] = { "xp", 0, (BreakUpLargeNumbers and BreakUpLargeNumbers(xp) or xp) .. " experience", XP_ICON }
+		receive[#receive + 1] = { "xp", 0, (BreakUpLargeNumbers and BreakUpLargeNumbers(xp) or xp) .. L[" experience"], XP_ICON }
 	end
 	local money = Try(GetQuestLogRewardMoney, questID) or Try(GetQuestLogRewardMoney)
 	if money and money > 0 then
 		receive[#receive + 1] = { "money", 0, GetMoneyString and GetMoneyString(money) or GetCoinTextureString(money), MONEY_ICON }
 	end
 	local honor = Try(GetQuestLogRewardHonor, questID)
-	if honor and honor > 0 then receive[#receive + 1] = { "honor", 0, honor .. " honor", HONOR_ICON } end
+	if honor and honor > 0 then receive[#receive + 1] = { "honor", 0, honor .. L[" honor"], HONOR_ICON } end
 	for i = 1, (Try(GetNumQuestLogRewardSpells, questID) or 0) do
 		local tex, name = Try(GetQuestLogRewardSpell, i, questID)
 		if name then receive[#receive + 1] = { "spell", i, name, tex } end
@@ -688,11 +689,11 @@ local function Tags(questID, info)
 	local out = {}
 	local tag = C_QuestLog.GetQuestTagInfo and Try(C_QuestLog.GetQuestTagInfo, questID)
 	if type(tag) == "table" and tag.tagName then out[#out + 1] = tag.tagName end
-	if info.suggestedGroup and info.suggestedGroup > 1 then out[#out + 1] = ("Group: %d"):format(info.suggestedGroup) end
+	if info.suggestedGroup and info.suggestedGroup > 1 then out[#out + 1] = (L["Group: %d"]):format(info.suggestedGroup) end
 	local left = Try(GetQuestLogTimeLeft)
-	if left and left > 0 then out[#out + 1] = "Time left: " .. (SecondsToTime and SecondsToTime(left) or (left .. " s")) end
+	if left and left > 0 then out[#out + 1] = L["Time left: "] .. (SecondsToTime and SecondsToTime(left) or (left .. " s")) end
 	local need = Try(GetQuestLogRequiredMoney)
-	if need and need > 0 and GetCoinTextureString then out[#out + 1] = "Requires " .. GetCoinTextureString(need) end
+	if need and need > 0 and GetCoinTextureString then out[#out + 1] = L["Requires "] .. GetCoinTextureString(need) end
 	return table.concat(out, "   ")
 end
 
@@ -729,7 +730,7 @@ local function BuildDetails()
 	S.Font(b.title, 16)
 	b.big = true
 	if CL then b.body:SetTextColor(0.32, 0.2, 0.08) else b.body:SetTextColor(DiffColor(info.level)) end
-	local meta = ("Level %d"):format(info.level or 0)
+	local meta = (L["Level %d"]):format(info.level or 0)
 	local tags = Tags(q, info)
 	if tags ~= "" then meta = meta .. (CL and "   " or "   |cffb8b8b8") .. tags .. (CL and "" or "|r") end
 	y = Place(b, y, PAD, KindIcon(q) .. FM.Tint.MarkTitle(q, info.title or "?"), meta, nil)
@@ -750,7 +751,7 @@ local function BuildDetails()
 		Head(h.title)
 		S.Font(h.title, 15)
 		h.big = true
-		y = Place(h, y + 10, PAD, "Description", nil, nil)
+		y = Place(h, y + 10, PAD, L["Description"], nil, nil)
 		Text(description)
 	end
 	-- what it gives, in a box of its own
@@ -763,17 +764,17 @@ local function BuildDetails()
 		S.Font(h.title, 15)
 		h.big = true
 		h.title:SetJustifyH("CENTER")
-		y = Place(h, top + 6, PAD, "Rewards", nil, nil)
+		y = Place(h, top + 6, PAD, L["Rewards"], nil, nil)
 		if #choose > 0 then
 			local r = Row()
 			Head(r.title)
-			y = Place(r, y + 2, PAD, "You will be able to choose one of these rewards:", nil, nil)
+			y = Place(r, y + 2, PAD, L["You will be able to choose one of these rewards:"], nil, nil)
 			y = ItemGrid(y + 2, choose) + 2
 		end
 		if #receive > 0 then
 			local r = Row()
 			Head(r.title)
-			y = Place(r, y + 4, PAD, #choose > 0 and "You will also receive:" or "You will receive:", nil, nil)
+			y = Place(r, y + 4, PAD, #choose > 0 and L["You will also receive:"] or L["You will receive:"], nil, nil)
 			y = ItemGrid(y + 2, receive) + 2
 		end
 		y = y + 6
@@ -796,12 +797,12 @@ local function UpdateButtons()
 	bottom:SetShown(details and true or false)
 	scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, details and (BAR + 4) or 4)
 	if not details then return end
-	buttons.track.label:SetText(Watched(q) and "Untrack" or "Track")
+	buttons.track.label:SetText(Watched(q) and L["Untrack"] or L["Track"])
 	local super = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID() == q
 	buttons.nav:SetActive(super)
 	local canShare = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q) and IsInGroup()
 	buttons.share:SetAlpha(canShare and 1 or 0.4)
-	buttons.abandon.label:SetText(buttons.abandon.armed == q and "|cffff5050Sure?|r" or "Abandon")
+	buttons.abandon.label:SetText(buttons.abandon.armed == q and L["|cffff5050Sure?|r"] or L["Abandon"])
 end
 
 function QL.Refresh()
@@ -937,7 +938,7 @@ local function Build(parent, headerHeight)
 	local hint, clear
 	if blizzSearch then
 		hint = search.Instructions or S.Text(search, 11, S.DIM)
-		hint:SetText("Search Quest Log")
+		hint:SetText(L["Search Quest Log"])
 		clear = search.clearButton or CreateFrame("Button", nil, search)
 	else
 	S.Font(search, 11)
@@ -960,7 +961,7 @@ local function Build(parent, headerHeight)
 	glass:SetVertexColor(0.7, 0.7, 0.72)
 	hint = S.Text(search, 11, S.DIM)
 	hint:SetPoint("LEFT", 20, 0)
-	hint:SetText("Search quests")
+	hint:SetText(L["Search quests"])
 	clear = CreateFrame("Button", nil, search)
 	clear:SetSize(14, 14)
 	clear:SetPoint("RIGHT", -3, 0)
@@ -986,7 +987,7 @@ local function Build(parent, headerHeight)
 	search:SetScript("OnEditFocusLost", function(self) hint:SetShown((self:GetText() or "") == "") end)
 	search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 	search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-	back = S.Button(panel, "Back", 70, 20, function() QL.ShowList() end)
+	back = S.Button(panel, L["Back"], 70, 20, function() QL.ShowList() end)
 	back:SetPoint("TOPLEFT", 4, -3)
 	back:Hide()
 	local sep = panel:CreateTexture(nil, "BORDER")
@@ -1031,21 +1032,21 @@ local function Build(parent, headerHeight)
 		buttons[key] = b
 		return b
 	end
-	Act("track", "Track", { "Track", "Show it in the objective tracker." }, function()
+	Act("track", L["Track"], { L["Track"], L["Show it in the objective tracker."] }, function()
 		if detailID then SetWatched(detailID, not Watched(detailID)) QL.Refresh() end
 	end):SetPoint("BOTTOMLEFT", 5, 3)
-	Act("nav", "Navigate", { "Navigate", "Follow it with the in-game waypoint arrow." }, function()
+	Act("nav", L["Navigate"], { L["Navigate"], L["Follow it with the in-game waypoint arrow."] }, function()
 		if not detailID or not C_SuperTrack then return end
 		local on = C_SuperTrack.GetSuperTrackedQuestID() == detailID
 		C_SuperTrack.SetSuperTrackedQuestID(on and 0 or detailID)
 		QL.Refresh()
 	end):SetPoint("LEFT", buttons.track, "RIGHT", 3, 0)
-	Act("share", "Share", { "Share", "Offer it to your group." }, function()
+	Act("share", L["Share"], { L["Share"], L["Offer it to your group."] }, function()
 		if not detailID or not IsInGroup() then return end
 		C_QuestLog.SetSelectedQuest(detailID)
 		QuestLogPushQuest()
 	end):SetPoint("LEFT", buttons.nav, "RIGHT", 3, 0)
-	Act("abandon", "Abandon", { "Abandon", "Click twice to abandon it." }, function(self)
+	Act("abandon", L["Abandon"], { L["Abandon"], L["Click twice to abandon it."] }, function(self)
 		if not detailID then return end
 		if self.armed == detailID then
 			self.armed = nil

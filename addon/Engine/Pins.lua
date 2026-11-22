@@ -5,6 +5,7 @@
 -- copied into Media\Questie), and the atlases Ellesmere's map travel pins use for dungeons, raids and
 -- transports. Townsfolk come from Data\Townsfolk.lua: no other addon is needed.
 local _, FM = ...
+local L = FM.L
 local P = {}
 FM.Pins = P
 
@@ -46,59 +47,59 @@ local CAPITALS = {               -- uiMapID, its faction
 	{ 1454, "Horde" }, { 1456, "Horde" }, { 1458, "Horde" },
 }
 local CATS = {
-	{ key = "flight", label = "Flight masters", icon = TRACK .. "flightmaster", size = 18, layer = 5, group = "places" },   -- (with the townsfolk: M's zoom)
-	{ key = "dungeon", label = "Dungeons", icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
-	{ key = "raid", label = "Raids", icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
+	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, layer = 5, group = "places" },   -- (with the townsfolk: M's zoom)
+	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
+	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
 	-- (the capitals: only right out (gone at the wheel's first step in), over every other icon: layer 8
 	-- sorts them first, drawn in the OVERLAY layer)
-	{ key = "capital", label = "Capital cities", icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = Steps(1),
+	{ key = "capital", label = L["Capital cities"], icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = Steps(1),
 		layer = 8, drawLayer = "OVERLAY", group = "places" },
 	-- (boats, zeppelins and the tram: on top of the rest, the routes end on them)
-	{ key = "boat", label = "Harbor", icon = MEDIA .. "harbor_alliance", size = 22, minZoom = 0, layer = 7, group = "transport" },
-	{ key = "zeppelin", label = "Zeppelin towers", icon = MEDIA .. "MapUtils\\pier_zeppelin_orc", size = 20, minZoom = 0, layer = 7, group = "transport" },
-	{ key = "airship", label = "Airships (Zephras Isle)", icon = "atlas:vehicle-air-alliance", size = 24, minZoom = 0, layer = 7, group = "transport" },
-	{ key = "tram", label = "Deeprun Tram", icon = MEDIA .. "tram", size = 20, minZoom = 0, layer = 7, group = "transport" },
+	{ key = "boat", label = L["Harbor"], icon = MEDIA .. "harbor_alliance", size = 22, minZoom = 0, layer = 7, group = "transport", noJoin = true },
+	{ key = "zeppelin", label = L["Zeppelin towers"], icon = MEDIA .. "MapUtils\\pier_zeppelin_orc", size = 20, minZoom = 0, layer = 7, group = "transport", noJoin = true },
+	{ key = "airship", label = L["Airships (Zephras Isle)"], icon = "atlas:vehicle-air-alliance", size = 24, minZoom = 0, layer = 7, group = "transport", noJoin = true },
+	{ key = "tram", label = L["Deeprun Tram"], icon = MEDIA .. "tram", size = 20, minZoom = 0, layer = 7, group = "transport", noJoin = true },
 
-	{ key = "questie", label = "Questie icons", icon = MEDIA .. "Questie\\available", size = 16, layer = 4, group = "quests", external = true,
+	{ key = "questie", label = L["Questie icons"], icon = MEDIA .. "Questie\\available", size = 16, layer = 4, group = "quests", external = true,
 		free = true },   -- (Questie's: exactly where Questie puts them, each on its own: never summed or moved)
 
 	-- the kinds Questie's townsfolk menu has (and its icons for them)
-	{ key = "innkeeper", label = "Innkeepers", icon = TRACK .. "innkeeper", data = true },
-	{ key = "banker", label = "Bankers", icon = TRACK .. "banker", data = true },
-	{ key = "auctioneer", label = "Auctioneers", icon = TRACK .. "auctioneer", data = true },
-	{ key = "repair", label = "Repair", icon = TRACK .. "repair", data = true },
-	{ key = "classTrainer", label = "Class trainers", icon = TRACK .. "class", data = true, myClass = true },
-	{ key = "portalTrainer", label = "Portal trainers", icon = "Interface\\Minimap\\vehicle-alliancemageportal", data = true, myClass = true },
-	{ key = "weaponMaster", label = "Weapon masters", icon = MEDIA .. "Questie\\weaponmaster", data = true },
-	{ key = "stable", label = "Stable masters", icon = TRACK .. "stablemaster", data = true },
-	{ key = "battlemaster", label = "Battlemasters", icon = TRACK .. "battlemaster", data = true },
-	{ key = "spirit", label = "Spirit healers", icon = "Interface\\raidframe\\raid-icon-rez", data = true, anyFaction = true },
-	{ key = "barber", label = "Barbers", icon = MEDIA .. "Questie\\barbershop.png", data = true },   -- (a PNG: named in full)
-	{ key = "transmogrifier", label = "Transmogrifiers", icon = TRACK .. "transmogrifier", data = true },
-	{ key = "mailbox", label = "Mailboxes", icon = TRACK .. "mailbox", data = true },
-	{ key = "food", label = "Food", icon = 133964, data = true },
-	{ key = "drink", label = "Drink", icon = 134712, data = true },
-	{ key = "reagents", label = "Reagents", icon = TRACK .. "reagents", data = true },
-	{ key = "tradeGoods", label = "Trade goods", icon = 132912, data = true },
-	{ key = "bags", label = "Bags", icon = 133634, data = true },
-	{ key = "potions", label = "Potions", icon = 134831, data = true },
-	{ key = "ammo", label = "Ammo", icon = TRACK .. "ammunition", data = true },
-	{ key = "poisons", label = "Poisons", icon = TRACK .. "poisons", data = true },
+	{ key = "innkeeper", label = L["Innkeepers"], icon = TRACK .. "innkeeper", data = true },
+	{ key = "banker", label = L["Bankers"], icon = TRACK .. "banker", data = true },
+	{ key = "auctioneer", label = L["Auctioneers"], icon = TRACK .. "auctioneer", data = true },
+	{ key = "repair", label = L["Repair"], icon = TRACK .. "repair", data = true },
+	{ key = "classTrainer", label = L["Class trainers"], icon = TRACK .. "class", data = true, myClass = true },
+	{ key = "portalTrainer", label = L["Portal trainers"], icon = "Interface\\Minimap\\vehicle-alliancemageportal", data = true, myClass = true },
+	{ key = "weaponMaster", label = L["Weapon masters"], icon = MEDIA .. "Questie\\weaponmaster", data = true },
+	{ key = "stable", label = L["Stable masters"], icon = TRACK .. "stablemaster", data = true },
+	{ key = "battlemaster", label = L["Battlemasters"], icon = TRACK .. "battlemaster", data = true },
+	{ key = "spirit", label = L["Spirit healers"], icon = "Interface\\raidframe\\raid-icon-rez", data = true, anyFaction = true },
+	{ key = "barber", label = L["Barbers"], icon = MEDIA .. "Questie\\barbershop.png", data = true },   -- (a PNG: named in full)
+	{ key = "transmogrifier", label = L["Transmogrifiers"], icon = TRACK .. "transmogrifier", data = true },
+	{ key = "mailbox", label = L["Mailboxes"], icon = TRACK .. "mailbox", data = true },
+	{ key = "food", label = L["Food"], icon = 133964, data = true },
+	{ key = "drink", label = L["Drink"], icon = 134712, data = true },
+	{ key = "reagents", label = L["Reagents"], icon = TRACK .. "reagents", data = true },
+	{ key = "tradeGoods", label = L["Trade goods"], icon = 132912, data = true },
+	{ key = "bags", label = L["Bags"], icon = 133634, data = true },
+	{ key = "potions", label = L["Potions"], icon = 134831, data = true },
+	{ key = "ammo", label = L["Ammo"], icon = TRACK .. "ammunition", data = true },
+	{ key = "poisons", label = L["Poisons"], icon = TRACK .. "poisons", data = true },
 
 	-- profession trainers, one kind each (Questie's profession icons)
-	{ key = "prof_ALCHEMY", label = "Alchemy", icon = ICONS .. "trade_alchemy", data = "profTrainer", tag = "ALCHEMY" },
-	{ key = "prof_BLACKSMITHING", label = "Blacksmithing", icon = ICONS .. "trade_blacksmithing", data = "profTrainer", tag = "BLACKSMITHING" },
-	{ key = "prof_COOKING", label = "Cooking", icon = ICONS .. "inv_misc_food_15", data = "profTrainer", tag = "COOKING" },
-	{ key = "prof_ENCHANTING", label = "Enchanting", icon = ICONS .. "trade_engraving", data = "profTrainer", tag = "ENCHANTING" },
-	{ key = "prof_ENGINEERING", label = "Engineering", icon = ICONS .. "trade_engineering", data = "profTrainer", tag = "ENGINEERING" },
-	{ key = "prof_FIRST_AID", label = "First Aid", icon = ICONS .. "spell_holy_sealofsacrifice", data = "profTrainer", tag = "FIRST_AID" },
-	{ key = "prof_FISHING", label = "Fishing", icon = ICONS .. "trade_fishing", data = "profTrainer", tag = "FISHING" },
-	{ key = "prof_HERBALISM", label = "Herbalism", icon = ICONS .. "trade_herbalism", data = "profTrainer", tag = "HERBALISM" },
-	{ key = "prof_LEATHERWORKING", label = "Leatherworking", icon = ICONS .. "trade_leatherworking", data = "profTrainer", tag = "LEATHERWORKING" },
-	{ key = "prof_MINING", label = "Mining", icon = ICONS .. "trade_mining", data = "profTrainer", tag = "MINING" },
-	{ key = "prof_SKINNING", label = "Skinning", icon = ICONS .. "inv_misc_pelt_wolf_01", data = "profTrainer", tag = "SKINNING" },
-	{ key = "prof_TAILORING", label = "Tailoring", icon = ICONS .. "trade_tailoring", data = "profTrainer", tag = "TAILORING" },
-	{ key = "prof_RIDING", label = "Riding", icon = ICONS .. "spell_nature_swiftness", data = "profTrainer", tag = "RIDING" },
+	{ key = "prof_ALCHEMY", label = L["Alchemy"], icon = ICONS .. "trade_alchemy", data = "profTrainer", tag = "ALCHEMY" },
+	{ key = "prof_BLACKSMITHING", label = L["Blacksmithing"], icon = ICONS .. "trade_blacksmithing", data = "profTrainer", tag = "BLACKSMITHING" },
+	{ key = "prof_COOKING", label = L["Cooking"], icon = ICONS .. "inv_misc_food_15", data = "profTrainer", tag = "COOKING" },
+	{ key = "prof_ENCHANTING", label = L["Enchanting"], icon = ICONS .. "trade_engraving", data = "profTrainer", tag = "ENCHANTING" },
+	{ key = "prof_ENGINEERING", label = L["Engineering"], icon = ICONS .. "trade_engineering", data = "profTrainer", tag = "ENGINEERING" },
+	{ key = "prof_FIRST_AID", label = L["First Aid"], icon = ICONS .. "spell_holy_sealofsacrifice", data = "profTrainer", tag = "FIRST_AID" },
+	{ key = "prof_FISHING", label = L["Fishing"], icon = ICONS .. "trade_fishing", data = "profTrainer", tag = "FISHING" },
+	{ key = "prof_HERBALISM", label = L["Herbalism"], icon = ICONS .. "trade_herbalism", data = "profTrainer", tag = "HERBALISM" },
+	{ key = "prof_LEATHERWORKING", label = L["Leatherworking"], icon = ICONS .. "trade_leatherworking", data = "profTrainer", tag = "LEATHERWORKING" },
+	{ key = "prof_MINING", label = L["Mining"], icon = ICONS .. "trade_mining", data = "profTrainer", tag = "MINING" },
+	{ key = "prof_SKINNING", label = L["Skinning"], icon = ICONS .. "inv_misc_pelt_wolf_01", data = "profTrainer", tag = "SKINNING" },
+	{ key = "prof_TAILORING", label = L["Tailoring"], icon = ICONS .. "trade_tailoring", data = "profTrainer", tag = "TAILORING" },
+	{ key = "prof_RIDING", label = L["Riding"], icon = ICONS .. "spell_nature_swiftness", data = "profTrainer", tag = "RIDING" },
 }
 P.CATS = CATS
 P.ENEMY_TINT = { 1, 0.45, 0.4 }      -- (the other faction's flight masters: their icon in red)
@@ -175,8 +176,8 @@ local function DockCentre(kind, cont, x, y)
 		end
 	end
 end
-local DOCK_TITLE = { zeppelin = "Zeppelin tower", boat = "Harbor" }
-local TRANSPORT_NAME = { boat = "Boat", zeppelin = "Zeppelin", airship = "Airship" }
+local DOCK_TITLE = { zeppelin = L["Zeppelin tower"], boat = L["Harbor"] }
+local TRANSPORT_NAME = { boat = L["Boat"], zeppelin = L["Zeppelin"], airship = L["Airship"] }
 
 local pinLayer, topLayer
 local pool, shown, prevShown = {}, {}, {}
@@ -461,7 +462,7 @@ end
 
 -- the group a pin is shown in (itself, if none, or with summing off): the same at every zoom
 Rep = function(pin)
-	if FM.db.joinIcons == false then return pin end
+	if FM.db.joinIcons == false or pin.cat.noJoin then return pin end
 	local reach = pin.cat.reach or 0
 	local x = pin
 	while x.parent and x.parent.d <= reach do x = x.parent end
@@ -924,8 +925,8 @@ function P.Hover(clear)
 	tipFirst, tipCount, tipWaypoint = p, n, hoverWaypoint
 	wipe(tipLines)
 	if hoverWaypoint then
-		tipLines[#tipLines + 1] = "Waypoint"
-		tipLines[#tipLines + 1] = { "Right-click to remove it", 0.6, 0.6, 0.62 }
+		tipLines[#tipLines + 1] = L["Waypoint"]
+		tipLines[#tipLines + 1] = { L["Right-click to remove it"], 0.6, 0.6, 0.62 }
 	end
 	for i = 1, n do
 		local pin = hovered[i]
@@ -938,8 +939,8 @@ function P.Hover(clear)
 	if n > 0 then
 		local first = hovered[1]
 		local picked = waypointPin and (waypointPin == first or waypointPin.leader == first)
-		local right = "Right-click: " .. (picked and "remove waypoint" or "set waypoint")
-		tipLines[#tipLines + 1] = { (first.insts or first.away) and ("Left-click: its map   " .. right) or right, 0.5, 0.5, 0.52, 10 }
+		local right = L["Right-click: "] .. (picked and L["remove waypoint"] or L["set waypoint"])
+		tipLines[#tipLines + 1] = { (first.insts or first.away) and (L["Left-click: its map   "] .. right) or right, 0.5, 0.5, 0.52, 10 }
 	end
 	-- (on the pin itself, not the cursor: it never trails behind)
 	S.ShowTip(nil, tipLines, at.dx + (at.size or 16) * 0.5, -at.dy + 4, pinLayer)
@@ -960,7 +961,7 @@ end
 local function SetWaypointAt(u, v, label, pin)
 	local mapID = Geo.ZoneAt(u, v)
 	if not mapID or not (C_Map.CanSetUserWaypointOnMap and C_Map.CanSetUserWaypointOnMap(mapID)) then
-		FM.Print("can't set a waypoint there")
+		FM.Print(L["can't set a waypoint there"])
 		return
 	end
 	local x, y = Geo.UnitsToMap(mapID, u, v)
@@ -1019,6 +1020,8 @@ function P.Click()
 		end
 		-- (a dock to a land off the world map, Zephras Isle: that land's own map, as a dungeon's)
 		if pin.away then FM.Isles.Open(pin.away) return end
+		-- (AzerothVeil: a dock or a tram station, its click the Transports module's while it's on)
+		if pin.travel and P.OnTravelClick then P.OnTravelClick(pin) return end
 	elseif IsControlKeyDown() then
 		local u, v = FM.Map.CursorUnits()
 		SetWaypointAt(u, v)
@@ -1046,7 +1049,7 @@ local function FactionLabel(f, Faction)
 	if not Faction then return nil end
 	if f == Faction.Horde then return { FACTION_HORDE or "Horde", 1, 0.35, 0.3, 11 } end
 	if f == Faction.Alliance then return { FACTION_ALLIANCE or "Alliance", 0.4, 0.6, 1, 11 } end
-	return { "Neutral", 0.85, 0.85, 0.5, 11 }
+	return { L["Neutral"], 0.85, 0.85, 0.5, 11 }
 end
 
 -- The game's taxi list also has nodes WoW Forever has no flight master at (other versions', such as
@@ -1104,7 +1107,7 @@ local function BuildFlights()
 				local friendly = not Faction or f == Faction.Neutral or f == mine
 				if friendly or FM.db.enemyFlight then
 					local lines = { FactionLabel(f, Faction) }
-					if n.isUndiscovered then lines[#lines + 1] = { "Not discovered yet", 0.6, 0.6, 0.62, 11 } end
+					if n.isUndiscovered then lines[#lines + 1] = { L["Not discovered yet"], 0.6, 0.6, 0.62, 11 } end
 					local u, v = Geo.MapToUnits(cont, pos.x, pos.y)
 					if u and HasFlightMaster(u, v) then AddPin(cat, u, v, {
 						title = name, lines = lines, dim = n.isUndiscovered,
@@ -1130,7 +1133,7 @@ local function BuildCapitals()
 			AddPin(cat, (r[1] + r[2]) / 2, (r[3] + r[4]) / 2, {
 				title = info.name, icon = CAPITAL_ICON[c[2]],
 				psize = c[2] == "Alliance" and cat.size * 1.2 or nil,   -- (the Alliance's emblem a fifth bigger)
-				lines = { { c[2] == "Alliance" and "Alliance capital" or "Horde capital",
+				lines = { { c[2] == "Alliance" and L["Alliance capital"] or L["Horde capital"],
 					friendly and 0.5 or 1, friendly and 0.9 or 0.45, friendly and 0.5 or 0.4, 11 } },
 			})
 		end
@@ -1250,21 +1253,20 @@ function P.InstanceSpot(name)
 	return bestU, bestV
 end
 
--- where the icon of the dock at (cont, x, y) stands: a zeppelin tower's platforms and a harbour's piers
--- are one icon, in their middle (BuildPlaces); any other dock's, on it. (Routes.lua ends its lines there)
-function P.DockUnits(kind, cont, x, y)
-	local cu, cv = DockCentre(kind, cont, x, y)
-	if cu then return cu, cv end
-	local us, vs, n = 0, 0, 0
+-- where the icon of the dock at (cont, x, y) stands. AzerothVeil: every way has its own icon, as OpenMap
+-- shows them (PerfectMap made a tower's platforms and a harbour's piers one icon): with route, that way's
+-- own dock nearest (cont, x, y); without, the nearest dock of that kind. (Routes.lua ends its lines there)
+function P.DockUnits(kind, cont, x, y, route)
+	local near = DOCK_YARDS[kind] or 60
+	local best, bestD
 	for _, t in ipairs(FM.PLACES and FM.PLACES.transports or {}) do
-		local near = DOCK_YARDS[kind]
-		if t[1] == kind and t[3] == cont and (near and (t[4] - x) ^ 2 + (t[5] - y) ^ 2 < near * near
-			or t[4] == x and t[5] == y) then
-			local u, v = Geo.WorldToUnits(cont, t[4], t[5])
-			if u then us, vs, n = us + u, vs + v, n + 1 end
+		if t[1] == kind and t[3] == cont and (not route or t[2] == route) then
+			local d = (t[4] - x) ^ 2 + (t[5] - y) ^ 2
+			if d < near * near and (not bestD or d < bestD) then best, bestD = t, d end
 		end
 	end
-	if n > 0 then return us / n, vs / n end
+	if route and not best then return P.DockUnits(kind, cont, x, y) end
+	if best then return Geo.WorldToUnits(cont, best[4], best[5]) end
 end
 
 local function BuildPlaces()
@@ -1287,9 +1289,9 @@ local function BuildPlaces()
 			local title
 			if #list == 1 then
 				title = list[1][2]
-				lines[1] = LevelLine(list[1][3] and "Raid" or "Dungeon", list[1][4], list[1][5])
+				lines[1] = LevelLine(list[1][3] and L["Raid"] or L["Dungeon"], list[1][4], list[1][5])
 			else
-				title = allRaid and "Raids" or "Dungeons"
+				title = allRaid and L["Raids"] or L["Dungeons"]
 			end
 			-- (its instances, and each one the entrance leads to as it's named: two parts of one instance,
 			-- Lower and Upper Blackrock Spire, are two)
@@ -1301,13 +1303,13 @@ local function BuildPlaces()
 			AddPin(allRaid and raid or dungeon, u, v, { title = title, lines = lines, insts = insts, wings = wings })
 		end
 	end
-	-- (a zeppelin tower's platforms (some 60 yards apart) and a harbour's piers (some 200) are one icon,
-	-- in their middle, its tooltip naming every place they go to)
-	local docks = {}
+	-- AzerothVeil: one icon for each way, where it leaves from, as OpenMap shows them (PerfectMap made a
+	-- tower's platforms and a harbour's piers one icon naming every place they go to): Tanaris' tower, a
+	-- zeppelin to Orgrimmar and one to Stranglethorn, is two icons. Each knows its way's other end.
 	for _, t in ipairs(data.transports or {}) do
 		local kind, route, cont, x, y, toCont, toX, toY = t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]
 		local u, v
-		-- (only the boats you can take: a harbor with none of them isn't shown at all)
+		-- (only the boats you can take)
 		if P.Usable(kind, route) then u, v = Geo.WorldToUnits(cont, x, y) end
 		if u then
 			local dest
@@ -1316,66 +1318,39 @@ local function BuildPlaces()
 			-- (to a land off the world map, Zephras Isle: a click on its dock on the world opens its map)
 			local away = Geo.AwayOfInstance(toCont)
 			if away and Geo.AwayOfInstance(cont) then away = nil end
-			local dock
-			local near = DOCK_YARDS[kind]
-			if near then
-				for _, d in ipairs(docks) do
-					if d.kind == kind and d.cont == cont and (d.x - x) ^ 2 + (d.y - y) ^ 2 < near * near then dock = d break end
-				end
-			end
-			if not dock then
-				dock = { kind = kind, cont = cont, x = x, y = y, us = 0, vs = 0, ways = {} }
-				docks[#docks + 1] = dock
-			end
-			dock.away = dock.away or away
-			dock.us, dock.vs = dock.us + u, dock.vs + v
+			-- (the other end: that way's dock there)
+			local tu, tv
+			if du then tu, tv = P.DockUnits(kind, toCont, toX, toY, route) end
+			if not tu then tu, tv = du, dv end
 			local own = P.OwnFaction(kind, route)
-			dock.ways[#dock.ways + 1] = { dest = dest, route = route, own = own }
-			-- (whose harbor it looks: one faction's boats only, theirs; with a goblins' boat, yours)
-			local f = P.TransportFaction(kind, route)
-			if f == "Neutral" or (dock.faction and dock.faction ~= f) then dock.faction = "Neutral"
-			else dock.faction = dock.faction or f end
+			local faction = P.TransportFaction(kind, route)
+			local name = TRANSPORT_NAME[kind] or L["Transport"]
+			local lines = { { route, 0.7, 0.7, 0.72, 11 } }
+			if not own then lines[2] = { L["The other faction's"], 1, 0.45, 0.4, 11 } end
+			AddPin(KIND_CAT[kind] or byKey.boat, u, v, {
+				title = dest and L["%s to %s"]:format(name, dest) or name, lines = lines,
+				icon = (kind == "zeppelin" and Geo.ZoneAt(u, v) == 1420) and ZEPPELIN_UNDEAD
+					or kind == "boat" and P.FactionArt("harbor", faction) or TRANSPORT_ICON[kind],
+				-- (MapUtils' dark outline: zeppelins, airships, harbors, trams; round our painted harbors, lighter)
+				outline = kind == "boat" and P.PAINTED_OUTLINE or (kind == "zeppelin" or kind == "airship") or nil,
+				away = away,
+				dock = { kind = kind, cont = cont, x = x, y = y, near = DOCK_YARDS[kind] or 60, routes = { route } },
+				travel = { { dest = dest, route = route, own = own, u = tu, v = tv } },
+			})
 		end
-	end
-	for _, d in ipairs(docks) do
-		local n = #d.ways
-		local u, v = d.us / n, d.vs / n
-		local cu, cv = DockCentre(d.kind, d.cont, d.x, d.y)
-		if cu then u, v = cu, cv end
-		local name = TRANSPORT_NAME[d.kind] or "Transport"
-		local title, lines
-		local names = {}                -- (the routes it serves: Routes.lua shows them over it)
-		for i, w in ipairs(d.ways) do names[i] = w.route end
-		if n == 1 then
-			local w = d.ways[1]
-			title = name .. (w.dest and (" to " .. w.dest) or "")
-			lines = { { w.route, 0.7, 0.7, 0.72, 11 } }
-			if not w.own then lines[2] = { "The other faction's", 1, 0.45, 0.4, 11 } end
-		else
-			title = DOCK_TITLE[d.kind] or name
-			lines = {}
-			for _, w in ipairs(d.ways) do
-				-- (the other faction's boats named in red)
-				if w.own then lines[#lines + 1] = { "To " .. (w.dest or "?"), 1, 1, 1, 12 }
-				else lines[#lines + 1] = { "To " .. (w.dest or "?"), 1, 0.45, 0.4, 12 } end
-				lines[#lines + 1] = { w.route, 0.7, 0.7, 0.72, 11 }
-			end
-		end
-		AddPin(KIND_CAT[d.kind] or byKey.boat, u, v, {
-			title = title, lines = lines,
-			icon = (d.kind == "zeppelin" and Geo.ZoneAt(u, v) == 1420) and ZEPPELIN_UNDEAD
-				or d.kind == "boat" and P.FactionArt("harbor", d.faction) or TRANSPORT_ICON[d.kind],
-			-- (MapUtils' dark outline: zeppelins, airships, harbors, trams; round our painted harbors, lighter)
-			outline = d.kind == "boat" and P.PAINTED_OUTLINE or (d.kind == "zeppelin" or d.kind == "airship") or nil,
-			away = d.away,
-			dock = { kind = d.kind, cont = d.cont, x = d.x, y = d.y, near = DOCK_YARDS[d.kind] or 60, routes = names },
-		})
 	end
 	-- the Deeprun Tram's two stations (MapUtils' piers; Stormwind's at its WoW Forever spot)
-	for _, t in ipairs(TRAMS) do
+	for i, t in ipairs(TRAMS) do
 		local u, v = Geo.MapToUnits(t[1], t[2], t[3])
+		-- (AzerothVeil: the other station, for the Transports module's click)
+		local o = TRAMS[i == 1 and 2 or 1]
+		local ou, ov = Geo.MapToUnits(o[1], o[2], o[3])
+		-- (the city's name as the game gives it, in the player's language)
+		local info = C_Map.GetMapInfo(o[1])
+		local toName = info and info.name or t[4]
 		if u then
-			AddPin(byKey.tram, u, v, { title = "Tram to " .. t[4], lines = { { "Deeprun Tram", 0.7, 0.7, 0.72, 11 } }, icon = TRAM_ICON, outline = true })
+			AddPin(byKey.tram, u, v, { title = L["Tram to %s"]:format(toName), lines = { { L["Deeprun Tram"], 0.7, 0.7, 0.72, 11 } }, icon = TRAM_ICON, outline = true,
+				travel = ou and { { dest = toName, u = ou, v = ov, own = true } } or nil })
 		end
 	end
 end
@@ -1440,6 +1415,12 @@ end
 function P.RebuildPlaces()
 	byKey.dungeon.built = nil
 	P.Ensure()
+	if FM.Routes then FM.Routes.Rebuild() end
+end
+
+-- (AzerothVeil: the same, built only when the map next opens: nothing done while it's closed)
+function P.InvalidatePlaces()
+	byKey.dungeon.built = nil
 	if FM.Routes then FM.Routes.Rebuild() end
 end
 

@@ -103,7 +103,7 @@ local function Way(sail)
 	-- (each line ends right on its dock's icon: a zeppelin tower's in the tower's middle)
 	if FM.Pins and FM.Pins.DockUnits then
 		for _, s in ipairs(stops) do
-			local u, v = FM.Pins.DockUnits(sail[1], s.c, s.x, s.y)
+			local u, v = FM.Pins.DockUnits(sail[1], s.c, s.x, s.y, sail[2])   -- (AzerothVeil: that way's own dock, one icon per way)
 			if u then s[1], s[2] = u, v end
 		end
 	end
@@ -227,6 +227,22 @@ function R.Init(parent)
 	layer = parent
 end
 
+-- AzerothVeil: the route lines belong to the Transports module (Modules/Transports.lua). Until it turns them
+-- on (and once it turns them off) nothing is built, drawn, eased or hovered.
+R.enabled = false
+function R.SetEnabled(on)
+	on = on and true or false
+	if R.enabled == on then return end
+	R.enabled = on
+	if not on then
+		for _, r in ipairs(routes) do r.frame:Hide() end
+		wipe(focus)
+		lit = nil
+	end
+	easing = true
+	if FM.Map then FM.Map.MarkDirty() end
+end
+
 -- (a route shows with its kind's icons: boats', or zeppelins')
 local KIND_KEY = { boat = "boat", zeppelin = "zeppelin", airship = "airship" }
 local NONE = {}
@@ -249,6 +265,7 @@ local function Wanted(r)
 end
 
 function R.Layout(left, top, scale, vw, vh, zoom)
+	if not R.enabled then return end
 	if zoomNow ~= zoom then easing = true end
 	if allWas ~= FM.db.routes then allWas = FM.db.routes easing = true end
 	zoomNow = zoom
@@ -273,6 +290,7 @@ end
 
 -- the hovered route (or the hovered dock's) eases up, the others back down: quiet, or, one at a time, out
 function R.Tick(elapsed)
+	if not R.enabled then return end
 	if #routes == 0 or not easing then return end
 	local busy = false
 	local up = QUIET + (LIT - QUIET) * (1 - Smooth(zoomNow, LIT_FADE[1], LIT_FADE[2]))
@@ -358,6 +376,7 @@ end
 -- cursor is on icons (Pins.Hovered): a dock's shows its routes
 local NO_PINS = {}
 function R.Hover(u, v, scale, onPins)
+	if not R.enabled then return end
 	if onPins and FM.Pins.Hovered then Focus(FM.Pins.Hovered()) elseif next(focus) then Focus(NO_PINS, 0) end
 	if not u or not Shown() or #routes == 0 then return Light(nil, layer) end
 	local best, bestD = nil, HOVER_PX / scale
