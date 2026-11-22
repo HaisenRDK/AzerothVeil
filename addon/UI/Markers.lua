@@ -52,6 +52,7 @@ end
 
 local function Button(parent, text, w, onClick, tip)
 	local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	S.FrizButton(b)   -- (AzerothVeil: Friz Quadrata)
 	b:SetSize(w, 22)
 	b:SetText(text)
 	b:SetScript("OnClick", onClick)
@@ -75,6 +76,7 @@ end
 
 local function Edit(parent, w)
 	local e = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+	S.Friz(e)   -- (AzerothVeil: Friz Quadrata)
 	e:SetSize(w, 20)
 	e:SetAutoFocus(false)
 	e:SetScript("OnEscapePressed", e.ClearFocus)

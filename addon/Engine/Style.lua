@@ -69,18 +69,48 @@ local function EdgeOver(f, edge, size)
 end
 S.Backdrop = Backdrop
 
--- The game's own font: whatever its text is drawn in now (GameFontNormal: a font addon or a
--- different client language changes it there), else the client's standard one. Read again each
--- time the map opens, and every string of ours follows when it changed.
+-- AzerothVeil: Friz Quadrata TT everywhere (FlareUI's default face, the game's own classic one): its Cyrillic
+-- cut on a Russian client; on a Korean or Chinese one, which it can't write, the game's own font (GameFontNormal's,
+-- else the client's standard one). Read again each time the map opens, and every string of ours follows.
 local FALLBACK = "Fonts\\FRIZQT__.TTF"
+local FRIZ = { ruRU = "Fonts\\FRIZQT___CYR.TTF", koKR = false, zhCN = false, zhTW = false }
 local current
 local registry = setmetatable({}, { __mode = "k" })   -- font string -> { size, flags }
 
 function S.FontPath()
+	local friz = FRIZ[GetLocale and GetLocale() or ""]
+	if friz == nil then friz = FALLBACK end
+	if friz then return friz end
 	local path = GameFontNormal and GameFontNormal:GetFont()
 	if type(path) ~= "string" or path == "" then path = _G.STANDARD_TEXT_FONT end
 	if type(path) ~= "string" or path == "" then path = FALLBACK end
 	return path
+end
+
+-- AzerothVeil: a text made from one of the game's templates (its size, flags and colour), in our face
+function S.Friz(fs)
+	if not (fs and fs.GetFont) then return fs end
+	local _, size, flags = fs:GetFont()
+	if type(size) == "number" and size > 0 then
+		local face = S.FontPath()
+		if not fs:SetFont(face, size, flags or "") then fs:SetFont(FALLBACK, size, flags or "") end
+	end
+	return fs
+end
+function S.FontString(parent, layer, template)
+	return S.Friz(parent:CreateFontString(nil, layer, template))
+end
+-- AzerothVeil: a button of the game's (UIPanelButtonTemplate...) in our face: the game puts its own font object
+-- back on its text as it's lit, pressed, enabled or not, so it's set again then
+local function FrizText(self) S.Friz(self:GetFontString()) end
+function S.FrizButton(b)
+	if not (b and b.GetFontString) then return b end
+	FrizText(b)
+	for _, ev in ipairs({ "OnShow", "OnEnter", "OnLeave", "OnEnable", "OnDisable", "OnMouseDown", "OnMouseUp" }) do
+		b:HookScript(ev, FrizText)
+	end
+	hooksecurefunc(b, "SetText", FrizText)
+	return b
 end
 
 local function Apply(fs, size, flags)
@@ -109,7 +139,7 @@ function S.RefreshFonts()
 	end
 end
 
--- AzerothVeil: a font string in one of the game's own font objects' face, size and flags (QuestTitleFont,
+-- AzerothVeil: a font string in one of the game's own font objects' size and flags, in our face (QuestTitleFont,
 -- QuestFont, QuestFontNormalSmall: a quest's page as Blizzard writes it), read from the object as the game has it
 -- now; else ours at that size. Its shadow left as it is
 function S.GameFont(fs, name, size)
@@ -117,6 +147,7 @@ function S.GameFont(fs, name, size)
 	local file, h, flags
 	if obj and obj.GetFont then file, h, flags = obj:GetFont() end
 	if type(file) ~= "string" or file == "" or type(h) ~= "number" then return S.Font(fs, size) end
+	file = S.FontPath()      -- (AzerothVeil: their sizes and flags, in Friz Quadrata as the rest of the addon)
 	flags = flags or ""
 	local r = registry[fs]
 	if r and r[1] == h and r[2] == flags and r[3] == file then return fs end
@@ -182,6 +213,7 @@ local function ClassicButton(parent, label, width, height, onClick, kind)
 	local b
 	if kind == "action" then
 		b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+		S.FrizButton(b)
 		b:SetSize(width or 80, height or 20)
 		b:SetText(label)
 		b.label = b:GetFontString()

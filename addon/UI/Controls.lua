@@ -38,7 +38,7 @@ end
 local Build = {}
 
 function Build.header(page, m, spec, y, onChange)
-	local fs = page:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	local fs = ns.Style.FontString(page, "ARTWORK", "GameFontNormal")
 	fs:SetPoint("TOPLEFT", 0, y - 8)
 	fs:SetText(spec.label or "")
 	if not spec.all then return { Refresh = function() end }, y - 30 end
@@ -46,6 +46,7 @@ function Build.header(page, m, spec, y, onChange)
 	local buttons, prev = {}, fs
 	for _, b in ipairs({ { ns.L["Show all"], true }, { ns.L["Hide all"], false } }) do
 		local btn = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+		ns.Style.FrizButton(btn)   -- (AzerothVeil: Friz Quadrata)
 		btn:SetSize(100, 20)
 		btn:SetPoint("LEFT", prev, "RIGHT", prev == fs and 12 or 4, 0)
 		btn:SetText(b[1])
@@ -65,7 +66,7 @@ function Build.toggle(page, m, spec, y, onChange)
 	local check = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
 	check:SetSize(26, 26)
 	check:SetPoint("TOPLEFT", Depth(m, spec) * INDENT - 4, y + 2)
-	local label = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	local label = ns.Style.FontString(page, "ARTWORK", "GameFontHighlight")
 	label:SetPoint("LEFT", check, "RIGHT", 2, 1)
 	label:SetText(spec.label or spec.key)
 	check:SetScript("OnClick", function(self)
@@ -87,7 +88,7 @@ end
 -- (no module declares one yet: written to the template's API as other addons on this client use it)
 function Build.range(page, m, spec, y, onChange)
 	local x = Depth(m, spec) * INDENT
-	local label = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	local label = ns.Style.FontString(page, "ARTWORK", "GameFontHighlight")
 	label:SetPoint("TOPLEFT", x, y - 4)
 	label:SetText(spec.label or spec.key)
 	local ok, holder = pcall(CreateFrame, "Frame", nil, page, "MinimalSliderWithSteppersTemplate")
@@ -96,7 +97,7 @@ function Build.range(page, m, spec, y, onChange)
 	end
 	holder:SetSize(220, 20)
 	holder:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -4)
-	local value = page:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	local value = ns.Style.FontString(page, "ARTWORK", "GameFontNormal")
 	value:SetPoint("LEFT", holder, "RIGHT", 8, 0)
 	local slider = holder.Slider
 	local step = spec.step or 1

@@ -1,6 +1,5 @@
 -- The quest log, docked on the right of the map window: the quests by zone with their objectives
--- (tick to track), and a quest's details (objectives, description, rewards, track / navigate /
--- share / abandon). Replaces Blizzard's quest log beside its map. Built the first time it shows;
+-- (tick to track), and a quest's details (objectives, description, rewards, track / share / abandon). Replaces Blizzard's quest log beside its map. Built the first time it shows;
 -- rebuilt only while shown, at most a few times a second.
 local _, FM = ...
 local L = FM.L
@@ -16,6 +15,8 @@ local PAD = 8
 
 local panel, scroll, child, thumb, topTitle, back, bottom, search
 local query = ""                          -- what's typed in the search box, lower case ("": all)
+local headers = {}                        -- AzerothVeil: the zones of the list as last built (Collapse all)
+local countBar, foldAll                   -- AzerothVeil: the line under the search box: the count, Collapse all
 local buttons = {}
 local mode, detailID = "list", nil
 local collapsed = {}
@@ -24,11 +25,37 @@ local pending = false
 local tips = {}             -- AzerothVeil: the tooltips of the icons after the names (IconTip)
 local hyper = false         -- AzerothVeil: the rows' text can carry links on this client (NewRow)
 local IconEnter             -- (AzerothVeil: below, with the icons)
+local CanFollow, TopLayout  -- (AzerothVeil: below, with the buttons)
 
 local function DiffColor(level)
 	local c = GetQuestDifficultyColor and level and GetQuestDifficultyColor(level)
 	if c then return c.r, c.g, c.b end
 	return 1, 0.82, 0
+end
+
+-- AzerothVeil: the list's colours, calmer than the game's pure ones on the dark: a quest's difficulty colour
+-- drawn a third of the way to the text's parchment grey (still red, orange, yellow, green, grey), the zones'
+-- names in a softer gold, the objectives in that grey, what's done dimmer, "ready" a quiet green
+local SOFT = { 0.8, 0.77, 0.7 }
+local function SoftColor(r, g, b)
+	return r + (SOFT[1] - r) * 0.35, g + (SOFT[2] - g) * 0.35, b + (SOFT[3] - b) * 0.35
+end
+local ZONE_INK = { 0.96, 0.8, 0.38 }
+local OBJ_INK = { 0.8, 0.78, 0.72 }
+local READY = "|cff86c873"
+local DONE = "|cff7c7a74"
+
+-- AzerothVeil: the objective tracker full (as many quests tracked as the game allows; nil: no limit known)
+local function WatchLimit()
+	local n = C_QuestLog.GetMaxNumQuestsCanWatch and FM.Plain(C_QuestLog.GetMaxNumQuestsCanWatch())
+	if type(n) ~= "number" then
+		n = Constants and Constants.QuestWatchConsts and Constants.QuestWatchConsts.MAX_QUEST_WATCHES or MAX_WATCHABLE_QUESTS
+	end
+	return type(n) == "number" and n > 0 and n or nil
+end
+local function WatchCount()
+	local n = C_QuestLog.GetNumQuestWatches and FM.Plain(C_QuestLog.GetNumQuestWatches())
+	return type(n) == "number" and n or 0
 end
 
 -- AzerothVeil: tracking and focusing (super-tracking) wait for the end of a fight: the change fires its
@@ -378,18 +405,18 @@ local function ObjectivesText(questID, complete, dashes)
 	if complete and dashes then
 		local index = C_QuestLog.GetLogIndexForQuestID(questID)
 		local done = index and GetQuestLogCompletionText and GetQuestLogCompletionText(index)
-		return "- " .. (done or QUEST_WATCH_QUEST_READY or L["Ready to turn in"])
+		return READY .. "- " .. (done or QUEST_WATCH_QUEST_READY or L["Ready to turn in"]) .. "|r"
 	end
 	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
 		if o.text and o.text ~= "" then
 			if dashes then
-				out[#out + 1] = o.finished and ("|cff8a8a8a- " .. o.text .. "|r") or ("- " .. o.text)
+				out[#out + 1] = o.finished and (DONE .. "- " .. o.text .. "|r") or ("- " .. o.text)
 			else
 				out[#out + 1] = o.finished and (TICK .. "|cff8a8a8a" .. o.text .. "|r") or o.text
 			end
 		end
 	end
-	if complete then out[#out + 1] = TICK .. L["|cff40e040Ready to turn in|r"] end
+	if complete then out[#out + 1] = TICK .. READY .. L["Ready to turn in"] .. "|r" end
 	return table.concat(out, "\n")
 end
 
@@ -627,6 +654,8 @@ local function BuildList()
 	local hidden = false
 	local n = C_QuestLog.GetNumQuestLogEntries() or 0
 	local zoneCounts, current = {}, nil
+	local zoneTotal, zoneWatched = {}, {}         -- (AzerothVeil: each zone's quests in the log, and in the tracker)
+	wipe(headers)
 	-- (searching: a quest shows if its name, or its zone's, has what's typed; its zone opens for it)
 	local function Matches(info, zone)
 		if query == "" then return true end
@@ -635,8 +664,15 @@ local function BuildList()
 	local zoneName
 	for i = 1, n do
 		local info = C_QuestLog.GetInfo(i)
-		if info and info.isHeader then current, zoneName = i, info.title zoneCounts[i] = 0
-		elseif info and current and not info.isHidden and info.questID and Matches(info, zoneName) then zoneCounts[current] = zoneCounts[current] + 1 end
+		if info and info.isHeader then
+			current, zoneName = i, info.title
+			zoneCounts[i], zoneTotal[i], zoneWatched[i] = 0, 0, 0
+			headers[#headers + 1] = info.title
+		elseif info and current and not info.isHidden and info.questID then
+			zoneTotal[current] = zoneTotal[current] + 1
+			if Watched(info.questID) then zoneWatched[current] = zoneWatched[current] + 1 end
+			if Matches(info, zoneName) then zoneCounts[current] = zoneCounts[current] + 1 end
+		end
 	end
 	local shownQuests = 0
 	for i = 1, n do
@@ -657,22 +693,25 @@ local function BuildList()
 				b.sign:Show()
 				b.shade:Show()
 				b.edge:Show()
-				local n = zoneCounts[i]
-				b.count:SetText(n and n > 0 and tostring(n) or "")
-				b.count:Show()
+				-- (AzerothVeil: folded, its quests tracked / its quests in the log right after its name, in its
+				-- font, if wanted: the Quests module)
+				local name = info.title or ""
+				if hidden and FM.db.questZoneCount and (zoneTotal[i] or 0) > 0 then
+					name = ("%s (%d/%d)"):format(name, zoneWatched[i] or 0, zoneTotal[i])
+				end
+				b.count:Hide()
 				local tx = 8
 				if S.classic then
 					-- (classic: as the game's quest log draws a zone: a dark bar in a thin border, its name in
 					-- gold, a gold + or - on its right, no count)
-					b.title:SetTextColor(1, 0.82, 0)
+					b.title:SetTextColor(ZONE_INK[1], ZONE_INK[2], ZONE_INK[3])
 					b.shade:Hide()
 					b.edge:Hide()
-					b.count:Hide()
 					b.bar:Show()
 					tx = 10
 				end
 				-- (one line, in the middle of the bar's height)
-				y = Place(b, y + 4, tx, info.title or "", nil, nil, 48)
+				y = Place(b, y + 4, tx, name, nil, nil, 48)
 				b:SetHeight(26)
 				b.title:ClearAllPoints()
 				b.title:SetPoint("LEFT", tx, 0)
@@ -687,7 +726,7 @@ local function BuildList()
 					local failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q)
 					local b = Row()
 					b.questID = q
-					b.title:SetTextColor(DiffColor(info.level))
+					b.title:SetTextColor(SoftColor(DiffColor(info.level)))
 					-- (no "(Dungeon)" / "(PvP)" tag on the right: the icon left of the name says it)
 					local right = 24
 					-- (Forever Quest Tint: its sign on a quest new in Forever, its colour on the objectives if it
@@ -697,7 +736,7 @@ local function BuildList()
 					title = title .. TypeIcon(q) .. QuestMark(q, info, complete, failed)
 					if failed then title = title .. L["  |cffff4040Failed|r"] end
 					local or_, og, ob = FM.Tint.ObjectiveColour(q)
-					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(0.9, 0.9, 0.9) end
+					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(OBJ_INK[1], OBJ_INK[2], OBJ_INK[3]) end
 					-- (left of the name: Blizzard's round button, to focus it)
 					QuestButton(b, q, complete)
 					local indent = 22
@@ -712,7 +751,7 @@ local function BuildList()
 		y = Place(b, y + 6, 10, count == 0 and L["No quests."] or L["No quest matches."], nil, nil)
 	end
 	local maxQ = Constants and Constants.QuestLogConsts and Constants.QuestLogConsts.MAXIMUM_NUM_QUESTS_LOG_CAN_ACCEPT or 25
-	topTitle:SetText((L["Quests: |cffffffff%d/%d|r"]):format(count, maxQ))
+	topTitle:SetText((L["Quests (%d/%d)"]):format(count, maxQ))
 	return y + 6
 end
 
@@ -731,8 +770,16 @@ end
 local items, itemPool = {}, {}
 local ITEM_H = 36
 
+-- AzerothVeil: the game's tooltip beside the log, on the map's side, level with the item (as the dungeon
+-- panel's loot: UI/DungeonPanel.lua's TipBeside), not over the mouse
+local function TipBeside(owner)
+	GameTooltip:SetOwner(owner, "ANCHOR_NONE")
+	GameTooltip:ClearAllPoints()
+	GameTooltip:SetPoint("TOPRIGHT", owner, "TOPLEFT", (panel:GetLeft() or 0) - (owner:GetLeft() or 0) - 4, 0)
+end
+
 local function ItemEnter(self)
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	TipBeside(self)
 	local ok = false
 	if self.currency then
 		ok = GameTooltip.SetQuestLogCurrency and pcall(GameTooltip.SetQuestLogCurrency, GameTooltip, self.kind, self.index, detailID)
@@ -766,7 +813,7 @@ local function NewItem()
 	b.icon:SetSize(28, 28)
 	b.icon:SetPoint("CENTER", b.edge, "CENTER")
 	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+	b.count = S.FontString(b, "OVERLAY", "NumberFontNormal")
 	b.count:SetPoint("BOTTOMRIGHT", b.icon, "BOTTOMRIGHT", -1, 1)
 	b.name = S.Text(b, 11)
 	if S.classic then b.name:SetShadowColor(0, 0, 0, 0) end     -- (on the parchment: no shadow)
@@ -803,7 +850,13 @@ local function ItemGrid(y, list)
 		b.count:SetText(it[5] and it[5] > 1 and it[5] or "")
 		b.name:SetText(it[3] or "")
 		local c = it[6] and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[it[6]]
-		if S.classic and (not it[6] or it[6] <= 1) then b.name:SetTextColor(INK[1], INK[2], INK[3])
+		-- (AzerothVeil: on the parchment, a name in its quality's colour gets a shadow, to read; one in ink none)
+		local inked = S.classic and (not it[6] or it[6] <= 1)
+		if S.classic then
+			b.name:SetShadowOffset(1, -1)
+			b.name:SetShadowColor(0, 0, 0, inked and 0 or 0.8)
+		end
+		if inked then b.name:SetTextColor(INK[1], INK[2], INK[3])
 		elseif c then b.name:SetTextColor(c.r, c.g, c.b) else b.name:SetTextColor(1, 1, 1) end
 		if c then b.edge:SetVertexColor(c.r, c.g, c.b, 1) else b.edge:SetVertexColor(0, 0, 0, 0.9) end
 		b:SetWidth(colW)
@@ -975,22 +1028,91 @@ local function BuildDetails()
 end
 
 ---------------------------------------------------------------------------
+-- AzerothVeil: whether a quest can be followed (in the tracker already, or room left there); else the limit
+function CanFollow(q)
+	if Watched(q) then return true end
+	local limit = WatchLimit()
+	if limit and WatchCount() >= limit then return false, limit end
+	return true
+end
+
+-- AzerothVeil: the top of the log. A quest's page: the Back button's bar. The list: the search box across the
+-- whole width, and under it the count on the left and Collapse all / Expand all at the end of the line, each if
+-- wanted (the Quests module); no bar at all if none is
+local function AnyOpen()
+	for _, h in ipairs(headers) do if not collapsed[h] then return true end end
+	return false
+end
+function TopLayout(details)
+	local top = 0
+	back:SetShown(details and true or false)
+	if details then
+		search:Hide()
+		countBar:Hide()
+		top = BAR
+	else
+		local wantSearch = FM.db.questSearch ~= false
+		search:SetShown(wantSearch)
+		if wantSearch then
+			search:ClearAllPoints()
+			search:SetPoint("LEFT", panel, "TOPLEFT", search.blizz and 12 or 8, -BAR / 2 - 1)
+			search:SetPoint("RIGHT", panel, "TOPRIGHT", -10, -BAR / 2 - 1)
+			top = BAR
+		end
+		local wantCount, wantFold = FM.db.questCount ~= false, FM.db.questFoldAll ~= false
+		countBar:SetShown(wantCount or wantFold)
+		if wantCount or wantFold then
+			countBar:ClearAllPoints()
+			countBar:SetPoint("TOPLEFT", panel, "TOPLEFT", 1, -top)
+			countBar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, -top)
+			topTitle:SetShown(wantCount)
+			foldAll:SetShown(wantFold and #headers > 0)
+			if wantFold then
+				foldAll.label:SetText(AnyOpen() and L["Collapse all"] or L["Expand all"])
+				foldAll:SetWidth(max(80, foldAll.label:GetStringWidth() + 26))
+			end
+			top = top + BAR
+		end
+	end
+	panel.barBg:SetShown(top > 0)
+	panel.barBg:SetHeight(max(1, top))
+	panel.sep:SetShown(top > 0)
+	panel.sep:SetPoint("TOPLEFT", 1, -top)
+	panel.sep:SetPoint("TOPRIGHT", 0, -top)
+	scroll:SetPoint("TOPLEFT", 2, -(top + 2))
+end
+
 local function UpdateButtons()
 	local q = detailID
 	local details = mode == "details" and q
 	if panel.paper then panel.paper:SetShown(details and true or false) end
-	-- (classic: the count's own box goes with the list)
-	local countBox = topTitle:GetParent()
-	if countBox ~= panel then countBox:SetShown(not details) end
-	back:SetShown(details and true or false)
-	search:SetShown(not details)
+	TopLayout(details)
 	bottom:SetShown(details and true or false)
 	scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, details and (BAR + 4) or 4)
 	if not details then return end
-	buttons.track.label:SetText(Watched(q) and L["Untrack"] or L["Track"])
-	buttons.nav:SetActive(Focused(q))
-	local canShare = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q) and IsInGroup()
-	buttons.share:SetAlpha(canShare and 1 or 0.4)
+	-- AzerothVeil: Track: guided with the waypoint arrow, and in the objective tracker (greyed while the tracker
+	-- is full and it isn't in it, saying why)
+	local f = buttons.follow
+	local ok, limit = CanFollow(q)
+	local focused = Focused(q)
+	f:SetEnabled(ok)
+	f:SetActive(ok and focused)
+	if not S.classic then f:SetAlpha(ok and 1 or 0.45) end
+	if not ok then
+		f.tip = { L["Track"], (L["The objective tracker is full (%d quests): untrack one to follow this one."]):format(limit) }
+	elseif focused then
+		f.tip = { L["Track"], L["Followed with the waypoint arrow. Click to stop (it stays in the objective tracker)."] }
+	else
+		f.tip = { L["Track"], L["Follow it with the waypoint arrow, and show it in the objective tracker."] }
+	end
+	-- Share: greyed with its reason
+	local share = buttons.share
+	local pushable = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q)
+	local grouped = IsInGroup() and true or false
+	share:SetEnabled(pushable and grouped and true or false)
+	if not S.classic then share:SetAlpha(pushable and grouped and 1 or 0.45) end
+	share.tip = { L["Share"], not pushable and L["This quest can't be shared."]
+		or not grouped and L["You're not in a group."] or L["Offer it to your group."] }
 	buttons.abandon.label:SetText(buttons.abandon.armed == q and L["|cffff5050Sure?|r"] or L["Abandon"])
 end
 
@@ -1097,38 +1219,39 @@ local function Build(parent, headerHeight)
 	line:SetWidth(1)
 
 	-- its bar, a shade of its own under the map's header (the rule between them: the header's, Map.lua);
-	-- in the list, a search box on the left and how many quests there are on the right
+	-- in the list (AzerothVeil), the search box, and under it the count and Collapse all: TopLayout
 	local barBg = panel:CreateTexture(nil, "BACKGROUND", nil, 1)
+	panel.barBg = barBg
 	barBg:SetTexture(S.WHITE)
 	barBg:SetVertexColor(1, 1, 1, 0.04)
 	barBg:SetPoint("TOPLEFT", 1, 0)
 	barBg:SetPoint("TOPRIGHT", 0, 0)
 	barBg:SetHeight(BAR)
 	if S.classic then barBg:SetVertexColor(0, 0, 0, 0.5) end
-	topTitle = S.Text(panel, 12, S.ACCENT)
-	topTitle:SetPoint("RIGHT", panel, "TOPRIGHT", -10, -BAR / 2 - 1)
-	-- (classic: the game's own search box, as its quest log has it; and the count in a box of its own)
+	-- AzerothVeil: the line under the search box: the count on the left, Collapse all / Expand all at its end
+	countBar = CreateFrame("Frame", nil, panel)
+	countBar:SetHeight(BAR)
+	topTitle = S.Text(countBar, 12, S.ACCENT)
+	if S.classic then topTitle:SetTextColor(ZONE_INK[1], ZONE_INK[2], ZONE_INK[3]) end
+	topTitle:SetPoint("LEFT", countBar, "LEFT", 10, -1)
+	foldAll = S.Button(countBar, L["Collapse all"], 100, 20, function()
+		if AnyOpen() then
+			for _, h in ipairs(headers) do collapsed[h] = true end
+		else
+			wipe(collapsed)
+		end
+		QL.Refresh()
+	end)
+	foldAll:SetPoint("RIGHT", countBar, "RIGHT", -8, -1)
+	foldAll.tip = { L["Collapse all / Expand all"], L["Folds every zone of the list, or opens them all."] }
+	-- (classic: the game's own search box, as its quest log has it)
 	local blizzSearch = false
 	if S.classic then
 		local ok, sb = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
-		if ok and sb then search, blizzSearch = sb, true end
-		if S.Backdrop then
-			local box = CreateFrame("Frame", nil, panel, BackdropTemplateMixin and "BackdropTemplate" or nil)
-			if box.SetBackdrop then
-				box:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-					tile = true, tileSize = 8, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
-				box:SetBackdropColor(0, 0, 0, 1)
-				box:SetBackdropBorderColor(0.55, 0.45, 0.3, 1)
-				box:SetPoint("TOPLEFT", topTitle, "TOPLEFT", -7, 5)
-				box:SetPoint("BOTTOMRIGHT", topTitle, "BOTTOMRIGHT", 7, -5)
-				box:SetFrameLevel(panel:GetFrameLevel() + 1)
-				topTitle:SetParent(box)
-			end
-		end
+		if ok and sb then search, blizzSearch = S.Friz(sb), true end
 	end
 	search = search or CreateFrame("EditBox", nil, panel)
-	search:SetPoint("LEFT", panel, "TOPLEFT", blizzSearch and 12 or 8, -BAR / 2 - 1)
-	search:SetPoint("RIGHT", topTitle, "LEFT", blizzSearch and -16 or -10, 0)
+	search.blizz = blizzSearch          -- (AzerothVeil: laid out by TopLayout, across the whole width)
 	search:SetHeight(blizzSearch and 20 or 18)
 	search:SetAutoFocus(false)
 	search:SetMaxLetters(60)
@@ -1188,6 +1311,7 @@ local function Build(parent, headerHeight)
 	back:SetPoint("TOPLEFT", 4, -3)
 	back:Hide()
 	local sep = panel:CreateTexture(nil, "BORDER")
+	panel.sep = sep
 	sep:SetTexture(S.WHITE)
 	sep:SetVertexColor(S.BORDER[1], S.BORDER[2], S.BORDER[3], S.BORDER[4])
 	sep:SetPoint("TOPLEFT", 1, -BAR)
@@ -1222,26 +1346,31 @@ local function Build(parent, headerHeight)
 	bottom:SetPoint("BOTTOMRIGHT", 0, 1)
 	bottom:SetHeight(BAR)
 	bottom:Hide()
-	local bw = (WIDTH - 10 - 9) / 4
+	local bw = (WIDTH - 10 - 6) / 3
 	local function Act(key, label, tip, fn)
 		local b = S.Button(bottom, label, bw, 20, fn)
 		b.tip = tip
 		buttons[key] = b
 		return b
 	end
-	Act("track", L["Track"], { L["Track"], L["Show it in the objective tracker."] }, function()
-		if detailID then SetWatched(detailID, not Watched(detailID)) QL.Refresh() end
-	end):SetPoint("BOTTOMLEFT", 5, 3)
-	Act("nav", L["Navigate"], { L["Navigate"], L["Follow it with the in-game waypoint arrow."] }, function()
-		if not detailID or not C_SuperTrack then return end
-		SetFocus(Focused(detailID) and 0 or detailID)
+	-- AzerothVeil: Track = followed with the waypoint arrow (Navigate's), and put in the objective tracker if it
+	-- isn't there; clicked again, the arrow let go (still tracked)
+	Act("follow", L["Track"], nil, function()
+		local q = detailID
+		if not q or not CanFollow(q) then return end
+		if Focused(q) then
+			SetFocus(0)
+		else
+			if not Watched(q) then SetWatched(q, true) end
+			SetFocus(q)
+		end
 		QL.Refresh()
-	end):SetPoint("LEFT", buttons.track, "RIGHT", 3, 0)
+	end):SetPoint("BOTTOMLEFT", 5, 3)
 	Act("share", L["Share"], { L["Share"], L["Offer it to your group."] }, function()
 		if not detailID or not IsInGroup() then return end
 		C_QuestLog.SetSelectedQuest(detailID)
 		QuestLogPushQuest()
-	end):SetPoint("LEFT", buttons.nav, "RIGHT", 3, 0)
+	end):SetPoint("LEFT", buttons.follow, "RIGHT", 3, 0)
 	Act("abandon", L["Abandon"], { L["Abandon"], L["Click twice to abandon it."] }, function(self)
 		if not detailID then return end
 		if self.armed == detailID then
@@ -1297,10 +1426,13 @@ function QL.Apply()
 		buttons.abandon.armed = nil
 		FM.Quests.ClearSelection()
 	end
+	-- (AzerothVeil: the search box gone: what was typed goes with it)
+	if FM.db.questSearch == false and query ~= "" then query = "" search:SetText("") end
 	if suspended then return end
 	panel:SetShown(Out())
 	FM.Map.SetSideWidth(Out() and WIDTH or 0)
 	if FM.Map.questsButton then FM.Map.questsButton:SetActive(Out()) end
+	if panel:IsShown() then QL.Refresh() end     -- (AzerothVeil: the top's lines and the zones' counts as set)
 end
 function QL.IsSuspended() return suspended end
 QL.WIDTH = WIDTH

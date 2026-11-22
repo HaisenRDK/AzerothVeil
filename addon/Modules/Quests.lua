@@ -44,6 +44,18 @@ local Quests = ns.Modules:Register({
 		{ key = "replace", icon = "Interface\\QuestFrame\\UI-QuestLog-BookIcon", type = "toggle", default = true, parent = "log",
 			label = L["Replace Blizzard's quest log"],
 			tooltip = L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] },
+		{ key = "search", icon = "Interface\\Common\\UI-Searchbox-Icon", type = "toggle", default = true, parent = "log",
+			label = L["Search box"],
+			tooltip = L["At the top of the quest log, across its whole width."] },
+		{ key = "count", icon = "Interface\\Icons\\INV_Misc_Note_01", type = "toggle", default = true, parent = "log",
+			label = L["Quest count"],
+			tooltip = L["Under the search box: your quests, out of as many as the log can hold."] },
+		{ key = "foldAll", icon = "Interface\\Buttons\\UI-MinusButton-Up", type = "toggle", default = true, parent = "log",
+			label = L["Collapse all / Expand all"],
+			tooltip = L["At the end of the count's line: folds every zone of the list, or opens them all."] },
+		{ key = "zoneCount", icon = "Interface\\Icons\\INV_Misc_Map_01", type = "toggle", default = true, parent = "log",
+			label = L["Quests per zone"],
+			tooltip = L["After a folded zone's name: its quests in the objective tracker / its quests in the log."] },
 	},
 })
 
@@ -57,6 +69,10 @@ local function Apply(self, running)
 	db.pins.questie = On("questie")
 	db.questLog = On("log")
 	db.replaceQuestLog = On("replace")
+	db.questSearch = On("search")
+	db.questCount = On("count")
+	db.questFoldAll = On("foldAll")
+	db.questZoneCount = On("zoneCount")
 	if ns.QuestLog and ns.QuestLog.Apply then ns.QuestLog.Apply() end
 	if ns.ApplyBindings then ns.ApplyBindings() end      -- (the L key: ours or Blizzard's)
 	if ns.Map.IsShown() then ns.Pins.Ensure() end

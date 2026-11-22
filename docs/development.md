@@ -208,3 +208,13 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
    sans message d'erreur de débit.
 7. « Recevoir les marqueurs partagés » décoché : plus rien n'arrive. Module désactivé : plus de marqueurs sur la
    carte, Ctrl+clic pose le point de passage comme avant ; réactivé : tout revient. En combat : aucune erreur.
+
+## Checklist en jeu — journal de quêtes (v0.6.1)
+
+1. Page d'une quête : survol d'une récompense → infobulle à gauche du journal, à sa hauteur ; noms lisibles.
+2. Suivre : flèche de navigation + ajout au suivi ; re-clic : flèche retirée, quête toujours suivie. Suivi plein
+   et quête non suivie : bouton grisé, infobulle qui l'explique. Partager grisé hors groupe, avec sa raison.
+3. Liste : recherche sur toute la ligne, « Quêtes (n/max) » et Tout replier / Tout déplier ; zone repliée :
+   « Nom (suivies/total) ». Chaque option du module Quêtes retire son élément ; tout décoché : plus d'en-tête.
+4. Police : Friz Quadrata partout (carte, journal, options, donjons, marqueurs), y compris sur les boutons
+   survolés, cliqués ou grisés.

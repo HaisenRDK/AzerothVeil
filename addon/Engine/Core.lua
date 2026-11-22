@@ -50,6 +50,10 @@ FM.defaults = {
 	replaceQuestLog = true,          -- L, and every "show this quest", open this map's quest log
 	questLog = true,                 -- AzerothVeil: the quest log docked beside the map is there at all (the Quests module)
 	questPanel = true,               -- the quest log docked beside the map (out or folded away)
+	questSearch = true,              -- AzerothVeil: the log's search box (the Quests module's)
+	questCount = true,               -- AzerothVeil: ... its count of quests, under it
+	questFoldAll = true,             -- AzerothVeil: ... its Collapse all / Expand all button, at the count's end
+	questZoneCount = true,           -- AzerothVeil: ... a folded zone's quests tracked / in the log, after its name
 	npcUnexplored = true,            -- AzerothVeil: the townsfolk of land not explored yet too (the Map module's)
 	terrainNames = true,             -- AzerothVeil: the places' names over the minimap's terrain up close (the Map module's)
 	allClassTrainers = false,        -- AzerothVeil: every class's trainers, not only yours (the Icons module's)
@@ -60,7 +64,8 @@ FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
 -- (AzerothVeil: and the Dungeons module's)
 FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
 -- (AzerothVeil: and the Quests module's switches)
-FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog" }
+FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog",
+	"questSearch", "questCount", "questFoldAll", "questZoneCount" }
 -- (AzerothVeil: and the Map module's switches, as they are while it's off: Modules/Map.lua)
 FM.MAP_OFF = {
 	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
@@ -164,13 +169,14 @@ local function Dialog(text, b1, b2, on1, on2)
 				edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 32,
 				insets = { left = 11, right = 12, top = 12, bottom = 11 } })
 		end
-		f.text = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		f.text = FM.Style.FontString(f, "ARTWORK", "GameFontHighlight")
 		f.text:SetWidth(320)
 		f.text:SetPoint("TOP", 0, -18)
 		f.text:SetJustifyH("CENTER")
 		f.buttons = {}
 		for i = 1, 2 do
 			local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+			FM.Style.FrizButton(b)   -- (AzerothVeil: Friz Quadrata)
 			b:SetSize(128, 21)
 			b:SetScript("OnClick", function()
 				f:Hide()

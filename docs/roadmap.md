@@ -67,6 +67,15 @@
 - [ ] Pistes : partager l'icône entre utilisateurs d'AzerothVeil (OpenMap n'en a pas : il faudrait un message à part),
   marqueurs sur la minicarte
 
+## Étape 4 bis — Journal de quêtes et police (v0.6.1, fait)
+
+- Page d'une quête : infobulles des récompenses à côté du journal (comme le butin des boss), noms en couleur
+  de qualité avec une ombre ; trois boutons : Suivre (flèche + suivi des objectifs, grisé si le suivi est
+  plein), Partager (grisé avec sa raison), Abandonner.
+- Liste : recherche sur toute la largeur, « Quêtes (n/max) » et Tout replier / Tout déplier dessous, compteur
+  suivies/total après le nom d'une zone repliée ; quatre options du module Quêtes ; couleurs adoucies.
+- Friz Quadrata TT dans tout l'addon (`Style.FontPath`, `Style.Friz`, `Style.FrizButton`).
+
 ## Questions ouvertes
 
 - Permissions de Santiago Reyes / Exehn si AzerothVeil devait être distribué (cf. audit §1).
