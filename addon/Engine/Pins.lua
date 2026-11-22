@@ -42,6 +42,10 @@ local CAPITAL_ICON = {
 	Alliance = Atlas({ "poi-alliance", "MountJournalIcons-Alliance" }, "Interface\\Icons\\INV_BannerPVP_02"),
 	Horde = Atlas({ "poi-horde", "MountJournalIcons-Horde" }, "Interface\\Icons\\INV_BannerPVP_01"),
 }
+-- AzerothVeil: the zeppelin towers as OpenMap shows them (Map/Stitch.lua's LOOK, MIT): Blizzard's Horde airship
+-- (the battleground maps' flying-vehicle atlas), its old seat-indicator picture where the client lacks it
+local ZEPPELIN_ICON = Atlas({ "vehicle-air-horde" }, "Interface\\Vehicles\\SeatIndicator\\Vehicle-HordeZeppelin")
+P.ZEPPELIN_ICON = ZEPPELIN_ICON
 local CAPITALS = {               -- uiMapID, its faction
 	{ 1453, "Alliance" }, { 1455, "Alliance" }, { 1457, "Alliance" },
 	{ 1454, "Horde" }, { 1456, "Horde" }, { 1458, "Horde" },
@@ -56,7 +60,7 @@ local CATS = {
 		layer = 8, drawLayer = "OVERLAY", group = "places" },
 	-- (boats, zeppelins and the tram: on top of the rest, the routes end on them)
 	{ key = "boat", label = L["Harbor"], icon = MEDIA .. "harbor_alliance", size = 22, minZoom = 0, layer = 7, group = "transport", noJoin = true },
-	{ key = "zeppelin", label = L["Zeppelin towers"], icon = MEDIA .. "MapUtils\\pier_zeppelin_orc", size = 20, minZoom = 0, layer = 7, group = "transport", noJoin = true },
+	{ key = "zeppelin", label = L["Zeppelin towers"], icon = ZEPPELIN_ICON, size = 24, minZoom = 0, layer = 7, group = "transport", noJoin = true },
 	{ key = "airship", label = L["Airships (Zephras Isle)"], icon = "atlas:vehicle-air-alliance", size = 24, minZoom = 0, layer = 7, group = "transport", noJoin = true },
 	{ key = "tram", label = L["Deeprun Tram"], icon = MEDIA .. "tram", size = 20, minZoom = 0, layer = 7, group = "transport", noJoin = true },
 
@@ -68,7 +72,8 @@ local CATS = {
 	{ key = "banker", label = L["Bankers"], icon = TRACK .. "banker", data = true },
 	{ key = "auctioneer", label = L["Auctioneers"], icon = TRACK .. "auctioneer", data = true },
 	{ key = "repair", label = L["Repair"], icon = TRACK .. "repair", data = true },
-	{ key = "classTrainer", label = L["Class trainers"], icon = TRACK .. "class", data = true, myClass = true },
+	{ key = "classTrainer", label = L["Class trainers"], icon = TRACK .. "class", data = true, myClass = true,
+		everyClass = "allClassTrainers" },   -- (AzerothVeil: FM.db.allClassTrainers, the Icons module's: every class's)
 	{ key = "portalTrainer", label = L["Portal trainers"], icon = "Interface\\Minimap\\vehicle-alliancemageportal", data = true, myClass = true },
 	{ key = "weaponMaster", label = L["Weapon masters"], icon = MEDIA .. "Questie\\weaponmaster", data = true },
 	{ key = "stable", label = L["Stable masters"], icon = TRACK .. "stablemaster", data = true },
@@ -115,11 +120,11 @@ for i, c in ipairs(CATS) do
 	end
 end
 
--- (zeppelins: MapUtils' pier icons, the Forsaken one on Tirisfal's side)
+-- (AzerothVeil: zeppelins as OpenMap shows them, every tower alike; no longer MapUtils' piers, the Forsaken one
+-- on Tirisfal's side)
 local TRANSPORT_ICON = {
-	zeppelin = MEDIA .. "MapUtils\\pier_zeppelin_orc", airship = "atlas:vehicle-air-alliance",
+	zeppelin = ZEPPELIN_ICON, airship = "atlas:vehicle-air-alliance",
 }
-local ZEPPELIN_UNDEAD = MEDIA .. "MapUtils\\pier_zeppelin_undead"
 -- whose a transport is: the goblins' boats serve both factions; every other boat is the Alliance's, every
 -- zeppelin the Horde's
 local NEUTRAL_ROUTES = { ["Booty Bay - Ratchet"] = true, ["Steamwheedle Port - Powderfuse Port"] = true }
@@ -1353,10 +1358,10 @@ local function BuildPlaces()
 			if not own then lines[2] = { L["The other faction's"], 1, 0.45, 0.4, 11 } end
 			AddPin(KIND_CAT[kind] or byKey.boat, u, v, {
 				title = dest and L["%s to %s"]:format(name, dest) or name, lines = lines,
-				icon = (kind == "zeppelin" and Geo.ZoneAt(u, v) == 1420) and ZEPPELIN_UNDEAD
-					or kind == "boat" and P.FactionArt("harbor", faction) or TRANSPORT_ICON[kind],
-				-- (MapUtils' dark outline: zeppelins, airships, harbors, trams; round our painted harbors, lighter)
-				outline = kind == "boat" and P.PAINTED_OUTLINE or (kind == "zeppelin" or kind == "airship") or nil,
+				icon = kind == "boat" and P.FactionArt("harbor", faction) or TRANSPORT_ICON[kind],
+				-- (MapUtils' dark outline: airships, harbors, trams; round our painted harbors, lighter. AzerothVeil:
+				-- none round the zeppelins, OpenMap's icon drawn as it is)
+				outline = kind == "boat" and P.PAINTED_OUTLINE or kind == "airship" or nil,
 				away = away,
 				dock = { kind = kind, cont = cont, x = x, y = y, near = DOCK_YARDS[kind] or 60, routes = { route } },
 				travel = { { dest = dest, route = route, own = own, u = tu, v = tv } },
@@ -1379,20 +1384,74 @@ local function BuildPlaces()
 	end
 end
 
+-- AzerothVeil: the townsfolk only where you've explored (the Map module's "Townsfolk of unexplored areas"
+-- off: FM.db.npcUnexplored false), as OpenMap's "Only places you've found" (Map/Stitch.lua, MIT): the game's
+-- explored areas at the spot or a little round it (C_MapExplorationInfo.GetExploredAreaIDsAtPosition). In a
+-- capital (its own map has nothing to explore): found once you've been in it, or explored the zone's land
+-- under it. Only in the zones the game has explored areas for (the fog's, FM.FOG_ZONES); anywhere else shown.
+-- Each spot asked once: found stays found; not found is asked again once the player has explored more.
+local CITY_ZONE = { [1453] = 1429, [1454] = 1411, [1455] = 1426, [1456] = 1412, [1457] = 1438, [1458] = 1420 }
+local AROUND = { { 0, 0 }, { 0.015, 0 }, { -0.015, 0 }, { 0, 0.015 }, { 0, -0.015 } }
+local foundAt = {}                    -- spot (or capital) -> found
+local exploring                       -- the zones with explored areas, as a set
+local vec
+local function ExploredAt(map, x, y, around)
+	local at = C_MapExplorationInfo and C_MapExplorationInfo.GetExploredAreaIDsAtPosition
+	if not (at and CreateVector2D) then return true end      -- (not on this client: every one shown)
+	vec = vec or CreateVector2D(0, 0)
+	for i = 1, around and #AROUND or 1 do
+		vec:SetXY(x + AROUND[i][1], y + AROUND[i][2])
+		local ok, areas = pcall(at, map, vec)
+		areas = ok and FM.Plain(areas)
+		if type(areas) == "table" and #areas > 0 then return true end
+	end
+	return false
+end
+local function CityFound(city)
+	local f = foundAt[city]
+	if f ~= nil then return f end
+	f = ExploredAt(city, 0.5, 0.5) or FM.Plain(C_Map.GetBestMapForUnit("player")) == city
+	local zone, r = CITY_ZONE[city], Geo.Rect(city)
+	if not f and r then
+		local x, y = Geo.UnitsToMap(zone, (r[1] + r[2]) / 2, (r[3] + r[4]) / 2)
+		f = x and ExploredAt(zone, x, y, true) or false
+	end
+	foundAt[city] = f
+	return f
+end
+-- map, x, y: the townsfolk's own spot in its data (x, y in 1/10000ths of its map)
+local function Found(map, x, y)
+	if CITY_ZONE[map] then return CityFound(map) end
+	if not exploring then
+		exploring = {}
+		for _, id in ipairs(FM.FOG_ZONES or {}) do exploring[id] = true end
+	end
+	if not exploring[map] then return true end
+	local key = map * 1e9 + x * 10001 + y          -- (x, y up to 10000: one number per spot)
+	local f = foundAt[key]
+	if f == nil then
+		f = ExploredAt(map, x / 10000, y / 10000, true)
+		foundAt[key] = f
+	end
+	return f
+end
+
 -- the built-in townsfolk (Data\Townsfolk.lua): read into tables only while building, then let go
 local function BuildTownsfolk(todo)
 	if not FM.LoadTownsfolk then return end
 	local data, strings, tags = FM.LoadTownsfolk()
 	local mine = UnitFactionGroup("player") == "Horde" and 2 or 1
 	local _, myClass = UnitClass("player")
+	local foundOnly = FM.db.npcUnexplored == false      -- (AzerothVeil: the Map module's switch)
 	for _, cat in ipairs(todo) do
 		local list = data[cat.data == true and cat.key or cat.data] or {}
 		cat.pins, cat.grid = cat.pins or {}, cat.grid or {}
 		for i = 1, #list, 7 do
 			local map, x, y, name, sub, fac, tag = list[i], list[i + 1], list[i + 2], list[i + 3], list[i + 4], list[i + 5], list[i + 6]
 			local ok = fac == 3 or fac == mine or (cat.anyFaction and fac == 0)
-			if ok and cat.myClass then ok = tags[tag] == myClass end
+			if ok and cat.myClass and not (cat.everyClass and FM.db[cat.everyClass]) then ok = tags[tag] == myClass end
 			if ok and cat.tag then ok = tags[tag] == cat.tag end
+			if ok and foundOnly then ok = Found(map, x, y) end
 			if ok then
 				local move = NPC_MOVE[map] and NPC_MOVE[map][strings[name]]
 				if move then x, y = x + move[1], y + move[2] end
@@ -1453,6 +1512,24 @@ function P.InvalidateFlights()
 	byKey.flight.built = nil
 end
 
+-- AzerothVeil: the townsfolk built again (with the map open; else when it next opens): the Map module's
+-- "Townsfolk of unexplored areas" switched, or more of the world explored while it hides them. What wasn't
+-- found is asked again; what was stays found
+function P.RefreshExplored()
+	for k, f in pairs(foundAt) do if not f then foundAt[k] = nil end end
+	for _, cat in ipairs(CATS) do
+		if cat.data and cat.built then ClearCat(cat) end
+	end
+	if FM.Map.IsShown() then P.Ensure() end
+end
+
+-- AzerothVeil: one kind of townsfolk built again (now with the map open, else when it opens): who it lists changed
+function P.RebuildKind(key)
+	local cat = byKey[key]
+	if cat and cat.built then ClearCat(cat) end
+	if FM.Map.IsShown() then P.Ensure() end
+end
+
 function P.RebuildFlights()
 	byKey.flight.built = nil
 	if FM.db.pins.flight then BuildFlights() end
@@ -1462,6 +1539,7 @@ end
 function P.OnShow()
 	pass = pass + 1          -- (no glides out of where groups were the last time it was open)
 	snapNext = true
+	if P.BeforeOpen then P.BeforeOpen() end   -- (AzerothVeil: the Icons module's: your professions read again)
 	P.Ensure()
 end
 

@@ -7,6 +7,8 @@
 -- The zone's name banner for the city (Media\CityBanner) shows with the zone, and gives way to the
 -- city's own title as the city comes in. One frame per city, scaled as a whole: a pan or zoom moves
 -- one frame, not its tiles; a city off the view, or not near its zoom, is hidden (its files not loaded).
+-- AzerothVeil: Thunder Bluff's and Orgrimmar's plans (Media/CityMask) cut in closer than OpenMap's, so the city's map
+-- (its own ground round the city, drawn darker than the zone's) doesn't spread over the zone's land round it.
 local _, FM = ...
 local C = {}
 FM.Cities = C
@@ -33,8 +35,18 @@ local BANNERS = {
 	[1457] = { 1438, 113, 427, 512, 64 },  -- Darnassus, on Teldrassil's
 }
 
+-- AzerothVeil: up close, under the minimap's terrain (Terrain.lua), as OpenMap does it (Map/Close.lua, MIT). A city in
+-- the open fades out as the terrain comes in: the minimap draws it, and the city's own map, cut wider than the
+-- city, no longer lies over the land round it. Under the ground (Ironforge, Undercity: the minimap there is the
+-- surface over them), the city's map stays, and the game's minimap of the city inside comes over it with the
+-- terrain (Data/CaveMinimap.lua, FM.CITY_MINIMAP: its WMO's pictures, made the first time they're wanted)
+local UNDERGROUND = { [1455] = true, [1458] = true }
+local MINI_DESAT = 0.35                 -- (toned as the caves' minimap pictures, Caves.lua)
+local PAPER = { 1, 0.93, 0.80 }
+
 local layer
 local cities = {}
+local under = 0                         -- how much the minimap's terrain shows (0..1)
 
 -- a frame laid out in a map's art pixels, placed and scaled onto the view as a whole
 local function ArtFrame(rect)
@@ -83,12 +95,67 @@ local function Build(c)
 	c.built = true
 end
 
+-- the game's minimap of an underground city inside: its pictures (file, centre X, Y, side in yards, rotation,
+-- u1, v0), each a square turned about its centre, lowest floor first, on the city's frame (its art pixels)
+local function MinimapPictures(c)
+	local d = FM.CITY_MINIMAP and FM.CITY_MINIMAP[c.id]
+	if not d then c.mini = false return end
+	local r = c.r
+	local kx, ky = ART_W / (r[2] - r[1]), ART_H / (r[4] - r[3])
+	local f = CreateFrame("Frame", nil, c.frame)
+	f:SetAllPoints(c.frame)
+	local p = d[6]
+	local n = #p / 7
+	for i = 1, n do
+		local j = (i - 1) * 7
+		local u, v = Geo.WorldToUnits(d[1], p[j + 2], p[j + 3])
+		local u2 = Geo.WorldToUnits(d[1], p[j + 2], p[j + 3] + p[j + 4])     -- (a side's length, in units)
+		if u and u2 then
+			local side = math.abs(u2 - u) * kx
+			local t = f:CreateTexture(nil, "OVERLAY", nil, math.min(7, math.floor((i - 1) * 16 / n) - 8))
+			t:SetTexture(p[j + 1], "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE", "TRILINEAR")
+			t:SetTexCoord(0, p[j + 6], p[j + 7], 1)
+			t:SetRotation(p[j + 5])
+			t:SetDesaturation(MINI_DESAT)
+			t:SetVertexColor(PAPER[1], PAPER[2], PAPER[3])
+			t:SetSize(side, side)
+			t:SetPoint("CENTER", f, "TOPLEFT", (u - r[1]) * kx, -(v - r[3]) * ky)
+		end
+	end
+	c.mini = f
+end
+
+-- a city's alpha for its zoom (a) and the terrain now: under it in the open, its minimap over it underground
+local function Apply(c)
+	local f, a = c.frame, c.alpha or 0
+	if c.underground then
+		f:SetAlpha(a)
+		local m = a >= 1 and under or 0
+		if m > 0.003 and c.mini == nil then MinimapPictures(c) end
+		if c.mini then
+			c.mini:SetAlpha(m)
+			c.mini:SetShown(m > 0.003)
+		end
+	else
+		f:SetAlpha(a * (1 - under))
+	end
+end
+
+-- (the terrain fading in or out: Terrain.lua, as it goes)
+function C.SetTerrain(k)
+	if k == under then return end
+	under = k
+	for _, c in ipairs(cities) do
+		if c.frame:IsShown() then Apply(c) end
+	end
+end
+
 function C.Init(parent)
 	layer = parent
 	for id, def in pairs(CITIES) do
 		local r = Geo.Rect(id)
 		if r then
-			local c = { id = id, cut = def.cut, title = def.title, r = r }
+			local c = { id = id, cut = def.cut, title = def.title, r = r, underground = UNDERGROUND[id] }
 			c.frame = ArtFrame(r)
 			-- (the city on its layer's own level, its banner one over: both under the world's art, Map.lua's worldArt,
 			-- one level up, which covers them as it comes in zoomed right out)
@@ -131,7 +198,8 @@ function C.Layout(left, top, scale, vw, vh, zoom)
 		if a > 0.003 and not c.failed and InView(c.r, left, top, x1, y1) then
 			if not c.built then Build(c) end
 			Place(f, left, top, scale)
-			f:SetAlpha(a)
+			c.alpha = a
+			Apply(c)                                       -- (AzerothVeil: with the terrain)
 			f:Show()
 		elseif f:IsShown() then
 			f:Hide()

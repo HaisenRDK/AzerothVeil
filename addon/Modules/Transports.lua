@@ -47,7 +47,7 @@ local Transports = ns.Modules:Register({
 		{ key = "enemyHarbors", icon = EnemyHarbor, type = "toggle", default = false, parent = "boats",
 			label = L["The other faction's harbors"],
 			tooltip = L["The other faction's harbors too, with their boats' routes (named in red)."] },
-		{ key = "zeppelins", icon = MEDIA .. "MapUtils\\pier_zeppelin_orc", type = "toggle", default = true,
+		{ key = "zeppelins", icon = ns.Pins.ZEPPELIN_ICON, type = "toggle", default = true,
 			label = L["Show zeppelins"],
 			tooltip = L["Zeppelin towers and their zeppelins."] },
 		{ key = "others", icon = MEDIA .. "tram", type = "toggle", default = true,

@@ -4,7 +4,7 @@
 -- own tracking border and background), no library needed. A named, unprotected button on Minimap, so
 -- minimap-button collectors (FlareUI's drawer among them) take it as they take the others.
 -- Also the game's addon compartment entry (the .toc's AddonCompartmentFunc): the same two clicks.
--- Shown or hidden in the options (Map tab); nothing runs but while it's dragged.
+-- Shown or hidden by the Map module (Modules/Map.lua); nothing runs but while it's dragged.
 local _, ns = ...
 local L = ns.L
 
@@ -18,7 +18,7 @@ local function Cfg()
 	if not root then return { angle = 225 } end
 	local c = root.core.minimap
 	if type(c) ~= "table" then
-		c = { angle = 225, hide = false }
+		c = { angle = 225 }
 		root.core.minimap = c
 	end
 	return c
@@ -83,18 +83,19 @@ local function Create()
 	Place()
 end
 
-function MB.IsShown() return not Cfg().hide end
+-- (shown or not: the Map module's "Minimap button", Modules/Map.lua; hidden while that module is off)
+local wanted = false
+function MB.IsShown() return wanted end
 
 function MB.SetShown(on)
-	Cfg().hide = not on
-	if on and not button then Create() end
-	if button then button:SetShown(on and true or false) end
+	wanted = on and true or false
+	if wanted and not button and Minimap then Create() end
+	if button then button:SetShown(wanted) end
 end
 
--- at login (Core/Bootstrap.lua)
+-- at login (Core/Bootstrap.lua), once the modules have started
 function MB.Init()
-	if not Minimap then return end
-	if not Cfg().hide then Create() end
+	if wanted and not button and Minimap then Create() end
 end
 
 -- the game's addon compartment (.toc: AddonCompartmentFunc): the same clicks as the button's

@@ -92,6 +92,9 @@ function M:Disable() end              -- s'arrête, libère
 function M:Refresh(key, value) end    -- un réglage a changé pendant qu'il tourne
 ```
 
+Un en-tête déclaré `all = true` reçoit les boutons « Tout afficher / Tout masquer » sur les deux écrans
+(`MM:SectionToggles`, `MM:SetSection`) : ils agissent sur les options de sa section, sauf celles déclarées `noAll = true`.
+
 Aides disponibles dans un module : `self.db` (ses réglages), `self:Get/Set(key)`,
 `self:IsOptionActive(key)`, `self:RegisterEvent(event, fn)`, `self:RegisterMessage(msg, fn)`,
 `self:SendMessage(msg, ...)`, `self:After(s, fn)`, `self:NewTicker(s, fn)`, `self:Print(msg)`.
@@ -141,6 +144,9 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 | `social` (Amis & guilde) | `Engine/Friends.lua` | `Friends.Start(cfg)/Stop()` ; lit les réglages du module en direct (`F.cfg`) |
 | `transports` | `Engine/Vessels.lua`, `Routes.lua`, `Pins.lua` | `Vessels.Start/Stop/SetTracking/SetSharing`, `Routes.SetEnabled`, `Pins.OnTravelClick` ; le module **écrit** les interrupteurs que le moteur lit (`FM.db.pins.flight/boat/zeppelin/tram/airship`, `enemyFlight`, `routes`, `vessels`, `vesselSync`, `enemyHarbors`) : ce sont des valeurs effectives, remises à `false` à chaque chargement (`Engine/Core.lua`) et tant que le module est désactivé ; ses vrais réglages sont dans `AzerothVeilDB.modules.transports` |
 
+| `quests` | `Engine/Quests.lua`, `QuestLog.lua`, `Takeover.lua`, `Core.lua` (touche L) | interrupteurs effectifs (`questPOI`, `questOffers`, `questAreas`, `pins.questie`, `questLog`, `replaceQuestLog`) ; `QuestLog.Apply` (journal présent ou non, bouton de repli) ; module éteint = comportement de WoW : L et le suivi d'objectifs ouvrent le journal de Blizzard (`Takeover.KeepNative`). `FM.db.questPanel` reste l'état replié/déplié du journal |
+| `map` (Carte) | `Engine/Map.lua`, `Pins.lua`, `AddonPins.lua`, `Caves.lua`, `Terrain.lua`, `Core.lua` (touche M), `Takeover.lua`, `Fog.lua`, `UI/MinimapButton.lua` | interrupteurs effectifs (`replaceM`, `reopen`, `rememberZoom`, `fadeMoving`, `hoverHighlight`, `joinIcons`, `addonPins`, `iconScale`, `underground`, `minimapTerrain`, `zoneFishing`), valeurs « éteintes » dans `FM.MAP_OFF` (appliquées à chaque chargement) ; `MinimapButton.SetShown`, `Fog.SetEnabled/Explored`, `Labels` (noms des lieux de près, `terrainNames`, enfant de `minimapTerrain`), `Pins.RefreshExplored` (`MAP_EXPLORATION_UPDATED` écouté seulement si le brouillard est actif ou les PNJ inexplorés masqués), `npcUnexplored`. Ancien onglet « Carte » du moteur. Module éteint = carte nue : M ouvre la carte de Blizzard, ni brouillard, ni extras, ni bouton de minicarte (la carte reste ouverte par `/av` et le compartiment d'addons) |
+| `icons` (Icônes) | `Engine/Pins.lua` (catégories des groupes `FM.ICON_GROUPS` : `places`, `townsfolk`, `professions`) | réglages générés depuis `Pins.CATS` (mêmes clés que `FM.db.pins` : `capital`, `innkeeper`… `prof_*`), interrupteurs effectifs remis à `false` à chaque chargement ; construction seulement carte ouverte (`Pins.Ensure`, sinon à l'ouverture). Remplace les onglets Lieux / PNJ des villes / Métiers du moteur. La synchro avec le menu de PNJ de Questie passe par `MM:SetSetting` (icons, ou transports pour `flight`). « Toutes les classes » (enfant de Maîtres de classe) → `FM.db.allClassTrainers`, `Pins.RebuildKind`. « Mes métiers » : un maître s'affiche s'il est coché **ou** si vous avez le métier (`C_SkillInfo.GetSkillLineInfoByID`, sinon `GetProfessions` ; pas de `GetSkillLineInfo` sur Forever), relu à l'activation, au changement d'option et à chaque ouverture de la carte (`Pins.BeforeOpen`) : aucun événement écouté |
 | `dungeons` | `Engine/Dungeon.lua`, `Pins.lua`, `QuestLog.lua` | interrupteurs effectifs (`pins.dungeon/raid`, `dungeonMaps`, `dungeonBosses`, `dungeonLevels`, `dungeonWays`) ; `Pins.OnDungeonClick` (aiguillage du clic), `Dungeon.ReturnView` (retour au monde), `Dungeon.Choose(..., onPick)`, `Dungeon.CollectBosses/FocusBoss/Current`, messages `DUNGEON_MAP_SHOWN/CLOSED`, `QuestLog.Suspend` |
 
 **Donjons — détails** (audit : `docs/dungeons-audit.md`).
@@ -154,6 +160,33 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
   une entrée ou automatiquement à l'intérieur), le journal de quêtes est suspendu (préférence intacte) et
   remplacé par les onglets Quêtes / Boss ; rétabli à la fermeture. Jamais quand DungeonJournal est aux
   commandes (pas d'interface concurrente).
+
+**Capitales et noms de près.** Les villes à ciel ouvert s'effacent sous le terrain de la minimap
+(`Cities.SetTerrain`, appelé par `Terrain.lua` pendant son fondu) ; Forgefer et Fossoyeuse gardent leur carte et
+reçoivent leur minimap intérieure (`FM.CITY_MINIMAP`, OpenMap). Les noms des lieux (`Engine/Labels.lua`,
+`Data/AreaLabels.lua` tiré de `Explore.lua` d'OpenMap, noms du client) sont posés sur le terrain, calque au niveau +5,
+alpha = fondu du terrain ; avec le brouillard, seulement les morceaux listés explorés.
+
+**PNJ des zones inexplorées** (option `unexploredNPCs` du module Carte → `FM.db.npcUnexplored`, vrai si le module
+est éteint). Décochée, `Pins.lua` ne construit un PNJ que si le jeu donne une zone explorée à son emplacement ou
+juste autour (`C_MapExplorationInfo.GetExploredAreaIDsAtPosition`, principe de « Only places you've found »
+d'OpenMap, réécrit ici) ; dans une capitale : visitée, ou zone explorée sous son centre ; hors des zones à
+exploration (`FM.FOG_ZONES`) : toujours affiché. Résultat mis en cache par emplacement (trouvé reste trouvé) ;
+`MAP_EXPLORATION_UPDATED`, écouté seulement si l'option masque ou si le brouillard est actif, ne fait que vider
+les « non trouvés » et reconstruire les PNJ (tout de suite carte ouverte, sinon à l'ouverture).
+
+**Brouillard de guerre — détails** (`Engine/Fog.lua`, option « Brouillard de guerre » du module Carte, éteinte
+par défaut : toute la carte). Les tuiles pré-rendues montrent toutes les zones explorées ; avec le brouillard, une
+zone pas entièrement explorée est dessinée **comme la carte de Blizzard la dessine** : son art de base
+(`C_Map.GetMapArtLayerTextures`, terres inexplorées vierges), puis par-dessus, dans l'ordre du jeu, seulement les
+morceaux explorés (`C_MapExplorationInfo.GetExploredMapTextures`, avec leurs bords doux), le tout à travers le
+territoire de la zone (`Media/FogTerritory/<uiMapID>`, `MapTerritory` d'OpenMap) pour ne pas déborder sur les
+voisines. Une zone entièrement explorée est laissée aux tuiles (nombre total de morceaux : `Engine/Data/Fog.lua`,
+copie du `Reveal.lua` d'OpenMap). 43 zones (celles d'OpenMap). Une frame par zone (≈ 12 tuiles de base + les
+morceaux explorés), construite la première fois qu'elle est visible, refaite seulement quand le jeu liste plus de
+morceaux explorés ; calque au niveau des villes (+2), au-dessus du terrain de la minimap, sous les icônes ; couvert
+par l'art du monde au zoom le plus éloigné. Éteint : frames cachées, fichiers libérés. (Première version : découpe
+« Hide unexplored areas » d'OpenMap, abandonnée : bords en blocs carrés sur ce client.)
 
 **Transports — détails.**
 - Un point par trajet, comme OpenMap (PerfectMap fusionnait les quais proches en une icône) : chaque
@@ -180,7 +213,7 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 - Valeurs par défaut fusionnées à chaque chargement ; une valeur de mauvais type est remise par défaut.
 - **Migrations** : `Database.migrations[n]` amène un schéma n-1 à n, exécutées une fois dans l'ordre ;
   un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : options amis/guilde
-  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports` ; migration 4 : entrées, cartes et boss des donjons → module `dungeons`.
+  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports` ; migration 4 : entrées, cartes et boss des donjons → module `dungeons`. Migration 5 : quêtes sur la carte, icônes Questie et remplacement du journal → module `quests`. Migration 6 : options de l'onglet Carte du moteur et `core.minimap.hide` → module `map`. Migration 7 : capitales, PNJ des villes et maîtres de métiers (`engine.pins`) → module `icons`.
 - Les anciennes migrations internes de PerfectMap (dans `Engine/Core.lua`) sont conservées telles quelles
   sur `engine`.
 
@@ -195,7 +228,7 @@ Deux écrans, **les mêmes réglages**, lus et écrits uniquement via le ModuleM
    **redimensionnable** par la poignée du coin (mise à l'échelle de toute la fenêtre, 0,75 à 1,6),
    position et échelle mémorisées (`FM.db.menuWindow`), fermée par sa croix ou Échap (`ns.TakeEscape` :
    jamais `UISpecialFrames`, clavier jamais pris en combat). Elle reste ouverte si la carte se ferme.
-   Onglets de la carte (Carte, Lieux, PNJ, Métiers, Quêtes), puis **un onglet par module, généré** depuis
+   Onglet du module Carte en premier, onglets du moteur (Lieux, PNJ, Métiers), puis **un onglet par module, généré** depuis
    sa déclaration, à la manière de FlareUI : un **en-tête** encadré (icône, titre, case d'activation juste
    à côté, description, état), puis **une boîte par section** (chaque `header` de la déclaration ; avant le
    premier : « Réglages ») avec ses options sur deux colonnes, sous-options en retrait. Grisées et non
@@ -205,8 +238,8 @@ Deux écrans, **les mêmes réglages**, lus et écrits uniquement via le ModuleM
    modifiable là aussi.
 
 Bouton de minicarte (`UI/MinimapButton.lua`) : natif (bordure et fond de la minicarte du jeu), sans
-bibliothèque, déplaçable autour de la minicarte (angle dans `AzerothVeilDB.core.minimap`), masquable
-dans l'onglet Carte ; nommé et enfant de `Minimap`, il est donc rangé par les collecteurs de boutons
+bibliothèque, déplaçable autour de la minicarte (angle dans `AzerothVeilDB.core.minimap`), affiché
+selon l'option « Bouton de la minicarte » du module Carte (masqué quand il est éteint) ; nommé et enfant de `Minimap`, il est donc rangé par les collecteurs de boutons
 (tiroir de FlareUI). Le même double clic est offert dans le compartiment d'addons du jeu
 (`AddonCompartmentFunc`).
 

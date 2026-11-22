@@ -85,6 +85,28 @@ L["Only your guild and friends, never from a dungeon, raid or battleground. /av 
 	"Uniquement votre guilde et vos amis, jamais depuis un donjon, un raid ou un champ de bataille. /av config : Amis & guilde."
 
 ---------------------------------------------------------------------------
+-- Module: Quests
+---------------------------------------------------------------------------
+L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, Questie's icons, and a quest log docked beside the map that L and the objective tracker open."] =
+	"Les quêtes du journal sur la carte comme les montre la carte de Blizzard, les quêtes à prendre et les zones de quête, les icônes de Questie, et un journal de quêtes ancré à côté de la carte, qu'ouvrent L et le suivi d'objectifs."
+L["the quests picked below show on the map; the quest log beside it replaces Blizzard's if that option is on."] =
+	"les quêtes choisies ci-dessous s'affichent sur la carte ; le journal à côté remplace celui de Blizzard si l'option est cochée."
+L["WoW's own way: no quest on this map, no quest log beside it; L and the objective tracker open Blizzard's quest log."] =
+	"comme WoW de base : aucune quête sur cette carte, pas de journal à côté ; L et le suivi d'objectifs ouvrent le journal de quêtes de Blizzard."
+
+---------------------------------------------------------------------------
+-- Module: Map (its other options keep the engine's texts, below)
+---------------------------------------------------------------------------
+L["How the map opens and what it draws: M, the minimap button, the fog of war over the land you haven't explored, the zone under the cursor, other addons' icons, the icons' size, and the detail that comes in up close."] =
+	"Comment la carte s'ouvre et ce qu'elle dessine : la touche M, le bouton de la minicarte, le brouillard de guerre sur les terres pas encore explorées, la zone sous le curseur, les icônes des autres addons, la taille des icônes et les détails qui apparaissent de près."
+L["the options below apply to the map."] = "les options ci-dessous s'appliquent à la carte."
+L["the map plain: M opens Blizzard's map; this one still opens with /av or the addon compartment, without fog, highlight, other addons' icons, caves or terrain up close, nor minimap button."] =
+	"la carte nue : M ouvre la carte de Blizzard ; celle-ci s'ouvre encore avec /av ou le compartiment d'addons, sans brouillard, surbrillance, icônes des autres addons, grottes ni terrain de près, ni bouton de minicarte."
+L["Fog of war"] = "Brouillard de guerre"
+L["The land you haven't explored yet looks as on Blizzard's own map: blank parchment until you get there. Off: the whole map shows."] =
+	"Les terres que vous n'avez pas encore explorées apparaissent comme sur la carte de Blizzard : un parchemin vierge jusqu'à ce que vous y alliez. Désactivé : toute la carte s'affiche."
+
+---------------------------------------------------------------------------
 -- Module: Transports
 ---------------------------------------------------------------------------
 L["Transports"] = "Transports"
@@ -274,6 +296,32 @@ L["Show it in the objective tracker."] = "L'afficher dans le suivi des objectifs
 L["Ready to turn in"] = "Prête à être rendue"
 L["|cff40e040Ready to turn in|r"] = "|cff40e040Prête à être rendue|r"
 L["Ready to hand in"] = "Prête à être rendue"
+-- (the icons after a quest's name, and the round button before it: their tooltips)
+L["Next objective: kill these creatures."] = "Prochain objectif : tuer ces créatures."
+L["Next objective: defeat players of the other faction."] = "Prochain objectif : vaincre des joueurs de l'autre faction."
+L["Next objective: collect these items."] = "Prochain objectif : collecter ces objets."
+L["Next objective: use or click on something in the world."] = "Prochain objectif : utiliser un élément du monde ou cliquer dessus."
+L["Next objective: go somewhere, or make something happen there."] = "Prochain objectif : se rendre quelque part, ou y déclencher un événement."
+L["Next objective: reach this standing with a faction."] = "Prochain objectif : atteindre cette réputation auprès d'une faction."
+L["Next objective: something to do (talk to someone, escort, ...)."] = "Prochain objectif : une action à faire (parler à quelqu'un, escorter…)."
+L["To be done in a dungeon: better with a group."] = "À faire dans un donjon : plutôt en groupe."
+L["To be done in a raid."] = "À faire dans un raid."
+L["Player versus player: against the other faction, or in a battleground."] = "Joueur contre joueur : contre l'autre faction, ou en champ de bataille."
+L["Made for a group: too hard to do alone."] = "Prévue pour un groupe : trop difficile seul."
+L["Elite enemies: better with a group."] = "Ennemis élites : plutôt en groupe."
+L["Part of a world event: only while it lasts."] = "Fait partie d'un événement mondial : seulement pendant sa durée."
+L["A legendary quest."] = "Une quête légendaire."
+L["A quest for your class only."] = "Une quête réservée à votre classe."
+L["Quest item: the quest is done by using it."] = "Objet de quête : la quête s'accomplit en l'utilisant."
+L["It can be done again each day."] = "Elle peut être refaite chaque jour."
+L["It can be done again."] = "Elle peut être refaite."
+L["In progress."] = "En cours."
+L["\"?\": go back to whoever gave it, to hand it in."] = "« ? » : retournez voir qui vous l'a donnée pour la rendre."
+L["\"...\": its objectives are still to be done."] = "« … » : ses objectifs restent à accomplir."
+L["Followed with the waypoint arrow (the lit ring)."] = "Suivie avec la flèche de navigation (l'anneau éclairé)."
+L["Click: stop following it."] = "Clic : ne plus la suivre avec la flèche."
+L["Click: follow it with the waypoint arrow."] = "Clic : la suivre avec la flèche de navigation."
+L["Right-click on the quest: track it or not."] = "Clic droit sur la quête : la suivre ou non dans le suivi d'objectifs."
 L["PvP"] = "JcJ"
 L["Kill"] = "Tuer"
 L["Defeat players"] = "Vaincre des joueurs"
@@ -287,7 +335,6 @@ L["Elite"] = "Élite"
 L["World event"] = "Événement mondial"
 L["Legendary"] = "Légendaire"
 L["Class quest"] = "Quête de classe"
-L["Failed"] = "Échouée"
 L["  |cffff4040Failed|r"] = "  |cffff4040Échouée|r"
 L["Daily"] = "Journalière"
 L["Repeatable"] = "Répétable"
@@ -317,8 +364,6 @@ L["Offer it to your group."] = "La proposer à votre groupe."
 L["Click twice to abandon it."] = "Cliquez deux fois pour l'abandonner."
 
 -- the map's own options (its gear menu)
-L["Show all"] = "Tout afficher"
-L["Hide all"] = "Tout masquer"
 L["Map"] = "Carte"
 L["Open with M"] = "Ouvrir avec M"
 L["M opens this map instead of Blizzard's. Outside combat, so do the map buttons, map pins in chat, quests' \"show on map\" and other addons."] =
@@ -351,12 +396,10 @@ L["The sea stays the map's."] = "La mer reste celle de la carte."
 L["Fishing skill of zones"] = "Compétence de pêche des zones"
 L["Under the zone's name: the fishing skill its waters want."] = "Sous le nom de la zone : la compétence de pêche requise par ses eaux."
 L["Icon size"] = "Taille des icônes"
-L["Places"] = "Lieux"
 L["Enemy flight masters"] = "Maîtres de vol ennemis"
 L["The other faction's flight masters too, in red."] = "Les maîtres de vol de l'autre faction aussi, en rouge."
 L["Townsfolk"] = "PNJ des villes"
 L["Profession trainers"] = "Maîtres de métiers"
-L["Professions"] = "Métiers"
 L["On the map"] = "Sur la carte"
 L["Objectives & turn-ins"] = "Objectifs et quêtes à rendre"
 L["The quest log's quests, as Blizzard's map shows them."] = "Les quêtes du journal, comme les affiche la carte de Blizzard."
@@ -364,13 +407,15 @@ L["Quests to pick up"] = "Quêtes à prendre"
 L["The quests you can take, as Blizzard's map shows them."] = "Les quêtes que vous pouvez prendre, comme les affiche la carte de Blizzard."
 L["Quest areas"] = "Zones de quête"
 L["The blue area of the followed quest, and of the one under the mouse."] = "La zone bleue de la quête suivie et de celle sous la souris."
-L["Questie's quest, objective and turn-in icons, with its own tooltips."] = "Les icônes de quêtes, d'objectifs et de quêtes à rendre de Questie, avec ses propres infobulles."
+L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] =
+	"Avec Questie installé : les icônes de quêtes, d'objectifs et de quêtes à rendre de Questie, avec ses propres infobulles."
 L["Quests"] = "Quêtes"
 L["Replace Blizzard's quest log"] = "Remplacer le journal de quêtes de Blizzard"
 L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] =
 	"L ouvre le journal de quêtes de cette carte. Hors combat, c'est aussi le cas d'un clic sur une quête dans le suivi des objectifs ou son menu."
 L["Quest log beside the map"] = "Journal de quêtes à côté de la carte"
-L["Docked to the map's right: the window grows, the map keeps its shape."] = "Ancré à droite de la carte : la fenêtre s'agrandit, la carte garde ses proportions."
+L["Docked to the map's right: the window grows, the map keeps its shape. The button at the map's bottom right folds it away or brings it out."] =
+	"Ancré à droite de la carte : la fenêtre s'agrandit, la carte garde ses proportions. Le bouton en bas à droite de la carte le replie ou le déplie."
 L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help"] =
 	"Glisser : déplacer   Molette : zoom   Clic droit : repère / coordonnées (sur une icône : point de passage)   /av help"
 
@@ -463,3 +508,28 @@ L["Required level %d"] = "Niveau requis %d"
 L["Given by %s"] = "Donnée par %s"
 L["Started by an item: %s"] = "Commence avec un objet : %s"
 
+
+-- Icons module (Modules/Icons.lua) and the Map module's townsfolk of unexplored areas
+L["Icons"] = "Icônes"
+L["The capitals' emblems, the townsfolk of the towns and the profession trainers on the map: innkeepers, bankers, class trainers, mailboxes and the rest, each kind on its own."] =
+	"Les emblèmes des capitales, les PNJ des villes et les maîtres de métiers sur la carte : aubergistes, banquiers, maîtres de classe, boîtes aux lettres et le reste, chaque type séparément."
+L["the kinds picked below show on the map."] = "les types cochés ci-dessous s'affichent sur la carte."
+L["none of them shows: no capital's emblem, no townsfolk, no trainer."] = "rien de tout cela ne s'affiche : ni emblème de capitale, ni PNJ des villes, ni maître de métier."
+L["Each capital's emblem, in its faction's colours, zoomed right out."] = "L'emblème de chaque capitale, aux couleurs de sa faction, à la carte entièrement dézoomée."
+L["Your class's only."] = "Seulement ceux de votre classe."
+L["Townsfolk of unexplored areas"] = "PNJ des zones inexplorées"
+L["The townsfolk and trainers (the Icons module's) of the land you haven't explored yet show too."] =
+	"Les PNJ des villes et les maîtres (du module Icônes) des terres que vous n'avez pas encore explorées s'affichent aussi."
+L["Off: only where you've explored, as the game counts it; in a capital, once you've been in it."] =
+	"Décoché : seulement là où vous avez exploré, selon le jeu ; dans une capitale, une fois que vous y êtes allé."
+L["Show all"] = "Tout afficher"
+L["Hide all"] = "Tout masquer"
+L["My professions"] = "Mes métiers"
+L["The trainers of the professions you have, whether picked below or not; follows what you learn."] =
+	"Les maîtres des métiers que vous avez, cochés ci-dessous ou non ; suit ce que vous apprenez."
+L["Every class"] = "Toutes les classes"
+L["Every class's trainers, not only yours."] = "Les maîtres de toutes les classes, pas seulement de la vôtre."
+L["Places' names up close"] = "Noms des lieux de près"
+L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes."] =
+	"Sur le terrain de la minimap, les noms des lieux (villages, camps, mines…) qu'écrit la carte dessinée."
+L["With the fog of war, only the places you've explored."] = "Avec le brouillard de guerre, seulement les lieux que vous avez explorés."

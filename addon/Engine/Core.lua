@@ -48,13 +48,27 @@ FM.defaults = {
 	enemyFlight = false,             -- the other faction's flight masters
 	enemyHarbors = false,            -- the other faction's harbors (and their boats' routes)
 	replaceQuestLog = true,          -- L, and every "show this quest", open this map's quest log
-	questPanel = true,               -- the quest log docked beside the map
+	questLog = true,                 -- AzerothVeil: the quest log docked beside the map is there at all (the Quests module)
+	questPanel = true,               -- the quest log docked beside the map (out or folded away)
+	npcUnexplored = true,            -- AzerothVeil: the townsfolk of land not explored yet too (the Map module's)
+	terrainNames = true,             -- AzerothVeil: the places' names over the minimap's terrain up close (the Map module's)
+	allClassTrainers = false,        -- AzerothVeil: every class's trainers, not only yours (the Icons module's)
 }
 
 -- (AzerothVeil: the icon kinds the Transports module owns)
 FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
 -- (AzerothVeil: and the Dungeons module's)
 FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
+-- (AzerothVeil: and the Quests module's switches)
+FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog" }
+-- (AzerothVeil: and the Map module's switches, as they are while it's off: Modules/Map.lua)
+FM.MAP_OFF = {
+	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
+	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
+	npcUnexplored = true, terrainNames = false,
+}
+-- (AzerothVeil: and the Icons module's kinds of icon: those of these groups of Pins.CATS, Modules/Icons.lua)
+FM.ICON_GROUPS = { places = true, townsfolk = true, professions = true }
 
 local function Merge(dst, src)
 	for k, v in pairs(src) do
@@ -229,6 +243,11 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		FM.db.enemyFlight = false
 		for _, k in ipairs(FM.DUNGEON_PINS_KEYS) do FM.db.pins[k] = false end
 		FM.db.dungeonMaps, FM.db.dungeonBosses, FM.db.dungeonLevels, FM.db.dungeonWays = false, false, false, false
+		for _, k in ipairs(FM.QUEST_KEYS) do FM.db[k] = false end
+		FM.db.pins.questie = false
+		for k, v in pairs(FM.MAP_OFF) do FM.db[k] = v end
+		for _, c in ipairs(FM.Pins.CATS) do if FM.ICON_GROUPS[c.group] then FM.db.pins[c.key] = false end end
+		FM.db.allClassTrainers = false
 		-- (AzerothVeil: the classic look, always: Blizzard's own frames, never the modern one)
 		FM.db.style = "classic"
 		FM.Style.ApplyTheme(FM.db.style)

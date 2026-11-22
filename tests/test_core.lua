@@ -484,6 +484,261 @@ test("migration 3 and the flight masters: theirs kept, enemy ones rebuilt only w
 	eq(st.flights or 0, n, "no rebuild for another option")
 end)
 
+---------------------------------------------------------------------------
+-- Modules/Quests.lua, on a stand-in engine that records what it's told
+---------------------------------------------------------------------------
+local function LoadQuests(saved)
+	local ns = LoadCore(saved)
+	local st = { applied = 0, bindings = 0, toggled = 0 }
+	ns.db = { pins = {} }
+	ns.QuestLog = { Apply = function() st.applied = st.applied + 1 end }
+	ns.ApplyBindings = function() st.bindings = st.bindings + 1 end
+	ns.Quests = { OnToggle = function() st.toggled = st.toggled + 1 end }
+	ns.Pins = { Ensure = function() end }
+	ns.Map = { IsShown = function() return false end, MarkDirty = function() end }
+	assert(loadfile(ADDON_DIR .. "Modules/Quests.lua"))("AzerothVeil", ns)
+	return ns, st
+end
+
+print("Quests module")
+test("on by default: the quests on the map, the log, ours on L", function()
+	local ns, st = LoadQuests(nil)
+	Boot(ns)
+	local db = ns.db
+	eq(db.questPOI, true, "poi") eq(db.questOffers, true, "offers") eq(db.questAreas, true, "areas")
+	eq(db.pins.questie, true, "questie") eq(db.questLog, true, "log") eq(db.replaceQuestLog, true, "L")
+	eq(st.applied > 0, true, "log told") eq(st.bindings > 0, true, "L bound again")
+end)
+test("disabled: WoW's own way, settings kept", function()
+	local ns = LoadQuests(nil)
+	Boot(ns)
+	ns.Modules:Disable("quests")
+	local db = ns.db
+	for _, k in ipairs({ "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog" }) do eq(db[k], false, k) end
+	eq(db.pins.questie, false, "questie")
+	eq(ns.Modules:GetSetting("quests", "log"), true, "setting kept")
+end)
+test("no log beside the map: L stays Blizzard's", function()
+	local ns = LoadQuests(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("quests", "log", false)
+	eq(ns.db.questLog, false, "no log") eq(ns.db.replaceQuestLog, false, "L: Blizzard's")
+	eq(ns.db.questPOI, true, "the map's quests are their own options")
+end)
+test("migration 5: PerfectMap's quest switches become the module's settings", function()
+	local ns = LoadQuests({ schema = 4, engine = { questPOI = false, questAreas = true, replaceQuestLog = false, pins = { questie = false } } })
+	Boot(ns)
+	local get = function(k) return ns.Modules:GetSetting("quests", k) end
+	eq(get("poi"), false, "poi") eq(get("areas"), true, "areas") eq(get("replace"), false, "replace")
+	eq(get("questie"), false, "questie") eq(get("offers"), true, "missing: default")
+end)
+
+---------------------------------------------------------------------------
+-- Modules/Map.lua, on a stand-in engine that records what it's told
+---------------------------------------------------------------------------
+local MAP_OFF = {
+	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
+	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
+	npcUnexplored = true, terrainNames = false,
+}
+local function LoadMapModule(saved)
+	local ns = LoadCore(saved)
+	local st = { bindings = 0, scaled = 0, button = nil, fog = nil, explored = 0 }
+	ns.db = { pins = {} }
+	for k, v in pairs(MAP_OFF) do ns.db[k] = v end
+	ns.ApplyBindings = function() st.bindings = st.bindings + 1 end
+	st.refound = 0
+	ns.Pins = { ApplyScale = function() st.scaled = st.scaled + 1 end, RefreshExplored = function() st.refound = st.refound + 1 end }
+	ns.AddonPins = { Refresh = function() end }
+	ns.MinimapButton = { SetShown = function(on) st.button = on end }
+	ns.Fog = { SetEnabled = function(on) st.fog = on end, Explored = function() st.explored = st.explored + 1 end }
+	ns.Map = { MarkDirty = function() end, ResetHover = function() end }
+	assert(loadfile(ADDON_DIR .. "Modules/Map.lua"))("AzerothVeil", ns)
+	return ns, st
+end
+
+print("Map module")
+test("on by default: M ours, the map's options in effect, no fog", function()
+	local ns, st = LoadMapModule(nil)
+	Boot(ns)
+	local db = ns.db
+	eq(db.replaceM, true, "M") eq(db.reopen, "player", "centre on me") eq(db.rememberZoom, true, "zoom")
+	eq(db.hoverHighlight, true, "highlight") eq(db.joinIcons, true, "sum") eq(db.addonPins, true, "addons' icons")
+	eq(db.underground, true, "caves") eq(db.minimapTerrain, true, "terrain") eq(db.zoneFishing, false, "fishing")
+	eq(db.fadeMoving, false, "fade") eq(db.iconScale, 1, "size")
+	eq(st.bindings > 0, true, "M bound") eq(st.button, true, "minimap button") eq(st.fog, false, "no fog")
+end)
+test("the fog: on, then off; the exploration heard only while it's on", function()
+	local ns, st = LoadMapModule(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("map", "fog", true)
+	eq(st.fog, true, "fog on")
+	stub.fire("MAP_EXPLORATION_UPDATED")
+	eq(st.explored, 1, "explored heard")
+	ns.Modules:SetSetting("map", "fog", false)
+	eq(st.fog, false, "fog off")
+	stub.fire("MAP_EXPLORATION_UPDATED")
+	eq(st.explored, 1, "not heard any more")
+end)
+test("disabled: the map plain, settings kept", function()
+	local ns, st = LoadMapModule(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("map", "fog", true)
+	ns.Modules:SetSetting("map", "iconScale", 1.3)
+	eq(ns.db.iconScale, 1.3, "size in effect")
+	ns.Modules:Disable("map")
+	for k, v in pairs(MAP_OFF) do eq(ns.db[k], v, k) end
+	eq(st.button, false, "no minimap button") eq(st.fog, false, "no fog")
+	eq(ns.Modules:GetSetting("map", "fog"), true, "fog setting kept")
+	eq(ns.Modules:GetSetting("map", "iconScale"), 1.3, "size kept")
+end)
+test("migration 6: the engine's map options and the minimap button become the module's", function()
+	local ns = LoadMapModule({ schema = 5, engine = { replaceM = false, reopen = "last", zoneFishing = true,
+		iconScale = 1.2, iconScale2 = true, hoverHighlight = false }, core = { minimap = { angle = 90, hide = true } } })
+	Boot(ns)
+	local get = function(k) return ns.Modules:GetSetting("map", k) end
+	eq(get("replaceM"), false, "M") eq(get("centerOnOpen"), false, "reopen") eq(get("zoneFishing"), true, "fishing")
+	eq(get("iconScale"), 1.2, "size") eq(get("hoverHighlight"), false, "highlight")
+	eq(get("minimapButton"), false, "button hidden") eq(get("rememberZoom"), true, "missing: default")
+	eq(get("fog"), false, "fog: off by default")
+	local root = ns.Database.Root()
+	eq(root.core.minimap.hide, nil, "old switch gone") eq(root.core.minimap.angle, 90, "angle kept")
+	eq(ns.db.replaceM, false, "in effect: as set")
+end)
+
+test("the places' names up close: on with the minimap's terrain, off with it", function()
+	local ns = LoadMapModule(nil)
+	Boot(ns)
+	eq(ns.db.terrainNames, true, "on by default")
+	ns.Modules:SetSetting("map", "minimapTerrain", false)
+	eq(ns.db.terrainNames, false, "terrain off: no names")
+	eq(ns.Modules:GetSetting("map", "terrainNames"), true, "setting kept")
+	ns.Modules:SetSetting("map", "minimapTerrain", true)
+	ns.Modules:SetSetting("map", "terrainNames", false)
+	eq(ns.db.terrainNames, false, "names off")
+end)
+test("townsfolk of unexplored areas: shown by default; hidden, they follow the exploration", function()
+	local ns, st = LoadMapModule(nil)
+	Boot(ns)
+	eq(ns.db.npcUnexplored, true, "shown") eq(st.refound, 0, "nothing rebuilt")
+	stub.fire("MAP_EXPLORATION_UPDATED")
+	eq(st.refound, 0, "exploration not heard")
+	ns.Modules:SetSetting("map", "unexploredNPCs", false)
+	eq(ns.db.npcUnexplored, false, "hidden") eq(st.refound, 1, "rebuilt")
+	stub.fire("MAP_EXPLORATION_UPDATED")
+	eq(st.refound, 2, "explored more: rebuilt") eq(st.explored, 0, "fog off: not told")
+	ns.Modules:Disable("map")
+	eq(ns.db.npcUnexplored, true, "map module off: every one shown") eq(st.refound, 3, "rebuilt")
+	stub.fire("MAP_EXPLORATION_UPDATED")
+	eq(st.refound, 3, "not heard any more")
+	eq(ns.Modules:GetSetting("map", "unexploredNPCs"), false, "setting kept")
+end)
+
+---------------------------------------------------------------------------
+-- Modules/Icons.lua, on a stand-in engine
+---------------------------------------------------------------------------
+local function LoadIcons(saved)
+	local ns = LoadCore(saved)
+	local st = { ensured = 0 }
+	ns.db = { pins = {}, allClassTrainers = false }
+	ns.defaults = { pins = { capital = true, innkeeper = true, food = false } }
+	ns.Pins = {
+		CATS = {
+			{ key = "flight", group = "transport", label = "Flight", icon = "f" },
+			{ key = "capital", group = "places", label = "Capitals", icon = "c" },
+			{ key = "innkeeper", group = "townsfolk", label = "Inn", icon = "i" },
+			{ key = "classTrainer", group = "townsfolk", label = "Class", icon = "k" },
+			{ key = "food", group = "townsfolk", label = "Food", icon = 1 },
+			{ key = "prof_MINING", group = "professions", label = "Mining", icon = "m", tag = "MINING" },
+			{ key = "prof_FISHING", group = "professions", label = "Fishing", icon = "p", tag = "FISHING" },
+		},
+		Ensure = function() st.ensured = st.ensured + 1 end,
+		RebuildKind = function(key) st.rebuilt = (st.rebuilt or "") .. key end,
+	}
+	ns.Plain = function(v) return v end
+	st.shown = false
+	ns.Map = { MarkDirty = function() end, IsShown = function() return st.shown end }
+	assert(loadfile(ADDON_DIR .. "Modules/Icons.lua"))("AzerothVeil", ns)
+	return ns, st
+end
+local function SectionHeader(ns, label)
+	for _, spec in ipairs(ns.Modules:Get("icons").settings) do
+		if spec.type == "header" and spec.label == label then return spec end
+	end
+end
+
+print("Icons module")
+test("its settings: the kinds of its groups, PerfectMap's defaults; on by default", function()
+	local ns = LoadIcons(nil)
+	Boot(ns)
+	local m = ns.Modules:Get("icons")
+	eq(m.settingByKey.flight, nil, "flight masters: not its own") eq(m.settingByKey.capital.icon, "c", "engine's icon")
+	eq(ns.db.pins.capital, true, "capitals") eq(ns.db.pins.innkeeper, true, "innkeepers")
+	eq(ns.db.pins.food, false, "food: off") eq(ns.db.pins.prof_MINING, false, "trainers: off until picked")
+end)
+test("a kind turned on: built only with the map open; disabled: none, settings kept", function()
+	local ns, st = LoadIcons(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("icons", "food", true)
+	eq(ns.db.pins.food, true, "food in effect") eq(st.ensured, 0, "map closed: nothing built")
+	st.shown = true
+	ns.Modules:SetSetting("icons", "prof_MINING", true)
+	eq(st.ensured, 1, "map open: built")
+	ns.Modules:Disable("icons")
+	for _, k in ipairs({ "capital", "innkeeper", "food", "prof_MINING" }) do eq(ns.db.pins[k], false, k) end
+	eq(ns.Modules:GetSetting("icons", "food"), true, "kept")
+	ns.Modules:Enable("icons")
+	eq(ns.db.pins.food, true, "back")
+end)
+test("a section's Show all / Hide all: its kinds, not its options of their own", function()
+	local ns = LoadIcons(nil)
+	Boot(ns)
+	local townsfolk = SectionHeader(ns, "Townsfolk")
+	eq(townsfolk.all, true, "buttons declared")
+	eq(table.concat(ns.Modules:SectionToggles("icons", townsfolk), ","), "innkeeper,classTrainer,food", "its kinds")
+	ns.Modules:SetSection("icons", townsfolk, true)
+	eq(ns.db.pins.food, true, "food on") eq(ns.Modules:GetSetting("icons", "allClassTrainers"), false, "every class: left alone")
+	eq(ns.db.pins.prof_MINING, false, "another section: left alone")
+	ns.Modules:SetSection("icons", townsfolk, false)
+	eq(ns.db.pins.innkeeper, false, "innkeepers off") eq(ns.db.pins.capital, true, "capitals: left alone")
+	local profs = SectionHeader(ns, "Profession trainers")
+	eq(table.concat(ns.Modules:SectionToggles("icons", profs), ","), "prof_MINING,prof_FISHING", "not my professions")
+end)
+test("every class's trainers: the engine's switch, the kind built again", function()
+	local ns, st = LoadIcons(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("icons", "allClassTrainers", true)
+	eq(ns.db.allClassTrainers, false, "class trainers off: none")
+	ns.Modules:SetSetting("icons", "classTrainer", true)
+	eq(ns.db.allClassTrainers, true, "every class") eq(st.rebuilt, "classTrainer", "rebuilt")
+	ns.Modules:SetSetting("icons", "classTrainer", false)
+	eq(ns.db.allClassTrainers, false, "its parent off: off")
+end)
+test("my professions: their trainers shown, read again as the map opens", function()
+	local ns, st = LoadIcons(nil)
+	local known = { [186] = 75 }
+	_G.C_SkillInfo = { GetSkillLineInfoByID = function(id) return { rank = known[id] or 0 } end }
+	Boot(ns)
+	eq(ns.db.pins.prof_MINING, false, "option off: not shown")
+	ns.Modules:SetSetting("icons", "myProfessions", true)
+	eq(ns.db.pins.prof_MINING, true, "mining: mine") eq(ns.db.pins.prof_FISHING, false, "fishing: not mine")
+	eq(ns.Modules:GetSetting("icons", "prof_MINING"), false, "its own box untouched")
+	known[356] = 1
+	ns.Pins.BeforeOpen()
+	eq(ns.db.pins.prof_FISHING, true, "learnt: shown at the next opening")
+	ns.Modules:Disable("icons")
+	eq(ns.Pins.BeforeOpen, nil, "nothing at the opening while off") eq(ns.db.pins.prof_MINING, false, "off")
+	_G.C_SkillInfo = nil
+end)
+test("migration 7: the engine's townsfolk, trainers and capitals become the module's", function()
+	local ns = LoadIcons({ schema = 6, engine = { pins = { capital = false, food = true, prof_MINING = true, boat = false } } })
+	Boot(ns)
+	local get = function(k) return ns.Modules:GetSetting("icons", k) end
+	eq(get("capital"), false, "capitals") eq(get("food"), true, "food") eq(get("prof_MINING"), true, "mining")
+	eq(get("innkeeper"), true, "missing: default") eq(get("boat"), nil, "not its own")
+	eq(ns.db.pins.food, true, "in effect")
+end)
+
 print("Localisation")
 local function LoadLocale(locale)
 	stub.reset()
@@ -805,6 +1060,16 @@ test("Questie: every quest of the dungeon for my faction, with the game's state,
 	eq(by[3].giver.item, "item:900", "started by an item")
 	eq(by[4].giver.areaName, "Marche de l'Ouest", "the giver's zone") eq(by[4].giver.uiMap, 1436, "its map")
 	eq(quests[1].status, "active", "in progress first")
+	eq(by[4].text[1], "Kill Edwin VanCleef.", "what it asks") eq(#by[2].text, 0, "none known: none")
+	eq(by[1].faction, "Alliance", "for one faction: said") eq(by[4].faction, nil, "for both: none")
+	eq(by[8], nil, "another class's left out")
+	-- the other faction's and other classes' shown too when that option is off
+	ns.Modules:SetSetting("dungeons", "onlyMine", false)
+	local all = {}
+	for _, q in ipairs(ns.Modules:Get("dungeons").QuestsFor(36)) do all[q.questID] = q end
+	eq(all[6] and all[6].faction, "Horde", "the Horde's, with its faction")
+	eq(all[8] and all[8].classes and all[8].classes[1], 8, "the mages', with its class (the game's 8)")
+	eq(ns.Questie.ClassesOf(1503), nil, "every class: no restriction")
 	ClearQuestie()
 end)
 test("Questie: option off, not ready, or a dungeon it doesn't know: the log only / nothing", function()
@@ -831,6 +1096,8 @@ test("Questie: a quest shown on the world map where it starts, marked there, the
 	ns.Modules:Get("dungeons").ShowQuest({ title = "The Defias Brotherhood",
 		giver = { name = "Gryan Stoutmantle", uiMap = 1436, x = 0.563, y = 0.475 } })
 	eq(st.back, true, "back on the world") eq(st.spot[1], 1436, "its map") eq(st.spot[2], 0.563, "x")
+	eq(st.mark[1], 1436, "marked there") eq(st.mark[4], "The Defias Brotherhood", "its name on the marker")
+	eq(st.mark[5], "Given by Gryan Stoutmantle", "and its giver")
 end)
 
 test("migration 4: PerfectMap's dungeon switches become the module's", function()
@@ -841,15 +1108,3 @@ end)
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
-	eq(by[4].text[1], "Kill Edwin VanCleef.", "what it asks") eq(#by[2].text, 0, "none known: none")
-	eq(by[1].faction, "Alliance", "for one faction: said") eq(by[4].faction, nil, "for both: none")
-	eq(by[8], nil, "another class's left out")
-	-- the other faction's and other classes' shown too when that option is off
-	ns.Modules:SetSetting("dungeons", "onlyMine", false)
-	local all = {}
-	for _, q in ipairs(ns.Modules:Get("dungeons").QuestsFor(36)) do all[q.questID] = q end
-	eq(all[6] and all[6].faction, "Horde", "the Horde's, with its faction")
-	eq(all[8] and all[8].classes and all[8].classes[1], 8, "the mages', with its class (the game's 8)")
-	eq(ns.Questie.ClassesOf(1503), nil, "every class: no restriction")
-	eq(st.mark[1], 1436, "marked there") eq(st.mark[4], "The Defias Brotherhood", "its name on the marker")
-	eq(st.mark[5], "Given by Gryan Stoutmantle", "and its giver")

@@ -133,3 +133,58 @@ la liste des AddOns), puis **avec**.
 13. Raid (non couvert par DungeonJournal) : carte d'AzerothVeil.
 14. Option « Utiliser DungeonJournal » décochée : retour au fonctionnement sans DungeonJournal.
 
+## Checklist en jeu — module Carte et brouillard de guerre
+
+Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
+
+1. Fenêtre d'options : l'onglet **Carte** est le premier, en-tête de module (case d'activation) ; vos anciens
+   réglages repris (Ouvrir avec M, centrer, zoom, bouton de minicarte, surbrillance, icônes, grottes, terrain,
+   pêche, taille des icônes). Même page dans Options > AddOns > AzerothVeil.
+2. Chaque option agit comme avant (M, taille des icônes en direct, bouton de minicarte affiché/masqué…).
+3. **Brouillard de guerre** coché, sur un personnage qui n'a pas tout exploré : les zones inexplorées en
+   parchemin vierge comme sur la carte de Blizzard (comparer avec elle), les zones explorées intactes ; aucune
+   bande ni bord net sur les zones voisines ; idem en zoom très proche (terrain de la minimap masqué dessous).
+4. Explorer un nouveau lieu, carte ouverte ou non : il apparaît sans `/reload`.
+5. Zoom le plus éloigné : la carte du monde de Blizzard, sans brouillard (comme chez Blizzard).
+6. Brouillard décoché : toute la carte revient. `/av stats` : coût du rafraîchissement acceptable avec et sans,
+   en particulier au premier affichage d'un continent entier avec le brouillard.
+7. Module Carte désactivé : M ouvre la carte de Blizzard, plus de bouton de minicarte ; `/av` ouvre encore la
+   carte, sans brouillard ni extras ; réactivé : tout revient avec vos réglages. En combat : aucune erreur.
+
+## Checklist en jeu — module Icônes et PNJ des zones inexplorées
+
+Préparation : relancer le jeu (nouveau fichier et `.toc`).
+
+1. Fenêtre d'options : plus d'onglets « Lieux », « PNJ des villes », « Métiers » ; un onglet **Icônes** juste
+   après Carte (en-tête de module), sections Capitales / PNJ des villes / Maîtres de métiers, avec vos anciens
+   choix repris. Même page dans Options > AddOns > AzerothVeil.
+2. Cocher/décocher un type, carte ouverte : les icônes apparaissent/disparaissent aussitôt. Capitales : emblèmes
+   au zoom le plus éloigné seulement.
+3. Module Icônes désactivé : ni capitales, ni PNJ, ni maîtres ; réactivé : vos choix reviennent.
+4. Questie : activer un type dans son menu de PNJ → il s'active ici (case cochée dans l'onglet Icônes).
+5. Carte > **PNJ des zones inexplorées** décoché, sur un personnage qui n'a pas tout exploré : les PNJ des zones
+   (ou parties de zones) inexplorées disparaissent, ceux des zones explorées restent ; une capitale jamais visitée
+   n'a pas ses PNJ. Explorer un nouveau lieu : ses PNJ apparaissent sans `/reload`. `/av stats` : pas de
+   ralentissement à l'ouverture de la carte.
+6. Recoché, ou module Carte désactivé : tous les PNJ reviennent. En combat : aucune erreur.
+7. En-têtes PNJ des villes et Maîtres de métiers : « Tout afficher / Tout masquer » cochent/décochent la section
+   (sans toucher « Toutes les classes » ni « Mes métiers ») ; mêmes boutons dans Options > AddOns ; grisés
+   module désactivé.
+8. Maîtres de classe > **Toutes les classes** : les maîtres des autres classes apparaissent (infobulle : leur classe).
+9. **Mes métiers** : les maîtres de vos métiers apparaissent même décochés (cases inchangées) ; apprendre un
+   métier puis rouvrir la carte : ses maîtres apparaissent.
+
+## Checklist en jeu — capitales de près
+
+1. Thunder Bluff et Orgrimmar aux zooms intermédiaires : plus de halo brun ni de bandes latérales autour de la ville ;
+   la ville et son titre intacts (bord, mesas, bandeau du haut). Vérifier qu'aucune bande claire floue (l'ancien
+   bandeau de Mulgore effacé) ne gêne entre les mesas.
+2. En zoomant jusqu'au terrain de la minimap : Hurlevent, Orgrimmar, Thunder Bluff, Darnassus passent en fondu à la
+   minimap (plus de carte de ville par-dessus) ; dézoomer : la carte de la ville revient.
+3. Forgefer et Fossoyeuse au même zoom : la carte de la ville reste, la minimap intérieure (couloirs, salles) apparaît
+   par-dessus en fondu. Option Carte « Terrain de la minimap de près » décochée : comportement d'avant.
+4. `/av stats` : pas de ralentissement en entrant/sortant de ce zoom au-dessus d'une capitale.
+5. Au zoom de la minimap : les noms des lieux (villages, camps, mines…) apparaissent en doré, en fondu avec le
+   terrain, à peu près où la carte dessinée les écrivait ; dans la langue du jeu. Avec le brouillard : seulement les
+   lieux explorés, et un lieu découvert prend son nom sans `/reload`. Option Carte « Noms des lieux de près »
+   décochée, ou terrain décoché : aucun nom.

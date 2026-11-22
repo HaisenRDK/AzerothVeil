@@ -236,8 +236,10 @@ function Map.Refresh()
 	UpdateTiles()
 	local fit, deepest = Limits()
 	FM.Terrain.Layout(left, top, scale, vw, vh, zoom, deepest / fit)
+	FM.Labels.Layout(left, top, scale, vw, vh)                         -- AzerothVeil: the places' names (Labels.lua)
 	FM.Caves.Layout(left, top, scale, vw, vh, zoom, deepest / fit)
 	Map.PlaceWorld()
+	FM.Fog.Layout(left, top, scale, vw, vh, worldAlpha >= 0.999)      -- AzerothVeil: the fog of war (Fog.lua)
 	if worldAlpha < 0.999 then FM.Cities.Layout(left, top, scale, vw, vh, zoom) end
 	FM.Isles.Layout(left, top, scale, vw, vh)
 	FM.Routes.Layout(left, top, scale, vw, vh, zoom)
@@ -362,6 +364,8 @@ local function OnMouseUp(_, button)
 		local focus = GetMouseFoci and GetMouseFoci()[1] or GetMouseFocus and GetMouseFocus()
 		if focus and focus ~= view then return end
 		if FM.Pins.RightClick() then return end     -- (an icon: its waypoint)
+		-- AzerothVeil: a quest's page open in the log: back to its list, not the menu
+		if FM.QuestLog.Back() then return end
 		-- (on a land apart, Zephras Isle: back to the world, as from a dungeon's map)
 		if awayMap then FM.Isles.Back() return end
 		-- (a bare spot: the menu to pin it or copy where it is; the wheel zooms out)
@@ -573,8 +577,6 @@ function Map.EndGroupTip()
 	if groupTip then groupTip = nil S.HideTip() end
 end
 
--- the player and the group, every frame (a handful of positions: next to nothing)
-function Map.UpdateUnits()
 -- AzerothVeil: a marker put on a spot by a module (a dungeon quest's start: Modules/Dungeons.lua): the
 -- quest's "!" in a pulsing gold light, its tooltip (a title and a line); a click takes it off. One at a
 -- time; nothing drawn or run without one (its light's animation only while it's shown).
@@ -636,11 +638,13 @@ local function UpdateMark()
 	if not mark.anim:IsPlaying() then mark.anim:Play() end
 end
 
+-- the player and the group, every frame (a handful of positions: next to nothing)
+function Map.UpdateUnits()
 	Map.UpdatePlayer()
 	Map.UpdateCorpse()
+	UpdateMark()                                   -- AzerothVeil
 	UpdateGroup()
 end
-	UpdateMark()                                   -- AzerothVeil
 
 -- The zone under the cursor: lit as Blizzard's continent map lights it (its own highlight art), and
 -- named at the top in the middle on a small card of our own (flat, dark, an accent line under it): its
@@ -1194,10 +1198,21 @@ local function Build()
 	terrainLayer:SetAllPoints()
 	terrainLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 1)
 	FM.Terrain.Init(terrainLayer)
+	-- AzerothVeil: the fog of war (Fog.lua, the Map module): unexplored land as Blizzard's map shows it, over
+	-- the terrain up close, under the icons and the world's art
+	local fogLayer = CreateFrame("Frame", nil, view)
+	fogLayer:SetAllPoints()
+	fogLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 2)
+	FM.Fog.Init(fogLayer)
 	cityLayer = CreateFrame("Frame", nil, view)
 	cityLayer:SetAllPoints()
 	cityLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 2)
 	FM.Cities.Init(cityLayer)
+	-- AzerothVeil: the places' names over the minimap's terrain up close (Labels.lua), over the cities and caves
+	local labelLayer = CreateFrame("Frame", nil, view)
+	labelLayer:SetAllPoints()
+	labelLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 5)
+	FM.Labels.Init(labelLayer)
 	-- the hovered zone's highlight (Blizzard's own art for it, added on, as its map does), over cities too
 	local hlLayer = CreateFrame("Frame", nil, view)
 	hlLayer:SetAllPoints()

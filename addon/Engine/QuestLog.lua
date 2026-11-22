@@ -21,6 +21,9 @@ local mode, detailID = "list", nil
 local collapsed = {}
 local rows, pool = {}, {}
 local pending = false
+local tips = {}             -- AzerothVeil: the tooltips of the icons after the names (IconTip)
+local hyper = false         -- AzerothVeil: the rows' text can carry links on this client (NewRow)
+local IconEnter             -- (AzerothVeil: below, with the icons)
 
 local function DiffColor(level)
 	local c = GetQuestDifficultyColor and level and GetQuestDifficultyColor(level)
@@ -28,12 +31,69 @@ local function DiffColor(level)
 	return 1, 0.82, 0
 end
 
-local function Watched(questID)
+-- AzerothVeil: tracking and focusing (super-tracking) wait for the end of a fight: the change fires its
+-- event inside our call and Blizzard's map pins rebuild there, which the game blocks in combat (as FlareUI
+-- found). The last choice per quest wins; the log shows it at once.
+local fight = { watch = {}, focus = nil, frame = nil }
+
+local function RealWatched(questID)
 	return C_QuestLog.GetQuestWatchType and C_QuestLog.GetQuestWatchType(questID) ~= nil
 end
 
-local function SetWatched(questID, on)
+local function Watched(questID)
+	local w = fight.watch[questID]
+	if w ~= nil then return w end
+	return RealWatched(questID)
+end
+
+local function ApplyWatch(questID, on)
 	if on then C_QuestLog.AddQuestWatch(questID) else C_QuestLog.RemoveQuestWatch(questID) end
+end
+
+local function AfterFight()
+	if not fight.frame then
+		fight.frame = CreateFrame("Frame")
+		fight.frame:SetScript("OnEvent", function(self)
+			self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+			for q, on in pairs(fight.watch) do
+				if C_QuestLog.GetLogIndexForQuestID(q) and RealWatched(q) ~= on then ApplyWatch(q, on) end
+			end
+			wipe(fight.watch)
+			local focus = fight.focus
+			fight.focus = nil
+			if focus and C_SuperTrack then C_SuperTrack.SetSuperTrackedQuestID(focus) end
+			QL.Changed()
+		end)
+	end
+	fight.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
+local function SetWatched(questID, on)
+	if InCombatLockdown() then
+		fight.watch[questID] = on and true or false
+		AfterFight()
+		return
+	end
+	ApplyWatch(questID, on)
+end
+
+-- the quest followed with the waypoint arrow (or the one it will be after the fight)
+local function Focused(questID)
+	if fight.focus ~= nil then return fight.focus == questID end
+	local s = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and FM.Plain(C_SuperTrack.GetSuperTrackedQuestID())
+	return s == questID
+end
+
+-- questID 0: none
+local function SetFocus(questID)
+	if not C_SuperTrack then return end
+	if InCombatLockdown() then
+		fight.focus = questID
+		AfterFight()
+		QL.Refresh()
+		return
+	end
+	C_SuperTrack.SetSuperTrackedQuestID(questID)
 end
 
 ---------------------------------------------------------------------------
@@ -41,8 +101,10 @@ end
 ---------------------------------------------------------------------------
 -- (the classic look: Blizzard's quest log, its list on dark with gold zone headers and their +/- buttons, the
 -- quest's own page on parchment in dark ink)
-local INK = { 0.12, 0.07, 0.02 }          -- (titles and headings on the parchment)
-local INK_TEXT = { 0.18, 0.12, 0.05 }     -- (its text)
+-- (AzerothVeil: the game's own ink on a quest's page: QuestTitleFont's and QuestFont's black, QuestFontNormalSmall's brown)
+local INK = { 0, 0, 0 }                   -- (titles and headings on the parchment)
+local INK_TEXT = { 0, 0, 0 }              -- (its text)
+local INK_SMALL = { 0.3, 0.18, 0 }        -- (its small lines: the level under the name)
 
 local function RowEnter(self)
 	if self.questID or self.header then
@@ -57,7 +119,14 @@ local function RowLeave(self)
 	if self.questID then FM.Quests.Hint(nil) end
 end
 
-local function RowClick(self)
+-- AzerothVeil: a right click goes back from a quest's page to the list (the whole panel, as the map: QL.Back);
+-- in the list, on a quest, it tracks or untracks it
+local function RowClick(self, button)
+	if button == "RightButton" then
+		if QL.Back() then return end
+		if self.questID then SetWatched(self.questID, not Watched(self.questID)) QL.Refresh() end
+		return
+	end
 	if self.questID and IsModifiedClick and IsModifiedClick("CHATLINK") and GetQuestLink then
 		local link = GetQuestLink(self.questID)
 		if link and ChatEdit_InsertLink and ChatEdit_InsertLink(link) then return end
@@ -70,22 +139,18 @@ local function RowClick(self)
 	end
 end
 
--- the track box as it is: on (filled, ticked) or off (outlined), lit under the mouse
+-- AzerothVeil: a click on an icon after the name (a link of ours) is the row's, once
+local clickedAt, clickedRow
+local function RowClickOnce(self, button)
+	local now = GetTime()
+	if clickedAt == now and clickedRow == self then return end
+	clickedAt, clickedRow = now, self
+	RowClick(self, button)
+end
+
+-- the track box as it is (AzerothVeil: Blizzard's own check box, UICheckButtonTemplate)
 local function ShowCheck(c)
-	if S.classic then
-		c.tick:SetShown(c.on and true or false)
-		return
-	end
-	local a = S.ACCENT
-	c.fill:SetVertexColor(a[1], a[2], a[3], c.on and (c.hot and 1 or 0.92) or 0)
-	c.tick:SetShown(c.on and true or false)
-	if c.on then
-		c.box:SetVertexColor(a[1], a[2], a[3], c.hot and 1 or 0.9)
-	elseif c.hot then
-		c.box:SetVertexColor(a[1], a[2], a[3], 0.95)
-	else
-		c.box:SetVertexColor(0.7, 0.7, 0.72, 0.55)
-	end
+	c:SetChecked(c.on and true or false)
 end
 
 local function NewRow()
@@ -102,9 +167,10 @@ local function NewRow()
 	b.body:SetJustifyV("TOP")
 	b.body:SetWordWrap(true)
 	b.body:SetSpacing(2)
-	b.check = CreateFrame("Button", nil, b)
-	b.check:SetSize(14, 14)
-	b.check:SetPoint("TOPRIGHT", -8, -4)
+	-- AzerothVeil: Blizzard's own check box (its look, its highlight, its pressed state), not PerfectMap's
+	b.check = CreateFrame("CheckButton", nil, b, "UICheckButtonTemplate")
+	b.check:SetSize(22, 22)
+	b.check:SetPoint("TOPRIGHT", -4, 0)
 	b.sign = S.Text(b, 18, S.ACCENT)
 	b.sign:SetPoint("RIGHT", -10, 0)
 	b.shade = b:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -126,30 +192,8 @@ local function NewRow()
 	b.shade:Hide()
 	b.edge:Hide()
 	b.count:Hide()
-	-- (the track box: a small rounded square, outlined while off, filled in the accent colour with a dark
-	-- tick while on; its outline lit under the mouse)
-	b.check.fill = b.check:CreateTexture(nil, "ARTWORK", nil, 1)
-	b.check.fill:SetTexture(MEDIA .. "boxfill")
-	b.check.fill:SetAllPoints()
-	b.check.box = b.check:CreateTexture(nil, "ARTWORK", nil, 2)
-	b.check.box:SetTexture(MEDIA .. "box")
-	b.check.box:SetAllPoints()
-	b.check.tick = b.check:CreateTexture(nil, "OVERLAY")
-	b.check.tick:SetTexture(MEDIA .. "tick")
-	b.check.tick:SetPoint("TOPLEFT", 2, -2)
-	b.check.tick:SetPoint("BOTTOMRIGHT", -2, 2)
-	b.check.tick:SetVertexColor(0.1, 0.08, 0.05, 1)
 	if S.classic then
-		-- (classic: the game's own check box; the titles lit as its quest log lights them; a zone's bar)
-		b.check:SetSize(20, 20)
-		b.check:SetPoint("TOPRIGHT", -5, -1)
-		b.check.fill:Hide()
-		b.check.box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
-		b.check.tick:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-		b.check.tick:ClearAllPoints()
-		b.check.tick:SetAllPoints(b.check)
-		b.check.tick:SetVertexColor(1, 1, 1, 1)
-		b.check:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
+		-- (classic: the titles lit as its quest log lights them; a zone's bar)
 		b.hl = b:CreateTexture(nil, "BACKGROUND", nil, 2)
 		b.hl:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
 		b.hl:SetBlendMode("ADD")
@@ -174,28 +218,35 @@ local function NewRow()
 		if q then SetWatched(q, not Watched(q)) QL.Refresh() end
 	end)
 	b.check:SetScript("OnEnter", function(self)
-		self.hot = true
-		ShowCheck(self)
 		S.ShowTip(self, { L["Track"], L["Show it in the objective tracker."] })
 	end)
 	b.check:SetScript("OnLeave", function(self)
-		self.hot = nil
-		ShowCheck(self)
 		S.HideTip()
 	end)
 	b:SetScript("OnEnter", RowEnter)
 	b:SetScript("OnLeave", RowLeave)
-	b:SetScript("OnClick", RowClick)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")     -- (AzerothVeil: right click, RowClick)
+	b:SetScript("OnClick", RowClickOnce)
+	-- AzerothVeil: the icons after the name carry links of ours, for their tooltips (IconTip); where the
+	-- client lets a frame's text do that (as FlareUI's About page does), else plain icons
+	if b.SetHyperlinksEnabled and pcall(b.SetScript, b, "OnHyperlinkEnter", IconEnter)
+		and pcall(b.SetScript, b, "OnHyperlinkLeave", GameTooltip_Hide) then
+		b:SetHyperlinksEnabled(true)
+		pcall(b.SetScript, b, "OnHyperlinkClick", function(self, _, _, button) RowClickOnce(self, button) end)
+		hyper = true
+	end
 	return b
 end
 
 local function Release()
+	wipe(tips)                  -- (AzerothVeil: the icons' tooltips go with their rows)
 	for i = #rows, 1, -1 do
 		local b = rows[i]
 		b:Hide()
 		b:ClearAllPoints()
 		b.questID, b.header, b.bgBase = nil, nil, nil
-		if b.big then S.Font(b.title, 12) b.big = nil end
+		-- (AzerothVeil: a quest page's row, in the game's quest fonts: back to the list's, its shadow set again)
+		if b.big then S.Font(b.title, 12) S.Font(b.body, 11) b.big, b.shadow = nil, nil end
 		b.sign:Hide()
 		b.shade:Hide()
 		b.edge:Hide()
@@ -203,7 +254,7 @@ local function Release()
 		if b.hl then b.hl:Hide() b.bar:Hide() end
 		b.title:SetJustifyH("LEFT")
 		b.title:SetWordWrap(true)
-		if b.kindMark then b.kindMark:Hide() end
+		if b.poi then b.poi:Hide() end
 		pool[#pool + 1] = b
 		rows[i] = nil
 	end
@@ -367,99 +418,208 @@ local function KindTexture(kind)
 	if kind == "pvp" then return PvPIcon() end
 	return kind == "raid" and FM.Pins.RAID_ICON or FM.Pins.DUNGEON_ICON
 end
--- (in a line of text: the details' title)
-local function KindIcon(questID)
-	local kind = Kind(questID)
-	if not kind then return "" end
-	local icon = KindTexture(kind)
-	if type(icon) == "string" and icon:sub(1, 6) == "atlas:" then return "|A:" .. icon:sub(7) .. ":14:14|a " end
-	return "|T" .. tostring(icon) .. ":14:14|t "
-end
 
--- Every quest's icon left of its name in the list, saying what kind of quest it is, and on mouse-over
--- what that means and the first thing still to do. By what matters most: failed, ready to hand in, its
--- kind as the game tags it (dungeon, raid, PvP, elite, group, class, world event, legendary), daily or
--- repeatable, else what its next objective asks (kill, collect, use, explore, talk, reputation). The
--- objectives' icons are Questie's (Media\Questie, so they show without it). A click on it is the row's.
+-- AzerothVeil: after each quest's name, its icons: its kind as the game tags it (dungeon, raid, PvP, elite,
+-- group, class, world event, legendary), then the item it's done with if it has one (its own icon), else
+-- daily or repeatable, else what its next objective asks (kill, collect, use, explore, talk, reputation).
+-- The objectives' icons are Questie's (Media\Questie, so they show without it). Each one says what it
+-- means under the mouse (IconTip); a click on one is the row's.
 local QI = "Interface\\AddOns\\AzerothVeil\\Media\\Questie\\"
+-- { icon, what it is, what that means }
 local OBJECTIVE_MARK = {
-	monster = { QI .. "slay", L["Kill"] },
-	player = { QI .. "slay", L["Defeat players"] },
-	item = { QI .. "loot", L["Collect"] },
-	object = { QI .. "object", L["Use"] },
-	event = { QI .. "event", L["Explore"] },
-	reputation = { QI .. "reputation", L["Reputation"] },
-	log = { QI .. "interact", L["Do"] },
+	monster = { QI .. "slay", L["Kill"], L["Next objective: kill these creatures."] },
+	player = { QI .. "slay", L["Defeat players"], L["Next objective: defeat players of the other faction."] },
+	item = { QI .. "loot", L["Collect"], L["Next objective: collect these items."] },
+	object = { QI .. "object", L["Use"], L["Next objective: use or click on something in the world."] },
+	event = { QI .. "event", L["Explore"], L["Next objective: go somewhere, or make something happen there."] },
+	reputation = { QI .. "reputation", L["Reputation"], L["Next objective: reach this standing with a faction."] },
+	log = { QI .. "interact", L["Do"], L["Next objective: something to do (talk to someone, escort, ...)."] },
+}
+local KIND_MARK = {
+	dungeon = L["To be done in a dungeon: better with a group."],
+	raid = L["To be done in a raid."],
+	pvp = L["Player versus player: against the other faction, or in a battleground."],
 }
 local TAG_MARK = {
-	group = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Group quest"] },
-	elite = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Elite"] },
-	event = { QI .. "eventquest", L["World event"] },
-	legendary = { "Interface\\Icons\\INV_Misc_Orb_05", L["Legendary"] },
+	group = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Group quest"], L["Made for a group: too hard to do alone."] },
+	elite = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", L["Elite"], L["Elite enemies: better with a group."] },
+	event = { QI .. "eventquest", L["World event"], L["Part of a world event: only while it lasts."] },
+	legendary = { "Interface\\Icons\\INV_Misc_Orb_05", L["Legendary"], L["A legendary quest."] },
 }
 local function TagMark(questID)
 	local kind = Kind(questID)
-	if kind then return { KindTexture(kind), KIND_LABEL[kind] } end
+	if kind then return { KindTexture(kind), KIND_LABEL[kind], KIND_MARK[kind] } end
 	local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(questID)
 	if type(tag) ~= "table" then return nil end
 	local name = type(tag.tagName) == "string" and tag.tagName or ""
 	if tag.tagID == 21 then
 		local _, class = UnitClass("player")
-		return { class and ("Interface\\Icons\\ClassIcon_" .. class:sub(1, 1) .. class:sub(2):lower()) or TAG_MARK.elite[1], L["Class quest"] }
+		return { class and ("Interface\\Icons\\ClassIcon_" .. class:sub(1, 1) .. class:sub(2):lower()) or TAG_MARK.elite[1],
+			L["Class quest"], L["A quest for your class only."] }
 	end
 	if tag.tagID == 82 then return TAG_MARK.event end
 	if tag.tagID == 83 then return TAG_MARK.legendary end
 	if name:find(L["Elite"]) then return TAG_MARK.elite end
 	if tag.tagID == 1 then return TAG_MARK.group end
 end
--- the quest's mark: { icon, what it is, the first thing still to do (or nil) }
+
+-- The icons are in the name's own line of text, where the game puts them (after a name on two lines too),
+-- each in a link of ours: the row's hyperlinks on, its tooltip shown over it (OnHyperlinkEnter). tips: the
+-- tooltips of the icons laid out now, by number (emptied as the rows are; declared at the top)
+local function Inline(icon)
+	if type(icon) == "string" and icon:sub(1, 6) == "atlas:" then return "|A:" .. icon:sub(7) .. ":14:14|a" end
+	return "|T" .. tostring(icon) .. ":14:14|t"
+end
+-- an icon with its tooltip: { title, text, more } or { item = link }
+local function IconTip(icon, tip)
+	local s = Inline(icon)
+	if not hyper then return " " .. s end
+	tips[#tips + 1] = tip
+	return " |Hazerothveil:" .. #tips .. "|h" .. s .. "|h"
+end
+
+function IconEnter(self, link)
+	local t = tips[tonumber(type(link) == "string" and link:match("^azerothveil:(%d+)") or "")]
+	if not t then return end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	if t.item then
+		if not pcall(GameTooltip.SetHyperlink, GameTooltip, t.item) then GameTooltip:SetText(t.item) end
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(L["Quest item: the quest is done by using it."], 0.25, 0.88, 0.25, true)
+	else
+		GameTooltip:SetText(t[1] or "", 1, 0.82, 0)
+		if t[2] then GameTooltip:AddLine(t[2], 1, 1, 1, true) end
+		if t[3] then GameTooltip:AddLine(t[3], 0.8, 0.8, 0.8, true) end
+	end
+	GameTooltip:Show()
+end
+
+local function TypeIcon(questID)
+	local m = TagMark(questID)
+	if not m then return "" end
+	return IconTip(m[1], { m[2], m[3] })
+end
+
+-- the quest's item to use, if it has one (and still wants it): its link and icon
+local function QuestItem(questID, complete)
+	local index = GetQuestLogSpecialItemInfo and C_QuestLog.GetLogIndexForQuestID(questID)
+	if not index then return nil end
+	local ok, link, texture, _, showWhenComplete = pcall(GetQuestLogSpecialItemInfo, index)
+	if not ok or not link or not texture or (complete and not showWhenComplete) then return nil end
+	return link, texture
+end
+
+-- after the kind: the item, else what it asks next (none for a failed quest or one ready to hand in:
+-- the round button and the text say it)
 local function QuestMark(questID, info, complete, failed)
-	if failed then return { "Interface\\RaidFrame\\ReadyCheck-NotReady", L["Failed"] } end
-	if complete then return { QI .. "complete", L["Ready to hand in"] } end
+	local link, texture = QuestItem(questID, complete)
+	if link then return IconTip(texture, { item = link }) end
+	if failed or complete then return "" end
 	local todo, otype
 	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
 		if not o.finished and o.text and o.text ~= "" then todo, otype = o.text, o.type break end
 	end
-	local m = TagMark(questID)
-	if m then return { m[1], m[2], todo } end
 	local freq = info and info.frequency
 	if freq and freq ~= 0 then
-		return { QI .. "repeatable", (Enum and Enum.QuestFrequency and freq == Enum.QuestFrequency.Daily) and L["Daily"] or L["Repeatable"], todo }
+		local daily = Enum and Enum.QuestFrequency and freq == Enum.QuestFrequency.Daily
+		return IconTip(QI .. "repeatable", { daily and L["Daily"] or L["Repeatable"],
+			daily and L["It can be done again each day."] or L["It can be done again."], todo })
 	end
 	local o = otype and OBJECTIVE_MARK[otype]
-	if o then return { o[1], o[2], todo } end
-	return { QI .. "incomplete", L["Quest"], todo }
+	if o then return IconTip(o[1], { o[2], o[3], todo }) end
+	return IconTip(QI .. "incomplete", { L["Quest"], L["In progress."], todo })
 end
 
-local function MarkEnter(self)
+-- AzerothVeil: left of each name, the round quest button of Blizzard's quest log and tracker: a yellow
+-- "..." while in progress, a "?" when ready to hand in, the focused quest in its selected look (ring, brown
+-- dots, glow). Blizzard's atlases (Blizzard_POIButton) on a button of our own, as FlareUI does: the
+-- template's mixin reaches into the map's pins. A click focuses the quest (the waypoint arrow), or stops
+-- focusing it; a right click is the row's. Its tooltip says what the icons after the name mean.
+local POI_SIZE, POI_BLIZZARD = 14, 20
+
+local function SizeAtlas(tex, atlas, k)
+	tex:SetAtlas(atlas, true)
+	local w, h = tex:GetSize()
+	if w and h then tex:SetSize(w * k, h * k) end
+end
+
+local function PaintPOI(p, pressed)
+	local k = POI_SIZE / POI_BLIZZARD
+	SizeAtlas(p.ring, "UI-QuestPoi-QuestNumber" .. (pressed and "-Pressed" or "") .. (p.focus and "-SuperTracked" or ""), k)
+	SizeAtlas(p.mark, p.done and "UI-QuestIcon-TurnIn-Normal"
+		or (p.focus and "Quest-In-Progress-Icon-Brown" or "Quest-In-Progress-Icon-yellow"), k)
+	p.mark:SetPoint("CENTER", pressed and 1 or 0, pressed and -1 or 0)
+	p.glow:SetShown(p.focus and true or false)
+end
+
+local function POIEnter(self)
+	local row = self:GetParent()
+	RowEnter(row)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText(self.label or "", 1, 0.82, 0)
-	if self.todo then GameTooltip:AddLine(self.todo, 1, 1, 1, true) end
+	if self.done then
+		GameTooltip:SetText(L["Ready to hand in"], 1, 0.82, 0)
+		GameTooltip:AddLine(L["\"?\": go back to whoever gave it, to hand it in."], 1, 1, 1, true)
+	else
+		GameTooltip:SetText(L["In progress"], 1, 0.82, 0)
+		GameTooltip:AddLine(L["\"...\": its objectives are still to be done."], 1, 1, 1, true)
+	end
+	if self.focus then GameTooltip:AddLine(L["Followed with the waypoint arrow (the lit ring)."], 0.25, 0.88, 0.25, true) end
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine(self.focus and L["Click: stop following it."] or L["Click: follow it with the waypoint arrow."], 0.8, 0.8, 0.8, true)
+	GameTooltip:AddLine(L["Right-click on the quest: track it or not."], 0.8, 0.8, 0.8, true)
 	GameTooltip:Show()
 end
-local function KindMark(b, mark)
-	if not mark then
-		if b.kindMark then b.kindMark:Hide() end
-		return false
+
+local function POILeave(self)
+	RowLeave(self:GetParent())
+	GameTooltip_Hide()
+end
+
+local function POIClick(self, button)
+	if button == "RightButton" then RowClick(self:GetParent(), button) return end
+	local q = self:GetParent().questID
+	if not q then return end
+	local focused = Focused(q)
+	if SOUNDKIT then PlaySound(focused and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON) end
+	SetFocus(focused and 0 or q)
+end
+
+local function QuestButton(b, questID, done)
+	local p = b.poi
+	if not p then
+		p = CreateFrame("Button", nil, b)
+		p:SetSize(POI_SIZE, POI_SIZE)
+		local k = POI_SIZE / POI_BLIZZARD
+		p.glow = p:CreateTexture(nil, "BACKGROUND")
+		p.glow:SetPoint("CENTER")
+		p.glow:SetBlendMode("ADD")
+		SizeAtlas(p.glow, "UI-QuestPoi-OuterGlow", k * 0.85)
+		p.glow:SetAlpha(0.4)
+		p.ring = p:CreateTexture(nil, "ARTWORK")
+		p.ring:SetPoint("CENTER")
+		p.mark = p:CreateTexture(nil, "OVERLAY")
+		p.mark:SetPoint("CENTER")
+		p.lit = p:CreateTexture(nil, "HIGHLIGHT")
+		p.lit:SetPoint("CENTER")
+		p.lit:SetBlendMode("ADD")
+		SizeAtlas(p.lit, "UI-QuestPoi-InnerGlow", k)
+		p:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		p:SetScript("OnEnter", POIEnter)
+		p:SetScript("OnLeave", POILeave)
+		p:SetScript("OnMouseDown", function(self, button) if button == "LeftButton" then PaintPOI(self, true) end end)
+		p:SetScript("OnMouseUp", function(self) PaintPOI(self, false) end)
+		p:SetScript("OnClick", POIClick)
+		b.poi = p
 	end
-	local m = b.kindMark
-	if not m then
-		m = CreateFrame("Frame", nil, b)
-		m:SetSize(14, 14)
-		m.tex = m:CreateTexture(nil, "ARTWORK")
-		m.tex:SetAllPoints()
-		m:EnableMouse(true)
-		FM.Style.PassClicks(m)
-		m:SetScript("OnEnter", MarkEnter)
-		m:SetScript("OnLeave", GameTooltip_Hide)
-		b.kindMark = m
+	done = done and true or false
+	local focus = Focused(questID)
+	if p.done ~= done or p.focus ~= focus or not p.painted then
+		p.done, p.focus, p.painted = done, focus, true
+		PaintPOI(p, false)
 	end
-	m.label, m.todo = mark[2], mark[3]
-	S.SetIcon(m.tex, mark[1])
-	m:ClearAllPoints()
-	m:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -4)
-	m:Show()
-	return true
+	p:ClearAllPoints()
+	p:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -4)
+	p:Show()
 end
 
 local function BuildList()
@@ -533,11 +693,14 @@ local function BuildList()
 					-- (Forever Quest Tint: its sign on a quest new in Forever, its colour on the objectives if it
 					-- recolours them, Tint.lua)
 					local title = FM.Tint.MarkTitle(q, ("(%d) %s"):format(info.level or 0, info.title or "?"))
+					-- (after the name: its kind's icon, then what it asks next: QuestMark)
+					title = title .. TypeIcon(q) .. QuestMark(q, info, complete, failed)
 					if failed then title = title .. L["  |cffff4040Failed|r"] end
 					local or_, og, ob = FM.Tint.ObjectiveColour(q)
 					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(0.9, 0.9, 0.9) end
-					-- (its icon left of the name: what kind of quest it is)
-					local indent = KindMark(b, QuestMark(q, info, complete, failed)) and 22 or 8
+					-- (left of the name: Blizzard's round button, to focus it)
+					QuestButton(b, q, complete)
+					local indent = 22
 					y = Place(b, y + 2, indent, title, ObjectivesText(q, complete, true), Watched(q), right)
 				end
 			end
@@ -582,7 +745,8 @@ local function ItemEnter(self)
 	GameTooltip:Show()
 end
 
-local function ItemClick(self)
+local function ItemClick(self, button)
+	if button == "RightButton" then QL.Back() return end     -- (AzerothVeil: back to the list)
 	local link = Try(GetQuestLogItemLink, self.kind, self.index)
 	if link and HandleModifiedItemClick then HandleModifiedItemClick(link) end
 end
@@ -613,6 +777,7 @@ local function NewItem()
 	b.name:SetMaxLines(2)
 	b:SetScript("OnEnter", function(self) self.bg:SetVertexColor(1, 1, 1, 0.1) ItemEnter(self) end)
 	b:SetScript("OnLeave", function(self) self.bg:SetVertexColor(1, 1, 1, 0.04) GameTooltip_Hide() end)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b:SetScript("OnClick", ItemClick)
 	return b
 end
@@ -737,26 +902,31 @@ local function BuildDetails()
 	local complete = C_QuestLog.IsComplete(q)
 	local description, objectives = GetQuestLogQuestText()
 	local y = 6
-	-- its name, in gold, its kind's icon before it; level, kind, group, time under it
+	-- its name, in gold, its kind's icon after it; level, kind, group, time under it
 	-- (classic: on the parchment, in dark ink, as Blizzard's quest log writes a quest's page)
 	local CL = S.classic
 	local function Head(fs) if CL then fs:SetTextColor(INK[1], INK[2], INK[3]) else fs:SetTextColor(1, 0.82, 0) end end
+	-- (AzerothVeil: classic, in the game's own quest fonts as Blizzard's quest page: QuestTitleFont for the name and
+	-- the headings, QuestFont for the text, QuestFontNormalSmall for the level; else ours at that size)
+	local function Face(fs, name, size) if CL then S.GameFont(fs, name, size) else S.Font(fs, size) end end
 	local b = Row()
 	Head(b.title)
-	S.Font(b.title, 16)
+	Face(b.title, "QuestTitleFont", 16)
+	Face(b.body, "QuestFontNormalSmall", 11)
 	b.big = true
-	if CL then b.body:SetTextColor(0.32, 0.2, 0.08) else b.body:SetTextColor(DiffColor(info.level)) end
+	if CL then b.body:SetTextColor(INK_SMALL[1], INK_SMALL[2], INK_SMALL[3]) else b.body:SetTextColor(DiffColor(info.level)) end
 	local meta = (L["Level %d"]):format(info.level or 0)
 	local tags = Tags(q, info)
 	if tags ~= "" then meta = meta .. (CL and "   " or "   |cffb8b8b8") .. tags .. (CL and "" or "|r") end
-	y = Place(b, y, PAD, KindIcon(q) .. FM.Tint.MarkTitle(q, info.title or "?"), meta, nil)
+	y = Place(b, y, PAD, FM.Tint.MarkTitle(q, info.title or "?") .. TypeIcon(q), meta, nil)
 	-- what it asks, and its objectives
 	local function Text(text, r, g, bb)
 		if not text or text == "" then return end
 		local t = Row()
 		if CL and not r then r, g, bb = INK_TEXT[1], INK_TEXT[2], INK_TEXT[3] end
 		t.title:SetTextColor(r or 0.92, g or 0.92, bb or 0.9)
-		S.Font(t.title, 12)
+		Face(t.title, "QuestFont", 12)
+		t.big = true
 		y = Place(t, y + 4, PAD, text, nil, nil)
 	end
 	Text(objectives)
@@ -765,7 +935,7 @@ local function BuildDetails()
 	if description and description ~= "" then
 		local h = Row()
 		Head(h.title)
-		S.Font(h.title, 15)
+		Face(h.title, "QuestTitleFont", 15)
 		h.big = true
 		y = Place(h, y + 10, PAD, L["Description"], nil, nil)
 		Text(description)
@@ -777,19 +947,23 @@ local function BuildDetails()
 		local top = y + 12
 		local h = Row()
 		if CL then h.title:SetTextColor(INK[1], INK[2], INK[3]) else h.title:SetTextColor(0.93, 0.85, 0.7) end
-		S.Font(h.title, 15)
+		Face(h.title, "QuestTitleFont", 15)
 		h.big = true
-		h.title:SetJustifyH("CENTER")
+		if not CL then h.title:SetJustifyH("CENTER") end     -- (classic: on the left, as Blizzard's page has it)
 		y = Place(h, top + 6, PAD, L["Rewards"], nil, nil)
 		if #choose > 0 then
 			local r = Row()
 			Head(r.title)
+			Face(r.title, "QuestFont", 12)
+			r.big = true
 			y = Place(r, y + 2, PAD, L["You will be able to choose one of these rewards:"], nil, nil)
 			y = ItemGrid(y + 2, choose) + 2
 		end
 		if #receive > 0 then
 			local r = Row()
 			Head(r.title)
+			Face(r.title, "QuestFont", 12)
+			r.big = true
 			y = Place(r, y + 4, PAD, #choose > 0 and L["You will also receive:"] or L["You will receive:"], nil, nil)
 			y = ItemGrid(y + 2, receive) + 2
 		end
@@ -814,8 +988,7 @@ local function UpdateButtons()
 	scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, details and (BAR + 4) or 4)
 	if not details then return end
 	buttons.track.label:SetText(Watched(q) and L["Untrack"] or L["Track"])
-	local super = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID() == q
-	buttons.nav:SetActive(super)
+	buttons.nav:SetActive(Focused(q))
 	local canShare = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q) and IsInGroup()
 	buttons.share:SetAlpha(canShare and 1 or 0.4)
 	buttons.abandon.label:SetText(buttons.abandon.armed == q and L["|cffff5050Sure?|r"] or L["Abandon"])
@@ -850,10 +1023,18 @@ function QL.ShowList()
 	QL.Refresh()
 end
 
+-- AzerothVeil: a right click (on the log, or on a bare spot of the map: Map.lua) while a quest's page shows:
+-- back to the list; true if it went back
+function QL.Back()
+	if not (panel and panel:IsShown() and mode == "details") then return false end
+	QL.ShowList()
+	return true
+end
+
 -- a quest's details; noMove: picked on the map itself, so the map stays where it is; ping: picked in the
 -- log or opened from a tracker, its button flashes (not from a click on the button itself)
 function QL.ShowDetails(questID, noMove, ping)
-	if not panel then return end
+	if not panel or not FM.db.questLog then return end      -- (AzerothVeil: the Quests module off: no log)
 	if not panel:IsShown() then QL.SetShown(true) end
 	mode, detailID = "details", questID
 	buttons.abandon.armed = nil
@@ -1053,8 +1234,7 @@ local function Build(parent, headerHeight)
 	end):SetPoint("BOTTOMLEFT", 5, 3)
 	Act("nav", L["Navigate"], { L["Navigate"], L["Follow it with the in-game waypoint arrow."] }, function()
 		if not detailID or not C_SuperTrack then return end
-		local on = C_SuperTrack.GetSuperTrackedQuestID() == detailID
-		C_SuperTrack.SetSuperTrackedQuestID(on and 0 or detailID)
+		SetFocus(Focused(detailID) and 0 or detailID)
 		QL.Refresh()
 	end):SetPoint("LEFT", buttons.track, "RIGHT", 3, 0)
 	Act("share", L["Share"], { L["Share"], L["Offer it to your group."] }, function()
@@ -1078,13 +1258,19 @@ local function Build(parent, headerHeight)
 	end):SetPoint("LEFT", buttons.share, "RIGHT", 3, 0)
 
 	panel:SetScript("OnShow", function() QL.Refresh() end)
+	-- AzerothVeil: a right click on the log's own background (the page around its lines): back to the list
+	panel:SetScript("OnMouseUp", function(_, button) if button == "RightButton" then QL.Back() end end)
 end
 
 -- docked in the map window (called when the window is built)
 function QL.Attach(parent, headerHeight)
 	Build(parent, headerHeight)
-	QL.SetShown(FM.db.questPanel)
+	QL.Apply()                       -- (AzerothVeil: out if wanted and the Quests module has it)
 end
+
+-- AzerothVeil: out beside the map: wanted out (FM.db.questPanel, the fold button) and there at all
+-- (FM.db.questLog, the Quests module)
+local function Out() return FM.db.questPanel and FM.db.questLog and true or false end
 
 -- AzerothVeil: suspended while the Dungeons module's side panel takes its place (Modules/Dungeons.lua):
 -- hidden, its preference (FM.db.questPanel) untouched; back as it was when the suspension ends
@@ -1095,15 +1281,32 @@ function QL.Suspend(on)
 	if suspended then
 		panel:Hide()
 	else
-		panel:SetShown(FM.db.questPanel)
-		FM.Map.SetSideWidth(FM.db.questPanel and WIDTH or 0)
-		if FM.Map.questsButton then FM.Map.questsButton:SetActive(FM.db.questPanel) end
+		panel:SetShown(Out())
+		FM.Map.SetSideWidth(Out() and WIDTH or 0)
+		if FM.Map.questsButton then FM.Map.questsButton:SetActive(Out()) end
 	end
+end
+
+-- AzerothVeil: the Quests module switched the log on or off (FM.db.questLog): shown or gone, its fold button
+-- with it; the preference to have it out kept
+function QL.Apply()
+	if FM.Map.questsButton then FM.Map.questsButton:SetShown(FM.db.questLog and true or false) end
+	if not panel then return end
+	if not FM.db.questLog and mode == "details" then
+		mode, detailID = "list", nil
+		buttons.abandon.armed = nil
+		FM.Quests.ClearSelection()
+	end
+	if suspended then return end
+	panel:SetShown(Out())
+	FM.Map.SetSideWidth(Out() and WIDTH or 0)
+	if FM.Map.questsButton then FM.Map.questsButton:SetActive(Out()) end
 end
 function QL.IsSuspended() return suspended end
 QL.WIDTH = WIDTH
 
 function QL.SetShown(on)
+	if not FM.db.questLog then return end    -- (AzerothVeil: the Quests module off: no log, its preference kept)
 	FM.db.questPanel = on and true or false
 	if not panel then return end
 	if suspended then return end         -- (kept for when the dungeon's panel goes)
@@ -1119,6 +1322,7 @@ function QL.Toggle() QL.SetShown(not (panel and panel:IsShown())) end
 -- open the map and the log (on a quest's details when given one: from the objective tracker, Questie's,
 -- another addon's "show this quest"; its button flashes, as from the log)
 function QL.Open(questID)
+	if not FM.db.questLog then return end    -- (AzerothVeil: the Quests module off: Blizzard's log, Takeover.lua)
 	FM.Map.Show()
 	-- (AzerothVeil: a quest asked for while a dungeon's panel holds the log's place: back on the world first)
 	if suspended and FM.Dungeon.Active() then FM.Dungeon.Back() end

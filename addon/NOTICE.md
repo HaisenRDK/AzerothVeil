@@ -38,8 +38,22 @@ PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data 
   places: where Blizzard's own cave maps lie and their masks, the game's minimap pictures of the others, one mended) are
   copied from OpenMap (`Data/Forever/Caves.lua`, `Data/Forever/CaveMinimap.lua`, `MapCave`, `MapCaveMend`, MIT);
   **Caves.lua** shows them as its `Map/Close.lua` does. The cave maps and minimap pictures themselves are the client's.
+  The same file's `MapCityMinimap` (Ironforge's and Undercity's minimap inside) is in it too (`FM.CITY_MINIMAP`);
+  **Cities.lua** lays them over those cities up close, and lets the cities in the open fade under the minimap's
+  terrain, as OpenMap's `Map/Close.lua` does.
 - **Data/Reveal.lua** (the explored-area pieces of Zephras Isle's map, so it shows whole from the start) is copied
   from OpenMap's `Data/Forever/Reveal.lua` (MIT), generated there from the game's tables.
+- **Data/Fog.lua** (every explored-area piece of each zone map, to know when one is explored whole, and the zones the fog of war covers) is copied from
+  OpenMap's `Data/Forever/Reveal.lua` and the zone list of its `Data/Forever/Fog.lua` (MIT), generated there from the
+  game's tables; **Media/FogTerritory/** (each zone map's territory, a mask) is copied from its `MapTerritory` (MIT).
+  **Fog.lua** draws a zone not explored whole as the game's own map does (its base art and its explored pieces, the
+  client's, at run time), through that territory.
+- **Data/AreaLabels.lua** (each explorable place's area and the middle of its ground, for its name over the minimap's
+  terrain up close: **Labels.lua**) is taken from OpenMap's `Data/Forever/Explore.lua` (MIT), generated there from the
+  game's tables and terrain; the names themselves are the client's.
+- **Pins.lua**'s townsfolk shown only where you've explored (the Map module's "Townsfolk of unexplored areas" off)
+  follows OpenMap's "Only places you've found" (`Map/Stitch.lua`, MIT): the game's explored areas at the spot or a
+  little round it, a capital found once visited or explored under it. Written anew here; no OpenMap code is called.
 - **Data/Places.lua** (instance entrances, docks) is copied from OpenMap's `Data/Forever/Places.lua` (MIT).
 - **Data/Minimap.lua** (the list of the client's minimap tiles, by file ID) and **Media/MiniLand/** (each
   continent's land, the minimap's mask) are copied from OpenMap (`Data/Forever/Minimap.lua`, `MapMiniLand`, MIT);
@@ -50,7 +64,9 @@ PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data 
   so the two addons see each other) and the way it sends and hears places.
 - **Media/CityMask/**, **Media/CityBanner/**, **Media/FeatherRound.tga** (the cities' cuts, their zones'
   name banners for them, the round feather) are copied from OpenMap (`MapCityMask`, `MapBanner`,
-  `MapFeatherRound`), and the banners' placement from its `Data/Forever/Banners.lua` (MIT).
+  `MapFeatherRound`), and the banners' placement from its `Data/Forever/Banners.lua` (MIT). Modified in AzerothVeil:
+  Thunder Bluff's (1456) and Orgrimmar's (1454) cuts drawn in closer round the city (Thunder Bluff's side wings gone),
+  their title banners kept as they were.
   The cities' own maps are the client's (C_Map art layers), drawn at run time. **Isles.lua** draws Zephras Isle's own map
   (the client's, at run time) as a map apart, as MapUtils and OpenMap open it.
 - **Media/DungeonDrawn/** and **Data/DungeonDrawn.lua**: the maps of WoW Forever's own dungeons (City of Dalaran and its

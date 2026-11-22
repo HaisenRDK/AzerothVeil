@@ -1,6 +1,6 @@
 -- Up close, the terrain as the minimap draws it: the game's own minimap tiles (Data/Minimap.lua, by
 -- file ID: nothing shipped but the list) taking over from the painted map well past where it runs
--- out of detail. One clean change at one zoom (between the 6th and 7th step of the wheel past where M
+-- out of detail. One clean change at one zoom (AzerothVeil: between the 4th and 5th step of the wheel past where M
 -- opens the map): on one side the painted map, on the other the minimap, never a zoom showing both;
 -- crossing it, one dissolves into the other over FADE seconds. Drawn through each continent's land
 -- (Media/MiniLand, OpenMap's), so the sea stays the painted map's. Only the tiles in view are loaded.
@@ -101,23 +101,34 @@ local function DropAll()
 	for _, m in pairs(masks) do if m then m:Hide() end end
 end
 
--- the zoom it changes at: halfway between the 6th and 7th step past M's opening zoom (so a step of the
--- wheel always lands clear of it), but always before the deepest zoom there is (a big window, or a
--- sharp screen, goes less deep)
-local SWITCH = 6.5
-local function At(deepest)
+-- the zoom it changes at: halfway between two steps past M's opening zoom (so a step of the wheel always
+-- lands clear of it), but always before the deepest zoom there is (a big window, or a sharp screen, goes
+-- less deep). AzerothVeil: the terrain two steps sooner than PerfectMap's (between the 4th and 5th step,
+-- not the 6th and 7th) and the caves two steps later (CAVES: between the 8th and 9th, or just before the
+-- deepest zoom): the land explored in the minimap's look before its caves
+local SWITCH, CAVES = 4.5, 8.5
+local function At(deepest, steps)
 	local step = FM.Map.ZOOM_STEP
-	return min(FM.W / FM.Map.OPEN_ACROSS * step ^ SWITCH, deepest / math.sqrt(step))
+	return min(FM.W / FM.Map.OPEN_ACROSS * step ^ (steps or SWITCH), deepest / math.sqrt(step))
 end
 
--- (the zoom the minimap's terrain comes in at, for the caves under it: Caves.lua)
-function T.SwitchZoom(deepest) return At(deepest) end
+-- (the zoom the caves come in at, over the minimap's terrain: Caves.lua)
+function T.SwitchZoom(deepest) return At(deepest, CAVES) end
 
 local function Shown() return Smooth(mix, 0, 1) end
+-- AzerothVeil: what goes with the terrain, told how much of it shows: the cities in the open fade under it
+-- (Cities.lua), the places' names come over it (Labels.lua)
+local function Under(k)
+	if FM.Cities then FM.Cities.SetTerrain(k) end
+	if FM.Labels then FM.Labels.SetTerrain(k) end
+end
+-- (whether it's there or coming: Labels.lua lays its names out then)
+function T.Active() return goal > 0 or mix > 0 end
 local function SetAll(a)
 	for _, t in pairs(tiles) do
 		if t.mix ~= a then t.mix = a t:SetAlpha(a) end
 	end
+	Under(Shown())   -- (AzerothVeil: the cities under it and the places' names over it)
 end
 
 -- every pan / zoom
@@ -126,8 +137,10 @@ function T.Layout(left, top, scale, vw, vh, zoom, deepest)
 	goal = (FM.db.minimapTerrain ~= false and zoom >= At(deepest)) and 1 or 0
 	if goal == 0 and mix <= 0 then
 		if next(tiles) then DropAll() end
+		Under(0)
 		return
 	end
+	Under(Shown())
 	local a = MIX * Shown()
 	wipe(wanted)
 	local right, bottom = left + vw / scale, top + vh / scale
@@ -188,7 +201,11 @@ end
 function T.Tick(elapsed)
 	if mix == goal then return end
 	if goal > mix then mix = min(goal, mix + elapsed / FADE) else mix = max(goal, mix - elapsed / FADE) end
-	if mix <= 0 then DropAll() return end
+	if mix <= 0 then
+		DropAll()
+		Under(0)
+		return
+	end
 	SetAll(MIX * Shown())
 end
 

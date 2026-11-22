@@ -17,6 +17,7 @@ local at                        -- GetTime() of the last time it was taken over 
 local wasOpen, wasLog           -- ours, before that
 local pendingClose = {}
 local pendingApply = false
+local nativeAt                  -- AzerothVeil: GetTime() of a show of Blizzard's map left to it (T.KeepNative)
 
 -- the game's classic quest log, by every name a client gives it (and the addons Questie knows of)
 local LOG_NAMES = { "QuestLogFrame", "ClassicQuestLog", "QuestLogExFrame" }
@@ -102,7 +103,14 @@ end
 local function TakeMap(f)
 	if not MapOn() or InCombatLockdown() then return end
 	f:SetAlpha(0)                 -- (not seen for the frame it's open)
+	local shownAt = GetTime()
 	C_Timer.After(0, function()
+		-- (AzerothVeil: opened for its quest log while ours isn't used: Blizzard's stays, ours goes)
+		if nativeAt == shownAt then
+			f:SetAlpha(1)
+			FM.Map.Hide()
+			return
+		end
 		if MapOn() and not InCombatLockdown() and f:IsShown() then HideUIPanel(f) end
 		f:SetAlpha(1)
 	end)
@@ -146,13 +154,23 @@ local function OnToggleSelf()
 	if Now() and wasOpen then FM.Map.Hide() end
 end
 
+-- AzerothVeil: Blizzard's map shown in this frame for its quest log, which ours doesn't replace (the Quests
+-- module off, or "Replace Blizzard's quest log" off): left to Blizzard, as WoW does without AzerothVeil.
+-- Called from post-hooks of the same action (the L key, the objective tracker's "show this quest").
+function T.KeepNative()
+	if LogOn() or InCombatLockdown() then return end
+	nativeAt = GetTime()
+end
+
 -- L (from a button): our log, as our L key does it
 local function OnToggleQuestLog()
-	if not Now() or not LogOn() then return end
+	if not LogOn() then T.KeepNative() return end
+	if not Now() then return end
 	if wasOpen and wasLog then FM.Map.Hide() else FM.QuestLog.Open() end
 end
 
 local function OnOpenQuestLog(_, mapID)
+	if not LogOn() then T.KeepNative() return end
 	if not Now() then return end
 	if LogOn() then FM.QuestLog.Open() end
 	if mapID then FM.Map.ShowMapID(mapID) end

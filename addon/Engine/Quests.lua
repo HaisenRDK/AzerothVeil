@@ -857,11 +857,19 @@ local function SyncQuestieTownsfolk()
 	if type(cfg) ~= "table" then return end
 	local first = FM.db.questieSeen == nil      -- (the first look only notes them: the user's choices stand)
 	FM.db.questieSeen = FM.db.questieSeen or {}
-	local seen, pins, changed = FM.db.questieSeen, FM.db.pins, false
+	local seen, changed = FM.db.questieSeen, false
+	-- (AzerothVeil: turned on as the module's setting it is: the flight masters the Transports module's, the
+	-- rest the Icons module's; never the engine's switch itself, which the module writes)
+	local MM = FM.Modules
 	local function Follow(questieKey, ours)
 		local on = cfg[questieKey] and true or false
 		local key = tostring(questieKey)
-		if on and not first and not seen[key] and not pins[ours] then pins[ours] = true changed = true end
+		local owner = ours == "flight" and "transports" or "icons"
+		local m = MM and MM:Get(owner)
+		if on and not first and not seen[key] and m and m.settingByKey[ours] and not MM:GetSetting(owner, ours) then
+			MM:SetSetting(owner, ours, true)
+			changed = true
+		end
 		seen[key] = on
 	end
 	for qk, ours in pairs(QUESTIE_TOWNSFOLK) do Follow(qk, ours) end
@@ -871,10 +879,7 @@ local function SyncQuestieTownsfolk()
 	if ok and QP and type(QP.professionKeys) == "table" then
 		for name, id in pairs(QP.professionKeys) do Follow(id, "prof_" .. name) end
 	end
-	if changed then
-		FM.Pins.Ensure()
-		if FM.Menu then FM.Menu.Refresh() end
-	end
+	if changed and FM.Menu then FM.Menu.Refresh() end
 end
 
 -- Questie's patrol paths (its QuestieWaypoints), drawn again as lines on our map: its colour and
@@ -1125,7 +1130,9 @@ local function HookQuestDetails()
 	if Q.hooked or not _G.QuestMapFrame_OpenToQuestDetails then return end
 	Q.hooked = true
 	hooksecurefunc("QuestMapFrame_OpenToQuestDetails", function(questID)
-		if not FM.db.replaceQuestLog or InCombatLockdown() or not questID then return end
+		if InCombatLockdown() or not questID then return end
+		-- (AzerothVeil: ours not used: Blizzard's log keeps it, Takeover.lua)
+		if not FM.db.replaceQuestLog then FM.Takeover.KeepNative() return end
 		FM.QuestLog.Open(questID)
 	end)
 end

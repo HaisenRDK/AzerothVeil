@@ -35,8 +35,27 @@
 
 ## Étape 3 — Exploration
 
-- Brouillard de guerre sur les zones inexplorées (`C_MapExplorationInfo`, compatible carte seamless),
-  plusieurs modes d'affichage ; option liée à Questie (`requiresAddOns` d'un sous-réglage).
+- [x] Module **Carte** : options de l'ancien onglet Carte du moteur, devenues déclaratives (migration 6)
+- [x] Brouillard de guerre sur les zones inexplorées, rendu de la carte de Blizzard (art de base + morceaux explorés,
+  `C_MapExplorationInfo`), option du module Carte
+- [ ] Validation en jeu (checklist de `docs/development.md`)
+- [ ] Pistes : mode « assombrir » (Darken d'OpenMap, `MapFog`),
+  option liée à Questie (`requiresAddOns` d'un sous-réglage)
+
+## Étape 3 bis — Icônes (v0.5.0)
+
+- [x] Module **Icônes** : capitales, PNJ des villes, maîtres de métiers (anciens onglets Lieux / PNJ des villes /
+  Métiers du moteur), migration 7
+- [x] Option « PNJ des zones inexplorées » du module Carte
+- [ ] Validation en jeu (checklist de `docs/development.md`)
+- [x] « Tout afficher / Tout masquer » dans les en-têtes de section (déclaratif : `all = true` sur l'en-tête,
+  `noAll` sur une option), « Mes métiers », « Toutes les classes » sous Maîtres de classe
+
+## Pistes — capitales
+
+- [ ] Orgrimmar : minimap souterraine (Fente de l'Ombre) au zoom des grottes. Aucune donnée disponible (ni OpenMap
+  ni nous) : il faudrait extraire du client les images de minimap du WMO d'Orgrimmar (`WMOMinimapTexture`) et leur
+  position, comme `tools/map-caves/minimap.py` d'OpenMap ; demande un lecteur CASC (outil à installer, accord requis).
 
 ## Étape 4 — Marqueurs
 

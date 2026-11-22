@@ -22,7 +22,7 @@ local _, ns = ...
 local Database = {}
 ns.Database = Database
 
-Database.SCHEMA = 4
+Database.SCHEMA = 7
 
 -- Fills dst with what's missing from defaults (tables merged deeply). A value whose type differs from
 -- its default's is replaced by the default (a corrupted or hand-edited file).
@@ -112,6 +112,83 @@ migrations[4] = function(root)
 	Copy("raidPins", pins.raid)
 	Copy("auto", engine.dungeonMaps)
 	Copy("bosses", engine.dungeonBosses)
+end
+
+-- 5: the quests on the map and the quest log, PerfectMap's switches, become the Quests module's settings
+migrations[5] = function(root)
+	local engine = root.engine
+	local pins = type(engine.pins) == "table" and engine.pins or {}
+	local m = root.modules.quests or {}
+	root.modules.quests = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	local set = m.settings
+	local function Copy(key, value)
+		if set[key] == nil and type(value) == "boolean" then set[key] = value end
+	end
+	Copy("poi", engine.questPOI)
+	Copy("offers", engine.questOffers)
+	Copy("areas", engine.questAreas)
+	Copy("questie", pins.questie)
+	Copy("replace", engine.replaceQuestLog)
+end
+
+-- 6: the map's own options (the engine's Map tab in PerfectMap's menu) become the Map module's settings, the
+-- minimap button's switch with them (AzerothVeilDB.core.minimap.hide); the engine's keys stay, as what the
+-- module writes while it runs (Engine/Core.lua sets them off at each load: FM.MAP_OFF)
+migrations[6] = function(root)
+	local engine = root.engine
+	local m = root.modules.map or {}
+	root.modules.map = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	local set = m.settings
+	local function Copy(key, value)
+		if set[key] == nil and type(value) == "boolean" then set[key] = value end
+	end
+	Copy("replaceM", engine.replaceM)
+	if engine.reopen == "player" or engine.reopen == "last" then Copy("centerOnOpen", engine.reopen == "player") end
+	Copy("rememberZoom", engine.rememberZoom)
+	Copy("fadeMoving", engine.fadeMoving)
+	Copy("hoverHighlight", engine.hoverHighlight)
+	Copy("joinIcons", engine.joinIcons)
+	Copy("addonPins", engine.addonPins)
+	Copy("underground", engine.underground)
+	Copy("minimapTerrain", engine.minimapTerrain)
+	Copy("zoneFishing", engine.zoneFishing)
+	local scale = tonumber(engine.iconScale)
+	if set.iconScale == nil and scale then
+		-- (PerfectMap's older sizes, 1.10 for 1.00: Engine/Core.lua's iconScale2, done here as it isn't yet)
+		if not engine.iconScale2 then scale = math.floor(scale / 1.1 / 0.05 + 0.5) * 0.05 end
+		set.iconScale = scale
+	end
+	local mini = type(root.core) == "table" and root.core.minimap
+	if type(mini) == "table" and type(mini.hide) == "boolean" then
+		Copy("minimapButton", not mini.hide)
+		mini.hide = nil
+	end
+end
+
+-- 7: the capitals, the townsfolk and the profession trainers (the engine's Places, Townsfolk and Professions
+-- tabs) become the Icons module's settings, under the same keys as FM.db.pins; the engine's keys stay, as what
+-- the module writes while it runs (Engine/Core.lua turns them off at each load)
+local ICON_KEYS = {
+	"capital", "innkeeper", "banker", "auctioneer", "repair", "classTrainer", "portalTrainer", "weaponMaster",
+	"stable", "battlemaster", "spirit", "barber", "transmogrifier", "mailbox", "food", "drink", "reagents",
+	"tradeGoods", "bags", "potions", "ammo", "poisons",
+}
+migrations[7] = function(root)
+	local engine = root.engine
+	local pins = type(engine.pins) == "table" and engine.pins or {}
+	local m = root.modules.icons or {}
+	root.modules.icons = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	local set = m.settings
+	local function Copy(key, value)
+		if set[key] == nil and type(value) == "boolean" then set[key] = value end
+	end
+	for _, k in ipairs(ICON_KEYS) do Copy(k, pins[k]) end
+	for k, v in pairs(pins) do
+		if type(k) == "string" and k:match("^prof_") then Copy(k, v) end   -- (the profession trainers)
+	end
 end
 
 -- (for tests)

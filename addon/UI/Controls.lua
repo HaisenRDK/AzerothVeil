@@ -1,7 +1,7 @@
 -- AzerothVeil — UI/Controls.lua
 -- The controls a module's settings are drawn with, one builder per setting type of its declaration
 -- (Core/ModuleManager.lua: settings = { { key, type, ... } }), all Blizzard's own pieces:
---   header  a title (GameFontNormal, gold)
+--   header  a title (GameFontNormal, gold); all = true: "Show all" / "Hide all" buttons beside it
 --   toggle  UICheckButtonTemplate and its label; a child option (parent = key) indented under its parent
 --   range   MinimalSliderWithSteppersTemplate, its value on the right
 -- Each builder returns a row ({ Refresh = fn }) and the next y. A row reads and writes only through the
@@ -37,11 +37,28 @@ end
 
 local Build = {}
 
-function Build.header(page, m, spec, y)
+function Build.header(page, m, spec, y, onChange)
 	local fs = page:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 	fs:SetPoint("TOPLEFT", 0, y - 8)
 	fs:SetText(spec.label or "")
-	return { Refresh = function() end }, y - 30
+	if not spec.all then return { Refresh = function() end }, y - 30 end
+	-- (all = true: "Show all" / "Hide all" for its section, Blizzard's own buttons beside its title)
+	local buttons, prev = {}, fs
+	for _, b in ipairs({ { ns.L["Show all"], true }, { ns.L["Hide all"], false } }) do
+		local btn = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+		btn:SetSize(100, 20)
+		btn:SetPoint("LEFT", prev, "RIGHT", prev == fs and 12 or 4, 0)
+		btn:SetText(b[1])
+		btn:SetScript("OnClick", function()
+			MM:SetSection(m.name, spec, b[2])
+			if onChange then onChange() end
+		end)
+		buttons[#buttons + 1] = btn
+		prev = btn
+	end
+	return { Refresh = function()
+		for _, btn in ipairs(buttons) do btn:SetEnabled(MM:IsEnabled(m.name)) end
+	end }, y - 30
 end
 
 function Build.toggle(page, m, spec, y, onChange)

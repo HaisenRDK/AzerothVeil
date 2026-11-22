@@ -1,5 +1,5 @@
 -- The options panel: a flat panel over the map's top-right corner, its settings in tabs down its
--- left side (Map, Places, Townsfolk, Professions, Quests, Social), each page in two columns, every
+-- left side (AzerothVeil: one per module, the Map module's first), each page in two columns, every
 -- row with its icon (the Map page's plain). Built the first time it opens; the last tab is remembered.
 local _, FM = ...
 local L = FM.L
@@ -7,9 +7,6 @@ local M = {}
 FM.Menu = M
 
 local S = FM.Style
-local ICON = "Interface\\Icons\\"
-local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
-local TRACK = "Interface\\Minimap\\tracking\\"
 
 local TAB_W = 156                 -- the tabs' column (AzerothVeil: wider, as the whole window)
 local COL_W = 262                 -- each of a page's two columns
@@ -21,73 +18,6 @@ local panel, body                 -- body: what's inside the panel's frame (clas
 local rows = {}                   -- every switch, to refresh them all at once
 local pages, tabs = {}, {}
 local current
-
----------------------------------------------------------------------------
--- Building blocks: a page's two columns, each filled top down
----------------------------------------------------------------------------
-local Column = {}
-Column.__index = Column
-
--- (w: its width; a page with one column takes both columns' room, so its rows read whole)
-local function NewColumn(page, x, w)
-	return setmetatable({ page = page, x = x, y = -PAD, w = w or COL_W }, Column)
-end
-
-function Column:Section(text)
-	if self.y < -PAD then self.y = self.y - 8 end
-	local fs = S.Text(self.page, 11, S.ACCENT)
-	fs:SetPoint("TOPLEFT", self.x + 2, self.y)
-	fs:SetText(text:upper())
-	local line = self.page:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(S.WHITE)
-	line:SetVertexColor(1, 1, 1, 0.08)
-	if S.classic then line:SetVertexColor(S.BORDER[1], S.BORDER[2], S.BORDER[3], 1) end   -- (classic: a gold rule)
-	line:SetHeight(1)
-	line:SetWidth(self.w)
-	line:SetPoint("TOPLEFT", self.x, self.y - 15)
-	self.y = self.y - 22
-end
-
--- a switch: get / set its value; tip: the mouse-over text
-function Column:Switch(label, icon, get, set, tip)
-	local r = S.SwitchRow(self.page, label, icon, get, set, self.w)
-	r:SetPoint("TOPLEFT", self.x, self.y)
-	r.tip = tip
-	rows[#rows + 1] = r
-	self.y = self.y - ROW
-	return r
-end
-
--- a switch for one setting of FM.db; after: what to do once it changed
-function Column:Option(label, icon, key, tip, after)
-	return self:Switch(label, icon, function() return FM.db[key] end, function(v)
-		FM.db[key] = v
-		if after then after(v) end
-	end, tip or label)
-end
-
--- a switch for a kind of icon on the map (FM.Pins.CATS)
-function Column:Pin(cat, label, tip, icon)
-	return self:Switch(label or cat.label, icon or cat.icon,
-		function() return FM.db.pins[cat.key] end,
-		function(v) FM.Pins.SetShown(cat.key, v) end, tip)
-end
-
-function Column:Slider(label, icon, minV, maxV, step, get, set, fmt)
-	local f = S.Slider(self.page, label, minV, maxV, step, get, set, fmt, self.w, icon)
-	f:SetPoint("TOPLEFT", self.x, self.y - 2)
-	self.y = self.y - 40
-end
-
--- a row of small buttons: { label, onClick } ...
-function Column:Buttons(list)
-	local w = (self.w - 4 * (#list - 1)) / #list
-	for i, b in ipairs(list) do
-		local btn = S.Button(self.page, b[1], w, 18, b[2])
-		btn:SetPoint("TOPLEFT", self.x + (i - 1) * (w + 4), self.y)
-	end
-	self.y = self.y - ROW - 2
-end
 
 ---------------------------------------------------------------------------
 -- AzerothVeil: a module's options, from its declaration (Core/ModuleManager.lua: settings = { ... }),
@@ -107,7 +37,8 @@ local function Greyable(r, editable)
 		base(self)
 		local on = editable()
 		self:SetEnabled(on)
-		self:SetAlpha(on and 1 or 0.4)
+		-- (AzerothVeil: Blizzard's check box greyed as the game greys its own, else see-through)
+		if self.SetGreyed and self.check then self:SetGreyed(not on) else self:SetAlpha(on and 1 or 0.4) end
 	end
 	r:Refresh()
 	return r
@@ -191,13 +122,28 @@ local function ModuleHeader(page, m, y, width)
 end
 
 -- a section's box: its title, a rule, then its options two by two (a child option indented in its cell)
-local function ModuleSection(page, m, label, specs, y, width)
+local function ModuleSection(page, m, label, specs, y, width, header)
 	local sb = Box(page, 0.55)
 	sb:SetPoint("TOPLEFT", 0, y)
 	sb:SetWidth(width)
 	local t = sb:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 	t:SetPoint("TOPLEFT", 12, -10)
 	t:SetText(label)
+	-- (AzerothVeil: a header declared with all = true: "Show all" / "Hide all" on its right, Blizzard's buttons)
+	if header and header.all then
+		local buttons = {}
+		for i, b in ipairs({ { L["Hide all"], false }, { L["Show all"], true } }) do
+			local btn = CreateFrame("Button", nil, sb, "UIPanelButtonTemplate")
+			btn:SetSize(100, 20)
+			btn:SetPoint("TOPRIGHT", -10 - (i - 1) * 104, -5)
+			btn:SetText(b[1])
+			btn:SetScript("OnClick", function() MM:SetSection(m.name, header, b[2]) M.Refresh() end)
+			buttons[i] = btn
+		end
+		rows[#rows + 1] = { Refresh = function()
+			for _, btn in ipairs(buttons) do btn:SetEnabled(MM:IsEnabled(m.name)) end
+		end }
+	end
 	local rule = sb:CreateTexture(nil, "ARTWORK")
 	rule:SetColorTexture(0.78, 0.62, 0.36, 0.35)
 	rule:SetHeight(1)
@@ -253,7 +199,7 @@ local function ModulePage(page, m)
 	local sections, current = {}, nil
 	for _, spec in ipairs(m.settings) do
 		if spec.type == "header" then
-			current = { label = spec.label or "", specs = {} }
+			current = { label = spec.label or "", specs = {}, header = spec }
 			sections[#sections + 1] = current
 		elseif spec.type == "toggle" or spec.type == "range" then
 			if not current then
@@ -264,34 +210,9 @@ local function ModulePage(page, m)
 		end
 	end
 	for _, sec in ipairs(sections) do
-		if #sec.specs > 0 then y = ModuleSection(page, m, sec.label, sec.specs, y, width) end
+		if #sec.specs > 0 then y = ModuleSection(page, m, sec.label, sec.specs, y, width, sec.header) end
 	end
 	return y
-end
-
-local function Cats(group)
-	local out = {}
-	for _, cat in ipairs(FM.Pins.CATS) do if cat.group == group then out[#out + 1] = cat end end
-	return out
-end
-
-local function SetAll(list, on)
-	for _, cat in ipairs(list) do FM.db.pins[cat.key] = on end
-	FM.Pins.Ensure()
-	if FM.Quests then FM.Quests.OnToggle() end
-	M.Refresh()
-end
-
--- a long list of kinds, down two columns, with All / None over them
-local function PinList(page, title, list)
-	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	a:Section(title)
-	b:Section(" ")
-	a:Buttons({ { L["Show all"], function() SetAll(list, true) end } })
-	b:Buttons({ { L["Hide all"], function() SetAll(list, false) end } })
-	local half = math.ceil(#list / 2)
-	for i, cat in ipairs(list) do (i <= half and a or b):Pin(cat) end
-	return math.min(a.y, b.y)
 end
 
 ---------------------------------------------------------------------------
@@ -299,106 +220,9 @@ end
 ---------------------------------------------------------------------------
 local BUILD = {}
 
-function BUILD.map(page)
-	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	a:Section(L["Map"])
-	-- (AzerothVeil: no "Classic style" switch: Blizzard's classic look is the only one)
-	a:Option(L["Open with M"], nil, "replaceM", { L["Open with M"],
-		L["M opens this map instead of Blizzard's. Outside combat, so do the map buttons, map pins in chat, quests' \"show on map\" and other addons."] },
-		FM.ApplyBindings)
-	a:Switch(L["Centre on me when opened"], nil,
-		function() return FM.db.reopen == "player" end,
-		function(v) FM.db.reopen = v and "player" or "last" end,
-		{ L["Centre on me when opened"], L["Off: it opens where you left it."] })
-	-- (AzerothVeil: the minimap button, UI/MinimapButton.lua)
-	if FM.MinimapButton then
-		a:Switch(L["Minimap button"], FM.MEDIA .. "icon",
-			function() return FM.MinimapButton.IsShown() end,
-			function(v) FM.MinimapButton.SetShown(v) end,
-			{ L["Minimap button"], L["Left-click: open or close the map"] .. "\n" .. L["Right-click: options"] })
-	end
-	a:Option(L["Remember last zoom"], nil, "rememberZoom", { L["Remember last zoom"],
-		L["The map opens at the zoom you closed it at."], L["Off: it always opens at the same zoom."] })
-	a:Option(L["Highlight zone under cursor"], nil, "hoverHighlight", { L["Highlight zone under cursor"],
-		L["The zone under the mouse lights up, as on Blizzard's continent map."] }, function() FM.Map.MarkDirty() end)
-	-- (AzerothVeil: dungeon maps and their bosses are the Dungeons module's: its own tab)
-	a:Option(L["Sum identical icons"], nil, "joinIcons", { L["Sum identical icons"],
-		L["Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom."],
-		L["Off: every icon on its own."] },
-		function() FM.Map.MarkDirty() end)
-	a:Option(L["Other addons' icons"], nil, "addonPins", { L["Other addons' icons"],
-		L["Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and others) show on this one, exactly where they put them, with their own tooltips and clicks."],
-		L["They show two steps of the wheel closer than the townsfolk."] }, function() FM.AddonPins.Refresh() end)
-	a:Option(L["Fade while moving"], nil, "fadeMoving", { L["Fade while moving"],
-		L["The map turns see-through while you move."] })
-	b:Section(L["Detail"])
-	b:Option(L["Caves up close"], nil, "underground", { L["Caves up close"],
-		L["Zoom right in on a cave, mine, crypt or dungeon entrance and its own map surfaces: Blizzard's where it drew one, else the game's minimap of it inside."] },
-		function() FM.Map.MarkDirty() end)
-	b:Option(L["Minimap terrain up close"], nil, "minimapTerrain", { L["Minimap terrain up close"],
-		L["Zoomed right in, the ground turns into the minimap's own: trees, rocks, roads and buildings."],
-		L["The sea stays the map's."] }, function() FM.Map.MarkDirty() end)
-	b:Option(L["Fishing skill of zones"], nil, "zoneFishing", { L["Fishing skill of zones"],
-		L["Under the zone's name: the fishing skill its waters want."] }, function() FM.Map.ResetHover() end)
-	b:Slider(L["Icon size"], nil, 0.6, 1.6, 0.05,
-		function() return FM.db.iconScale end,
-		function(v) FM.db.iconScale = v FM.Pins.ApplyScale() end, "%.2f")
-	return math.min(a.y, b.y)
-end
-
-function BUILD.places(page)
-	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	local P = FM.Pins
-	a:Section(L["Places"])
-	for _, cat in ipairs(Cats("places")) do
-		a:Pin(cat)
-	end
-	-- (AzerothVeil: boats, zeppelins, the tram and their routes: the Transports module's own tab)
-	return math.min(a.y, b.y)
-end
-
-function BUILD.townsfolk(page) return PinList(page, L["Townsfolk"], Cats("townsfolk")) end
-function BUILD.professions(page) return PinList(page, L["Profession trainers"], Cats("professions")) end
-
-function BUILD.quests(page)
-	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	local function QuestOption(label, icon, key, tip)
-		a:Option(label, icon, key, tip, function() FM.Quests.OnToggle() end)
-	end
-	a:Section(L["On the map"])
-	QuestOption(L["Objectives & turn-ins"], "Interface\\GossipFrame\\ActiveQuestIcon", "questPOI",
-		{ L["Objectives & turn-ins"], L["The quest log's quests, as Blizzard's map shows them."] })
-	QuestOption(L["Quests to pick up"], "Interface\\GossipFrame\\AvailableQuestIcon", "questOffers",
-		{ L["Quests to pick up"], L["The quests you can take, as Blizzard's map shows them."] })
-	QuestOption(L["Quest areas"], ICON .. "INV_Misc_Map_01", "questAreas",
-		{ L["Quest areas"], L["The blue area of the followed quest, and of the one under the mouse."] })
-	for _, cat in ipairs(Cats("quests")) do
-		if not cat.external or _G.Questie then
-			-- (with Questie's own logo)
-			a:Pin(cat, nil, { cat.label, L["Questie's quest, objective and turn-in icons, with its own tooltips."] },
-				_G.Questie and "Interface\\AddOns\\Questie\\Icons\\questie.png" or nil)
-		end
-	end
-	b:Section(L["Quest log"])
-	b:Option(L["Replace Blizzard's quest log"], "Interface\\QuestFrame\\UI-QuestLog-BookIcon", "replaceQuestLog",
-		{ L["Replace Blizzard's quest log"], L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] },
-		FM.ApplyBindings)
-	b:Switch(L["Quest log beside the map"], ICON .. "INV_Misc_Book_09",
-		function() return FM.db.questPanel end,
-		function(v) FM.QuestLog.SetShown(v) end,
-		{ L["Quest log beside the map"], L["Docked to the map's right: the window grows, the map keeps its shape."] })
-	return math.min(a.y, b.y)
-end
-
-
-local TABS = {
-	{ key = "map", label = L["Map"], icon = ICON .. "INV_Misc_Map_01" },
-	{ key = "places", label = L["Places"], icon = "Interface\\Minimap\\Dungeon" },
-	{ key = "townsfolk", label = L["Townsfolk"], icon = TRACK .. "innkeeper" },
-	{ key = "professions", label = L["Professions"], icon = "Interface\\GossipFrame\\TrainerGossipIcon", native = 16 },
-	{ key = "quests", label = L["Quests"], icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
-}
--- (AzerothVeil: then a tab for each module, its options built from its declaration: ModulePage)
+-- (AzerothVeil: the engine's own tabs (Map, Places, Townsfolk, Professions, Quests) are the modules' now:
+-- Map, Icons, Quests. Each module's tab is built from its declaration: ModulePage)
+local TABS = {}
 
 ---------------------------------------------------------------------------
 -- The panel and its tabs
@@ -491,7 +315,9 @@ local function Build()
 	if MM then
 		for _, m in ipairs(MM:Sorted()) do
 			local key = "module_" .. m.name
-			TABS[#TABS + 1] = { key = key, label = m.title, icon = IconOf(m.icon) or "Interface\\Icons\\INV_Misc_Gear_01" }
+			local spec = { key = key, label = m.title, icon = IconOf(m.icon) or "Interface\\Icons\\INV_Misc_Gear_01" }
+			-- (the Map module's tab first, where the engine's own Map tab was)
+			if m.name == "map" then table.insert(TABS, 1, spec) else TABS[#TABS + 1] = spec end
 			BUILD[key] = function(page) return ModulePage(page, m) end
 		end
 	end
@@ -605,7 +431,12 @@ local function Build()
 	panel:SetScale(FM.db.menuWindow and tonumber(FM.db.menuWindow.scale) or 1)
 	FM.TakeEscape(panel, function() M.Hide() end)
 
-	Select(pages[FM.db.menuTab or ""] and FM.db.menuTab or "map")
+	if FM.db.menuTab == "quests" then FM.db.menuTab = "module_quests" end    -- (AzerothVeil: its options, a module's now)
+	if FM.db.menuTab == "map" then FM.db.menuTab = "module_map" end          -- (AzerothVeil: and the map's)
+	if FM.db.menuTab == "places" or FM.db.menuTab == "townsfolk" or FM.db.menuTab == "professions" then
+		FM.db.menuTab = "module_icons"                                        -- (AzerothVeil: and the icons')
+	end
+	Select(pages[FM.db.menuTab or ""] and FM.db.menuTab or (TABS[1] and TABS[1].key))
 end
 
 M.MIN_SCALE, M.MAX_SCALE = 0.75, 1.6
@@ -633,7 +464,7 @@ local function Place()
 	end
 end
 
--- AzerothVeil's options: opened (on that tab, if given: "map", "places"... or "module_<name>")
+-- AzerothVeil's options: opened (on that tab, if given: "module_<name>")
 function M.Open(tab)
 	if not panel then Build() end
 	if tab and pages[tab] then Select(tab) end

@@ -17,6 +17,8 @@
 --                   the controls from it). type: "toggle" (boolean), "range" (number: min, max, step),
 --                   "header" (a title in the options, no value), "hidden" (stored, never shown).
 --                   parent = "key": the option only counts (and is only editable) while that toggle is on.
+--                   A header with all = true: "Show all" / "Hide all" buttons for its section's toggles (down to
+--                   the next header), but those declared noAll = true (MM:SectionToggles / MM:SetSection).
 --   Initialize(self)            once, just before its first Enable (never for a module that never runs)
 --   Enable(self)                it starts: its events, frames, hooks...
 --   Disable(self)               it stops and lets go of what it holds
@@ -234,6 +236,27 @@ function MM:OptionGroups(name, specs)
 		end
 	end
 	return groups
+end
+
+-- The toggles a section's "Show all" / "Hide all" set: those after that header (its spec), down to the next
+-- one, but those declared noAll = true
+function MM:SectionToggles(name, header)
+	local m = self.byName[name]
+	local out, inside = {}, false
+	for _, s in ipairs(m and m.settings or {}) do
+		if s.type == "header" then
+			if inside then break end
+			inside = s == header
+		elseif inside and s.type == "toggle" and not s.noAll then
+			out[#out + 1] = s.key
+		end
+	end
+	return out
+end
+
+-- every one of a section's toggles on or off (a header's buttons)
+function MM:SetSection(name, header, value)
+	for _, key in ipairs(self:SectionToggles(name, header)) do self:SetSetting(name, key, value) end
 end
 
 -- whether a module may be enabled yet not run (an addon or a module it needs, an addon that takes its place)

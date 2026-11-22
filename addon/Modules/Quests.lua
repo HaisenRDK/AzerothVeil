@@ -1,0 +1,69 @@
+-- AzerothVeil — Modules/Quests.lua
+-- "Quests": the quest log's quests on the map as Blizzard's map shows them (their buttons, the "!" of
+-- quests to pick up, the quest areas), Questie's icons when it's installed, and the quest log docked
+-- beside the map, which the L key and the objective tracker's clicks can open instead of Blizzard's.
+--
+-- The work is PerfectMap's: Engine/Quests.lua (the map's quests), Engine/QuestLog.lua (the log),
+-- Engine/Takeover.lua and the L key (Engine/Core.lua). This module owns their settings and writes the
+-- engine's switches (FM.db.questPOI, questOffers, questAreas, pins.questie, questLog, replaceQuestLog),
+-- all false while it's off (Engine/Core.lua turns them off at each load, before it starts).
+-- Off: WoW's own way. No quest on the map, no log beside it; L and the tracker open Blizzard's quest log.
+-- (The engine's quest events stay heard: the Dungeons module's Quests tab reads them too.)
+local _, ns = ...
+local L = ns.L
+
+local QUESTIE_ICON = "Interface\\AddOns\\Questie\\Icons\\questie.png"
+
+local Quests = ns.Modules:Register({
+	name = "quests",
+	title = L["Quests"],
+	description = L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, Questie's icons, and a quest log docked beside the map that L and the objective tracker open."],
+	onText = L["the quests picked below show on the map; the quest log beside it replaces Blizzard's if that option is on."],
+	offText = L["WoW's own way: no quest on this map, no quest log beside it; L and the objective tracker open Blizzard's quest log."],
+	order = 20,
+	icon = "Interface\\GossipFrame\\AvailableQuestIcon",
+	defaultEnabled = true,
+	settings = {
+		{ type = "header", label = L["On the map"] },
+		{ key = "poi", icon = "Interface\\GossipFrame\\ActiveQuestIcon", type = "toggle", default = true,
+			label = L["Objectives & turn-ins"],
+			tooltip = L["The quest log's quests, as Blizzard's map shows them."] },
+		{ key = "offers", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true,
+			label = L["Quests to pick up"],
+			tooltip = L["The quests you can take, as Blizzard's map shows them."] },
+		{ key = "areas", icon = "Interface\\Icons\\INV_Misc_Map_01", type = "toggle", default = true,
+			label = L["Quest areas"],
+			tooltip = L["The blue area of the followed quest, and of the one under the mouse."] },
+		{ key = "questie", icon = QUESTIE_ICON, type = "toggle", default = true,
+			label = L["Questie icons"],
+			tooltip = L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] },
+		{ type = "header", label = L["Quest log"] },
+		{ key = "log", icon = "Interface\\Icons\\INV_Misc_Book_09", type = "toggle", default = true,
+			label = L["Quest log beside the map"],
+			tooltip = L["Docked to the map's right: the window grows, the map keeps its shape. The button at the map's bottom right folds it away or brings it out."] },
+		{ key = "replace", icon = "Interface\\QuestFrame\\UI-QuestLog-BookIcon", type = "toggle", default = true, parent = "log",
+			label = L["Replace Blizzard's quest log"],
+			tooltip = L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] },
+	},
+})
+
+-- writes what's in effect into the engine's switches (all false while the module is off)
+local function Apply(self, running)
+	local function On(key) return running and self:IsOptionActive(key) or false end
+	local db = ns.db
+	db.questPOI = On("poi")
+	db.questOffers = On("offers")
+	db.questAreas = On("areas")
+	db.pins.questie = On("questie")
+	db.questLog = On("log")
+	db.replaceQuestLog = On("replace")
+	if ns.QuestLog and ns.QuestLog.Apply then ns.QuestLog.Apply() end
+	if ns.ApplyBindings then ns.ApplyBindings() end      -- (the L key: ours or Blizzard's)
+	if ns.Map.IsShown() then ns.Pins.Ensure() end
+	if ns.Quests then ns.Quests.OnToggle() end
+	ns.Map.MarkDirty()
+end
+
+function Quests:Enable() Apply(self, true) end
+function Quests:Disable() Apply(self, false) end
+function Quests:Refresh() Apply(self, true) end

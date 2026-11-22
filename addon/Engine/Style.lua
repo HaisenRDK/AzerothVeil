@@ -93,7 +93,7 @@ function S.Font(fs, size, flags)
 	-- (already so: nothing done; the quest log sets its rows' fonts at every refresh)
 	local r = registry[fs]
 	if r and r[1] == size and r[2] == flags and r[3] == current then return fs end
-	if r then r[1], r[2], r[3] = size, flags, current else registry[fs] = { size, flags, current } end
+	if r then r[1], r[2], r[3], r[4] = size, flags, current, nil else registry[fs] = { size, flags, current } end
 	Apply(fs, size, flags)
 	fs:SetShadowOffset(1, -1)
 	fs:SetShadowColor(0, 0, 0, 0.8)
@@ -104,7 +104,25 @@ function S.RefreshFonts()
 	local path = S.FontPath()
 	if path == current then return end
 	current = path
-	for fs, a in pairs(registry) do Apply(fs, a[1], a[2]) a[3] = path end
+	for fs, a in pairs(registry) do
+		if not a[4] then Apply(fs, a[1], a[2]) a[3] = path end      -- (AzerothVeil: the game's font objects' kept)
+	end
+end
+
+-- AzerothVeil: a font string in one of the game's own font objects' face, size and flags (QuestTitleFont,
+-- QuestFont, QuestFontNormalSmall: a quest's page as Blizzard writes it), read from the object as the game has it
+-- now; else ours at that size. Its shadow left as it is
+function S.GameFont(fs, name, size)
+	local obj = _G[name]
+	local file, h, flags
+	if obj and obj.GetFont then file, h, flags = obj:GetFont() end
+	if type(file) ~= "string" or file == "" or type(h) ~= "number" then return S.Font(fs, size) end
+	flags = flags or ""
+	local r = registry[fs]
+	if r and r[1] == h and r[2] == flags and r[3] == file then return fs end
+	if r then r[1], r[2], r[3], r[4] = h, flags, file, true else registry[fs] = { h, flags, file, true } end
+	if not fs:SetFont(file, h, flags) then fs:SetFont(FALLBACK, h, flags) end
+	return fs
 end
 
 function S.Text(parent, size, color, layer)
@@ -267,24 +285,35 @@ function S.SwitchRow(parent, label, icon, get, set, width)
 	local knob = r:CreateTexture(nil, "OVERLAY")
 	knob:SetTexture(WHITE)
 	knob:SetSize(10, 10)
-	-- (classic: the game's own check box instead of the switch)
-	local box, check
+	-- (classic: AzerothVeil: Blizzard's own check box, UICheckButtonTemplate, on the left as in the game's
+	-- options, then the icon and the label in white; the whole row toggles it)
+	local check
 	if S.classic then
 		track:Hide()
 		knob:Hide()
-		box = r:CreateTexture(nil, "ARTWORK")
-		box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
-		box:SetSize(22, 22)
-		box:SetPoint("RIGHT", -4, 0)
-		check = r:CreateTexture(nil, "OVERLAY")
-		check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-		check:SetAllPoints(box)
-		fs:SetTextColor(S.ACCENT[1], S.ACCENT[2], S.ACCENT[3])
+		check = CreateFrame("CheckButton", nil, r, "UICheckButtonTemplate")
+		check:SetSize(24, 24)
+		check:SetPoint("LEFT", 0, 0)
+		check:SetScript("OnClick", function() r:Click() end)
+		check:SetScript("OnEnter", function() r:GetScript("OnEnter")(r) end)
+		check:SetScript("OnLeave", function() r:GetScript("OnLeave")(r) end)
+		r.check = check
+		local x2 = 26
+		if r.icon then
+			r.icon:ClearAllPoints()
+			r.icon:SetPoint("LEFT", x2, 0)
+			x2 = x2 + 20
+		end
+		fs:ClearAllPoints()
+		fs:SetPoint("LEFT", x2, 0)
+		fs:SetPoint("RIGHT", -4, 0)
+		fs:SetTextColor(1, 1, 1)
+		r.label = fs
 	end
 	function r:Refresh()
 		local on = get()
 		if check then
-			check:SetShown(on and true or false)
+			check:SetChecked(on and true or false)
 		elseif on then
 			track:SetVertexColor(S.ACCENT[1], S.ACCENT[2], S.ACCENT[3], 0.9)
 			knob:SetVertexColor(1, 1, 1, 1)
@@ -293,6 +322,14 @@ function S.SwitchRow(parent, label, icon, get, set, width)
 			track:SetVertexColor(1, 1, 1, 0.15)
 			knob:SetVertexColor(0.75, 0.75, 0.75, 1)
 			knob:SetPoint("CENTER", track, "CENTER", -8, 0)
+		end
+	end
+	-- (greyed out: Blizzard's disabled check box and grey label; Engine/Menu.lua's Greyable)
+	function r:SetGreyed(off)
+		if check then
+			check:SetEnabled(not off)
+			fs:SetTextColor(off and 0.5 or 1, off and 0.5 or 1, off and 0.5 or 1)
+			if self.icon then self.icon:SetDesaturated(off and true or false) end
 		end
 	end
 	r:SetScript("OnClick", function(self)
