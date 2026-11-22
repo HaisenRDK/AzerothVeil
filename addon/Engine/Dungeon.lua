@@ -182,7 +182,7 @@ end
 
 function D.Choose(insts, anchor, name)
 	if not insts or #insts == 0 then return end
-	local parent = _G.PerfectMapFrame
+	local parent = _G.AzerothVeilFrame
 	if not chooser then
 		chooser = CreateFrame("Frame", nil, parent)
 		chooser:SetFrameStrata("DIALOG")
@@ -282,7 +282,7 @@ local BOSS_SIZE, BOSS_SCALE = 34, 0.62 * 1.44      -- (MapUtils', a fifth bigger
 local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 local FALLBACK = "Interface\\Icons\\INV_Misc_QuestionMark"
-local DRAGONS = "Interface\\AddOns\\PerfectMap\\Media\\"   -- (MapUtils' dragons without their level ring: tools/dragons.js)
+local DRAGONS = "Interface\\AddOns\\AzerothVeil\\Media\\"   -- (MapUtils' dragons without their level ring: tools/dragons.js)
 local STYLES = {
 	[0] = { ring = { 0.55, 0.5, 0.4 } },
 	[1] = { ring = { 0.95, 0.75, 0.25 }, dragon = "dragon_elite" },

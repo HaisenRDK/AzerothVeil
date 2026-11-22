@@ -1,5 +1,5 @@
 <Bindings>
-	<Binding name="PERFECTMAP_TOGGLE" header="PERFECTMAP" category="ADDONS">
-		PerfectMap_Toggle()
+	<Binding name="AZEROTHVEIL_TOGGLE" header="AZEROTHVEIL" category="ADDONS">
+		AzerothVeil_Toggle()
 	</Binding>
 </Bindings>

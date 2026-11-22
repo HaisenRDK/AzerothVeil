@@ -221,7 +221,7 @@ ev:SetScript("OnEvent", function(_, event)
 	Setup()
 end)
 
--- (for /pmap addons)
+-- (for /av addons)
 function T.Report(P)
 	local names = {}
 	for _, name in ipairs(LOG_NAMES) do

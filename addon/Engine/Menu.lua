@@ -7,7 +7,7 @@ FM.Menu = M
 
 local S = FM.Style
 local ICON = "Interface\\Icons\\"
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local TRACK = "Interface\\Minimap\\tracking\\"
 
 local TAB_W = 128                 -- the tabs' column
@@ -121,12 +121,7 @@ local BUILD = {}
 function BUILD.map(page)
 	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
 	a:Section("Map")
-	-- (the look: modern or classic; the new one shows after the reload it offers)
-	a:Switch("Classic style", nil,
-		function() return FM.db.style == "classic" end,
-		function(v) FM.SetStyle(v and "classic" or "modern") end,
-		{ "Classic style", "The map's windows and buttons as WoW Classic draws its own.",
-			"Off: the modern look. The change shows fully after a reload, which it offers." })
+	-- (AzerothVeil: no "Classic style" switch: Blizzard's classic look is the only one)
 	a:Option("Open with M", nil, "replaceM", { "Open with M",
 		"M opens this map instead of Blizzard's. Outside combat, so do the map buttons, map pins in chat, quests' \"show on map\" and other addons." },
 		FM.ApplyBindings)
@@ -240,16 +235,14 @@ end
 function BUILD.social(page)
 	local a = NewColumn(page, 0, COL_W * 2 + GAP)
 	a:Section("Friends & guild")
-	a:Option("Friends & guild on the map", "Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon", "friends", { "Friends & guild on the map",
-		"A class-coloured dot where each friend or guild member stands, for those who use PerfectMap or OpenMap and share where they are." },
-		function() FM.Friends.Refresh() end)
-	a:Option("Share where you are", ICON .. "INV_Letter_02", "friendsShare", { "Share where you are",
-		"Your guild, and your friends who use PerfectMap or OpenMap, see you as a dot on their map (every 10 s while you move).",
-		"Never from inside a dungeon, raid or battleground." }, function() FM.Friends.Refresh() end)
+	-- (AzerothVeil: these are the "Friends & guild" module's settings (Modules/Social.lua), set in the central
+	-- options with the module itself: one place for them, greyed out while the module is off)
+	a:Buttons({ { (FM.L and FM.L["Friends & guild settings..."]) or "Friends & guild settings...",
+		function() M.Hide() if FM.Options then FM.Options.Open("social") end end } })
 	a:Section("Boats & zeppelins")
 	a:Option("Share transports location", ICON .. "INV_Letter_15", "vesselSync", { "Share transports location",
-		"Trade where and when each boat and zeppelin was seen with other PerfectMap users (your guild, your group and your friends), for the live transport icons.",
-		"/pmap sailings: what has been heard." }, function() FM.Vessels.SyncChanged() end)
+		"Trade where and when each boat and zeppelin was seen with other AzerothVeil and PerfectMap users (your guild, your group and your friends), for the live transport icons.",
+		"/av sailings: what has been heard." }, function() FM.Vessels.SyncChanged() end)
 	return a.y
 end
 
@@ -308,11 +301,11 @@ local function Build()
 	-- pages in an inset as the map is; modern: a flat panel
 	local blizz = false
 	if S.classic then
-		local ok, f = pcall(CreateFrame, "Frame", nil, PerfectMapFrame, "PortraitFrameTemplate")
+		local ok, f = pcall(CreateFrame, "Frame", nil, AzerothVeilFrame, "PortraitFrameTemplate")
 		if ok and f then panel, blizz = f, true end
 	end
-	panel = panel or CreateFrame("Frame", nil, PerfectMapFrame)
-	panel:SetFrameLevel(PerfectMapFrame:GetFrameLevel() + 40)
+	panel = panel or CreateFrame("Frame", nil, AzerothVeilFrame)
+	panel:SetFrameLevel(AzerothVeilFrame:GetFrameLevel() + 40)
 	panel:EnableMouse(true)
 	panel:EnableMouseWheel(true)
 	panel:SetScript("OnMouseWheel", function() end)
@@ -386,7 +379,7 @@ local function Build()
 	foot:SetPoint("BOTTOMRIGHT", -PAD, 8)
 	foot:SetJustifyH("LEFT")
 	foot:SetWordWrap(false)
-	foot:SetText("Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /pmap help")
+	foot:SetText("Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help")
 
 	Select(pages[FM.db.menuTab or ""] and FM.db.menuTab or "map")
 end
@@ -395,7 +388,7 @@ function M.Toggle()
 	if not panel then Build() end
 	if panel:IsShown() then M.Hide() return end
 	panel:ClearAllPoints()
-	panel:SetPoint("TOPRIGHT", PerfectMapFrame, "TOPRIGHT", -6, -30)
+	panel:SetPoint("TOPRIGHT", AzerothVeilFrame, "TOPRIGHT", -6, -30)
 	M.Refresh()
 	panel:Show()
 	for _, ic in ipairs(crisp) do Crisp(ic) end

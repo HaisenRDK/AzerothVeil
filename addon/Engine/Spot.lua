@@ -13,7 +13,7 @@ local spot = {}                      -- the spot: u, v, its zone's mapID, name a
 -- the copy box: its text selected, Ctrl+C copies, Enter or Escape closes
 local function Copier()
 	if copier then return copier end
-	copier = CreateFrame("Frame", "PerfectMapCopyCoords", UIParent)
+	copier = CreateFrame("Frame", "AzerothVeilCopyCoords", UIParent)
 	copier:SetSize(300, 70)
 	copier:SetFrameStrata("DIALOG")
 	copier:SetPoint("CENTER", 0, 120)
@@ -83,7 +83,7 @@ function SP.Open(u, v)
 	spot.x, spot.y = nil, nil
 	if mapID then spot.x, spot.y = Geo.UnitsToMap(mapID, u, v) end
 	if not menu then
-		menu = CreateFrame("Frame", nil, _G.PerfectMapFrame)
+		menu = CreateFrame("Frame", nil, _G.AzerothVeilFrame)
 		menu:SetFrameStrata("DIALOG")
 		menu:EnableMouse(true)
 		menu:SetClampedToScreen(true)
@@ -98,7 +98,7 @@ function SP.Open(u, v)
 	local list = {}
 	if mapID then
 		local has = C_Map.HasUserWaypoint and C_Map.HasUserWaypoint()
-		list[#list + 1] = { has and "Move the map pin here" or "Place a map pin here", "Interface\\AddOns\\PerfectMap\\Media\\ring",
+		list[#list + 1] = { has and "Move the map pin here" or "Place a map pin here", "Interface\\AddOns\\AzerothVeil\\Media\\ring",
 			function() FM.Pins.PlaceAt(u, v) end, "Waypoint-MapPin-ChatIcon" }
 		if has then
 			list[#list + 1] = { "Remove the map pin", "Interface\\Buttons\\UI-GroupLoot-Pass-Up", function() FM.Pins.ClearPin() end }

@@ -10,10 +10,17 @@
 -- Light: nothing runs per frame; while the map is closed what arrives is only noted, and drawn when
 -- it opens (then again each 10 s, or as it arrives).
 -- The protocol and the way it's sent: OpenMap's Map/Friends.lua (MIT, (c) 2026 OpenMap contributors).
+-- AzerothVeil: driven by the "Friends & guild" module (Modules/Social.lua). F.Start() / F.Stop(): until it's
+-- started (and once stopped) it hears nothing, sends nothing, scans nothing and draws nothing. Its two
+-- switches are the module's settings (F.cfg: show, share, asked), no longer PerfectMap's FM.db.
 local _, FM = ...
 local F = {}
 FM.Friends = F
 local S, Geo = FM.Style, FM.Geo
+F.running = false
+F.cfg = nil                   -- (the module's settings table, set by F.Start)
+local function ShowOn() return F.running and F.cfg and F.cfg.show and true or false end
+local function ShareOn() return F.running and F.cfg and F.cfg.share and true or false end
 
 local PREFIX = "OpenMapLoc"
 local TICK = 2                -- seconds between looks at where you are
@@ -23,7 +30,7 @@ local GONE_AFTER = 150        -- seconds without word before someone's dot goes
 local MOVED = 0.002           -- (a move this small on a zone's map isn't one)
 local SEND_GAP = 0.5          -- seconds between messages sent
 local REDRAW_EVERY = 10
-local DOT = "Interface\\AddOns\\PerfectMap\\Media\\dot"
+local DOT = "Interface\\AddOns\\AzerothVeil\\Media\\dot"
 
 local Plain = FM.Plain
 local roster = {}             -- full name -> { guild = true, friend = true, guid }: online now
@@ -93,7 +100,7 @@ sender:SetScript("OnUpdate", function(self, elapsed)
 	local m = outbox[key]
 	outbox[key] = nil
 	wait = SEND_GAP
-	if m.text:sub(1, 2) == "L1" and not FM.db.friendsShare then return end   -- (turned off since)
+	if m.text:sub(1, 2) == "L1" and not ShareOn() then return end   -- (turned off since)
 	if m.bn then
 		if BNSendGameData then pcall(BNSendGameData, m.bn, PREFIX, m.text) end
 	elseif C_ChatInfo and C_ChatInfo.SendAddonMessage then
@@ -156,7 +163,7 @@ local function Stop()
 end
 
 local function Tick()
-	if not FM.db or not FM.db.friendsShare then Stop() return end
+	if not ShareOn() then Stop() return end
 	local m, x, y = Here()
 	if not m then Stop() return end
 	local moved = m ~= last.map or math.abs(x - last.x) > MOVED or math.abs(y - last.y) > MOVED
@@ -226,7 +233,7 @@ local function Scan()
 		if not ok then geterrorhandler()(err) end
 	end
 	-- a friend just online: a hello, to learn whether they use either addon (they learn you do)
-	if FM.db.friends or FM.db.friendsShare then
+	if ShowOn() or ShareOn() then
 		for full in pairs(friends) do
 			if not before[full] and not IsMe(full) then ToFriend(full, "H1") end
 		end
@@ -239,7 +246,7 @@ local scanning = false
 local function QueueScan()
 	if scanning then return end
 	scanning = true
-	C_Timer.After(FM.Map.IsShown() and 1 or 30, function() scanning = false Scan() end)
+	C_Timer.After(FM.Map.IsShown() and 1 or 30, function() scanning = false if F.running then Scan() end end)
 end
 
 local function AskRosters()
@@ -256,7 +263,7 @@ local function Heard(full, text, guild)
 	local kind, m, x, y, class, level = strsplit("\t", text, 6)
 	if friends[full] then known[full] = true end
 	if kind == "H1" or kind == "H2" then
-		if kind == "H1" and friends[full] then ToFriend(full, sharing and FM.db.friendsShare and last.text or "H2") end
+		if kind == "H1" and friends[full] then ToFriend(full, sharing and ShareOn() and last.text or "H2") end
 		return
 	end
 	if not guild and not friends[full] then return end      -- (a whisper only from a friend)
@@ -333,7 +340,7 @@ local function Gather()
 	dirty = false
 	redrawAt = GetTime()
 	nPlaced = 0
-	if not FM.db.friends then return end
+	if not ShowOn() then return end
 	local now = GetTime()
 	for full, p in pairs(live) do
 		if now - p.at > GONE_AFTER or IsMe(full) then
@@ -353,6 +360,11 @@ end
 -- every pan / zoom (a handful of dots)
 function F.Layout(left, top, scale, vw, vh)
 	if not layer then return end
+	if not F.running then
+		for i = 1, nDots do dots[i]:Hide() end
+		nDots = 0
+		return
+	end
 	if dirty or GetTime() - redrawAt > REDRAW_EVERY then Gather() end
 	local n = 0
 	for i = 1, nPlaced do
@@ -377,6 +389,7 @@ end
 
 -- (while the map is open: what arrived is drawn at once, by this layer alone, not the whole map)
 function F.Tick()
+	if not F.running then return end
 	if dirty or GetTime() - redrawAt > REDRAW_EVERY then F.Layout(FM.Map.ViewNow()) end
 end
 
@@ -385,16 +398,19 @@ end
 ---------------------------------------------------------------------------
 local ask
 local function Answer(share)
-	FM.db.shareAsked = true
-	if share then
-		FM.db.friendsShare = true
-		F.Refresh()
+	if F.cfg then
+		F.cfg.asked = true
+		if share then
+			F.cfg.share = true
+			F.Refresh()
+			if FM.Options and FM.Options.Refresh then FM.Options.Refresh() end
+		end
 	end
 	ask:Hide()
 end
 
 local function BuildAsk()
-	ask = CreateFrame("Frame", nil, _G.PerfectMapFrame)
+	ask = CreateFrame("Frame", nil, _G.AzerothVeilFrame)
 	ask:SetWidth(440)
 	ask:SetPoint("CENTER")
 	ask:SetFrameStrata("DIALOG")
@@ -409,7 +425,7 @@ local function BuildAsk()
 	text:SetWidth(400)
 	text:SetJustifyH("CENTER")
 	text:SetWordWrap(true)
-	text:SetText("Your friends and guild members who use PerfectMap (or OpenMap) show on your map as a dot where they stand. Share where you are, so they see you on theirs?")
+	text:SetText("Your friends and guild members who use AzerothVeil, PerfectMap or OpenMap show on your map as a dot where they stand. Share where you are, so they see you on theirs?")
 	local yes = S.Button(ask, "Share where I am", 170, 22, function() Answer(true) end)
 	yes:SetPoint("TOPRIGHT", text, "BOTTOM", -6, -14)
 	local no = S.Button(ask, "Not now", 170, 22, function() Answer(false) end)
@@ -419,17 +435,18 @@ local function BuildAsk()
 	note:SetWidth(400)
 	note:SetJustifyH("CENTER")
 	note:SetWordWrap(true)
-	note:SetText("Only your guild and friends, never from a dungeon, raid or battleground. Options: Share where you are.")
+	note:SetText("Only your guild and friends, never from a dungeon, raid or battleground. /av config: Friends & guild.")
 	function ask:Fit()
 		self:SetHeight(14 + title:GetStringHeight() + 10 + text:GetStringHeight() + 14 + 22 + 12 + note:GetStringHeight() + 14)
 	end
 end
 
 function F.OnShow()
+	if not F.running then return end
 	if scanning then scanning = false Scan() end
 	AskRosters()
 	dirty = true
-	if not FM.db.shareAsked and not FM.db.friendsShare and not InCombatLockdown() then
+	if F.cfg and not F.cfg.asked and not F.cfg.share and not InCombatLockdown() then
 		if not ask then BuildAsk() end
 		ask:Show()
 		ask:Fit()
@@ -440,26 +457,57 @@ end
 function F.Refresh()
 	dirty = true
 	FM.Map.MarkDirty()
-	if FM.db.friendsShare or sharing then last.at = -math.huge Tick() end
+	if not F.running then return end
+	if ShareOn() or sharing then last.at = -math.huge Tick() end
 end
 
 function F.Init(parent)
 	layer = parent
 end
 
+-- (AzerothVeil: started and stopped by the module, never at load: PerfectMap started it at PLAYER_LOGIN)
+local EVENTS = { "CHAT_MSG_ADDON", "BN_CHAT_MSG_ADDON", "GUILD_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE",
+	"FRIENDLIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "BN_FRIEND_ACCOUNT_ONLINE", "BN_FRIEND_ACCOUNT_OFFLINE",
+	"GROUP_ROSTER_UPDATE" }
 local ev = CreateFrame("Frame")
-ev:RegisterEvent("PLAYER_LOGIN")
+local ticker, startTimer
+local prefixRegistered = false
+
+-- cfg: the module's settings table ({ show, share, asked }), read live (a change is seen at once)
+function F.Start(cfg)
+	F.cfg = cfg
+	if F.running then F.Refresh() return end
+	F.running = true
+	if not prefixRegistered and C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
+		-- (a prefix can't be unregistered: once registered, it stays so until the next /reload; harmless)
+		prefixRegistered = pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX)
+	end
+	for _, e in ipairs(EVENTS) do pcall(ev.RegisterEvent, ev, e) end
+	ticker = C_Timer.NewTicker(TICK, Tick)
+	startTimer = C_Timer.NewTimer(5, function() startTimer = nil if F.running then AskRosters() QueueScan() end end)
+	dirty = true
+	if FM.Map and FM.Map.MarkDirty then FM.Map.MarkDirty() end
+end
+
+-- everything let go: no event, no timer, nobody known; those you shared with are told you stopped
+function F.Stop()
+	if not F.running then return end
+	Stop()                                   -- ("L0" to those who had your place: queued before running goes)
+	F.running = false
+	ev:UnregisterAllEvents()
+	if ticker then ticker:Cancel() ticker = nil end
+	if startTimer then startTimer:Cancel() startTimer = nil end
+	wipe(live) wipe(known) wipe(roster) wipe(friends)
+	nPlaced = 0
+	for i = 1, nDots do dots[i]:Hide() end
+	nDots = 0
+	if ask then ask:Hide() end
+	if FM.Map and FM.Map.MarkDirty then FM.Map.MarkDirty() end
+end
+
 ev:SetScript("OnEvent", function(self, event, ...)
-	if event == "PLAYER_LOGIN" then
-		if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX) end
-		for _, e in ipairs({ "CHAT_MSG_ADDON", "BN_CHAT_MSG_ADDON", "GUILD_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE",
-			"FRIENDLIST_UPDATE", "BN_FRIEND_INFO_CHANGED", "BN_FRIEND_ACCOUNT_ONLINE", "BN_FRIEND_ACCOUNT_OFFLINE",
-			"GROUP_ROSTER_UPDATE" }) do
-			self:RegisterEvent(e)
-		end
-		C_Timer.NewTicker(TICK, Tick)
-		C_Timer.After(5, function() AskRosters() QueueScan() end)
-	elseif event == "CHAT_MSG_ADDON" then
+	if not F.running then return end
+	if event == "CHAT_MSG_ADDON" then
 		local prefix, text, channel, from = ...
 		OnAddonMessage(prefix, text, channel, from)
 	elseif event == "BN_CHAT_MSG_ADDON" then

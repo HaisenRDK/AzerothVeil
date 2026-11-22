@@ -123,7 +123,7 @@ end
 -- dashes run on unbroken round the bends; soft at its edges and the dashes' ends, so it stays smooth at any
 -- angle. In its faction's colour, over a faint wider shadow, dashed the same, that lifts it off any ground.
 -- Only the stretches in view are drawn; the same width and dashes on screen at every zoom.
-local DASH = "Interface\\AddOns\\PerfectMap\\Media\\dash"
+local DASH = "Interface\\AddOns\\AzerothVeil\\Media\\dash"
 -- A dash and its gap: some 13 px on screen, but laid on the ground, not on the screen (zoomed, the dashes
 -- stay where they are and grow or shrink with it); each time the zoom doubles or halves, the ground's
 -- period halves or doubles, so they keep about their size, the old dashes where they were, new ones in

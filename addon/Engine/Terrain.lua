@@ -12,7 +12,7 @@ local Geo = FM.Geo
 local floor, min, max = math.floor, math.min, math.max
 
 local TILE = 1600 / 3                       -- yards a minimap tile
-local MASK = "Interface\\AddOns\\PerfectMap\\Media\\MiniLand\\"
+local MASK = "Interface\\AddOns\\AzerothVeil\\Media\\MiniLand\\"
 local CONT_MAP = { [0] = 1415, [1] = 1414 } -- instance -> its continent's map
 local MAX_TILES = 160                       -- (more in view than this: too far out to want them)
 local MIX = 1                               -- how much it shows at its full (1: the minimap's own look)

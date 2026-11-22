@@ -4,7 +4,7 @@
 --     (floor, x, y: on our floor and picture, 0..1; nil where it places the boss on no map of ours)
 --   DUNGEON_JOURNAL_FLOORS[instance][floor] = a floor of ours its maps add: { name, texture, bottom, credit }
 local _, FM = ...
-local P = "Interface\\AddOns\\PerfectMap\\Media\\DungeonDrawn\\"
+local P = "Interface\\AddOns\\AzerothVeil\\Media\\DungeonDrawn\\"
 FM.DUNGEON_JOURNAL = {
 	[33] = {
 		{ "Rethilgore", 20, 3, 524, 1, 0.6700, 0.7150, nil },

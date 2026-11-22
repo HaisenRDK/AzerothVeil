@@ -11,7 +11,7 @@ local C = {}
 FM.Caves = C
 
 local Geo = FM.Geo
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local min, max, floor = math.min, math.max, math.floor
 
 local UNDER = 4                             -- view width / cave width it shows from (a quarter of the view, its longer way)

@@ -3,7 +3,7 @@
 -- As MapUtils ships them (one picture a floor: its top `bottom` of 1024; `key`: its pins in MapUtils) and,
 -- for the floors it hasn't, as OpenMap does (4 x 3 tiles). Regenerate, do not edit.
 local _, FM = ...
-local P = "Interface\\AddOns\\PerfectMap\\Media\\DungeonDrawn\\"
+local P = "Interface\\AddOns\\AzerothVeil\\Media\\DungeonDrawn\\"
 FM.DUNGEON_DRAWN = {
 	[109] = { { name = "The Temple of Atal'Hakkar", texture = P .. "220", bottom = 683 / 1024, key = "220" }, { name = "Entrance", texture = P .. "220_2", bottom = 683 / 1024, key = "220_2" }, { name = "Hall of the Cursed", texture = P .. "220_3", bottom = 683 / 1024, key = "220_3" }, { name = "The Pit of Refuse", texture = P .. "220_4", bottom = 683 / 1024, key = "220_4" }, { name = "Hall of Serpents", texture = P .. "220_5", bottom = 683 / 1024, key = "220_5" } },
 	[2959] = { { name = "City of Dalaran", texture = P .. "2959", bottom = 684 / 1024, key = "2959", credit = "Santiago Reyes" }, { name = "The Underbelly", texture = P .. "2959_2", bottom = 689 / 1024, key = "2959_2", credit = "Santiago Reyes" } },

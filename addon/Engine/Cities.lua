@@ -12,7 +12,7 @@ local C = {}
 FM.Cities = C
 
 local Geo = FM.Geo
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local ART_W, ART_H = 1002, 668          -- a map's art size (its frame's own units below)
 
 -- [city] = cut: its plan (else a round feather); title: its own title (the zone's banner for it goes)

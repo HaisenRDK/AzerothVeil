@@ -20,7 +20,7 @@ local debugprofilestop = debugprofilestop
 local W, H = FM.W, FM.H
 local STEP = 510
 local TC0, TC1 = 1 / 512, 511 / 512
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local LEVELS = { 1, 2, 4, 8, 16 }
 local MAX_PPU = 64                -- deepest zoom: screen pixels per world unit (past the art's 16: the minimap's terrain)
 local HEADER = 26
@@ -28,7 +28,7 @@ local KEEP_SECONDS = 25           -- a tile off screen keeps its file this long 
 local KEEP_MAX = 64               -- ... and at most this many of them
 local DETAIL = 1
 local SETS = {
-	[DETAIL] = { path = "Interface\\AddOns\\PerfectMap\\Tiles\\", index = FM.TILES, top = 16,
+	[DETAIL] = { path = "Interface\\AddOns\\AzerothVeil\\Tiles\\", index = FM.TILES, top = 16,
 		sub = { [1] = -8, [2] = -7, [4] = -6, [8] = -5, [16] = -4 } },
 }
 local NI, NJ = {}, {}
@@ -965,10 +965,10 @@ local function Build()
 	-- game's Map & Quest Log is drawn; modern: our flat one
 	local blizz = false
 	if S.classic then
-		local ok, f = pcall(CreateFrame, "Frame", "PerfectMapFrame", UIParent, "PortraitFrameTemplate")
+		local ok, f = pcall(CreateFrame, "Frame", "AzerothVeilFrame", UIParent, "PortraitFrameTemplate")
 		if ok and f then frame, blizz = f, true end
 	end
-	frame = frame or CreateFrame("Frame", "PerfectMapFrame", UIParent)
+	frame = frame or CreateFrame("Frame", "AzerothVeilFrame", UIParent)
 	frame:SetFrameStrata("HIGH")
 	frame:SetToplevel(true)
 	frame:SetClampedToScreen(true)
@@ -977,8 +977,8 @@ local function Build()
 	frame:Hide()
 	if blizz then
 		S.used = true
-		if frame.SetTitle then frame:SetTitle("PerfectMap")
-		elseif frame.TitleText then frame.TitleText:SetText("PerfectMap") end
+		if frame.SetTitle then frame:SetTitle("AzerothVeil")
+		elseif frame.TitleText then frame.TitleText:SetText("AzerothVeil") end
 		-- (no portrait: Blizzard's frame without one, its corner closed as its own windows without one are)
 		if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, frame) end
 		if frame.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
@@ -1024,7 +1024,7 @@ local function Build()
 	headerRule:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
 	headerRule:SetHeight(1)
 	local title = S.Text(header, 13, S.ACCENT)
-	title:SetText("PerfectMap")
+	title:SetText("AzerothVeil")
 	local close
 	if blizz then
 		-- (classic: the title bar is the frame's own; its title, its close button)
@@ -1069,7 +1069,7 @@ local function Build()
 	gear:SetSize(16, 16)
 	gear:SetPoint("CENTER")
 	gear:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-	options.tip = { "Options", "PerfectMap's settings." }
+	options.tip = { "Options", "AzerothVeil's settings." }
 	Map.optionsButton = options
 	-- Questie's settings, when it's there: its own icon, left of the options
 	local left = options

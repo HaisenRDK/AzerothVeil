@@ -8,7 +8,7 @@ local _, FM = ...
 local S = {}
 FM.Style = S
 
-local WHITE = "Interface\\AddOns\\PerfectMap\\Media\\white"
+local WHITE = "Interface\\AddOns\\AzerothVeil\\Media\\white"
 S.WHITE = WHITE
 S.ACCENT = { 0.95, 0.74, 0.32 }
 S.BG = { 0.06, 0.065, 0.075, 0.94 }

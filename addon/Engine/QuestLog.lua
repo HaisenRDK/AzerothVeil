@@ -4,7 +4,7 @@
 -- rebuilt only while shown, at most a few times a second.
 local _, FM = ...
 local QL = {}
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 FM.QuestLog = QL
 
 local S = FM.Style
@@ -380,7 +380,7 @@ end
 -- kind as the game tags it (dungeon, raid, PvP, elite, group, class, world event, legendary), daily or
 -- repeatable, else what its next objective asks (kill, collect, use, explore, talk, reputation). The
 -- objectives' icons are Questie's (Media\Questie, so they show without it). A click on it is the row's.
-local QI = "Interface\\AddOns\\PerfectMap\\Media\\Questie\\"
+local QI = "Interface\\AddOns\\AzerothVeil\\Media\\Questie\\"
 local OBJECTIVE_MARK = {
 	monster = { QI .. "slay", "Kill" },
 	player = { QI .. "slay", "Defeat players" },

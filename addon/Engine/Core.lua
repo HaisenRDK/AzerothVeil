@@ -1,13 +1,15 @@
--- PerfectMap: a seamless, lightweight world map for WoW Forever.
+-- AzerothVeil, based on PerfectMap (by sokenn_, GPL-3.0): a seamless, lightweight world map for WoW Forever.
 -- Core: settings, events, the M key, slash commands. Nothing here runs per frame.
+-- AzerothVeil changes: the namespace is published by Core/Init.lua (_G.AzerothVeil); the settings live in
+-- AzerothVeilDB.engine (Core/Database.lua); the classic (Blizzard) look only; /av; module start-up signalled.
 local ADDON, FM = ...
-_G.PerfectMap = FM
 
 FM.W, FM.H = 1002, 668            -- Azeroth (947) art size: the map's world units
 FM.WORLD = 947
 FM.VERSION = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "dev"
 
 FM.defaults = {
+	style = "classic",               -- AzerothVeil: Blizzard's own look only (the modern one is not offered)
 	window = { mapW = 960 },         -- the map's width (its height follows: 3:2); left / top once moved
 	replaceM = true,                 -- M opens PerfectMap, and so does everything that would open Blizzard's
 	rememberZoom = true,             -- open at the zoom it was last closed at (else at M's own)
@@ -39,9 +41,8 @@ FM.defaults = {
 	addonPins = true,                -- other addons' icons (HereBeDragons-Pins), on this map too (AddonPins.lua)
 	gatherPins = true,               -- ... of them, the gathering addons' (GatherMate2, Gatherer...): the tools' leaf button
 	vessels = true,                  -- boats and zeppelins where they are now
-	friends = true,                  -- friends and guild members who share where they are, on the map
-	friendsShare = false,            -- your place sent to your guild and friends who use PerfectMap / OpenMap
-	shareAsked = false,
+	-- (AzerothVeil: friends / friendsShare / shareAsked are the "Friends & guild" module's settings now:
+	-- Modules/Social.lua; Core/Database.lua moves the old values there)
 	vesselSync = true,               -- ... sharing when they were seen with other PerfectMap users
 	enemyFlight = false,             -- the other faction's flight masters
 	enemyHarbors = false,            -- the other faction's harbors (and their boats' routes)
@@ -62,7 +63,7 @@ local function Merge(dst, src)
 end
 
 function FM.Print(msg)
-	DEFAULT_CHAT_FRAME:AddMessage("|cffe0b050PerfectMap|r " .. tostring(msg))
+	DEFAULT_CHAT_FRAME:AddMessage("|cffe0b050AzerothVeil|r " .. tostring(msg))
 end
 
 -- a value this client may hand out as secret (12.x engine): never compute with those
@@ -92,8 +93,8 @@ local function KeyButton(name, action)
 		end
 	end)
 end
-KeyButton("PerfectMapToggleButton", function() FM.Toggle() end)
-KeyButton("PerfectMapQuestLogButton", function() if FM.QuestLog then FM.QuestLog.ToggleKey() end end)
+KeyButton("AzerothVeilToggleButton", function() FM.Toggle() end)
+KeyButton("AzerothVeilQuestLogButton", function() if FM.QuestLog then FM.QuestLog.ToggleKey() end end)
 local bindOwner = CreateFrame("Frame")
 local pendingBind = false
 
@@ -107,8 +108,8 @@ function FM.ApplyBindings()
 			SetOverrideBindingClick(bindOwner, false, key, button)
 		end
 	end
-	if FM.db.replaceM then Bind("TOGGLEWORLDMAP", "PerfectMapToggleButton") end
-	if FM.db.replaceQuestLog then Bind("TOGGLEQUESTLOG", "PerfectMapQuestLogButton") end
+	if FM.db.replaceM then Bind("TOGGLEWORLDMAP", "AzerothVeilToggleButton") end
+	if FM.db.replaceQuestLog then Bind("TOGGLEQUESTLOG", "AzerothVeilQuestLogButton") end
 	if FM.Takeover then FM.Takeover.Apply() end      -- (Blizzard's map and log stopped, or not, by the same options)
 end
 
@@ -116,9 +117,9 @@ function FM.Toggle()
 	if not FM.Map then return end
 	FM.Map.Toggle()
 end
-_G.PerfectMap_Toggle = FM.Toggle
-BINDING_HEADER_PERFECTMAP = "PerfectMap"
-BINDING_NAME_PERFECTMAP_TOGGLE = "Toggle PerfectMap"
+_G.AzerothVeil_Toggle = FM.Toggle
+BINDING_HEADER_AZEROTHVEIL = "AzerothVeil"
+BINDING_NAME_AZEROTHVEIL_TOGGLE = (FM.L and FM.L["Toggle AzerothVeil"]) or "Toggle AzerothVeil"
 
 ---------------------------------------------------------------------------
 -- The look: modern or classic (Style.lua). Asked once, at the first start; changed in Options. Whatever's
@@ -196,7 +197,9 @@ ev:RegisterEvent("UPDATE_BINDINGS")
 ev:RegisterEvent("PLAYER_REGEN_ENABLED")
 ev:SetScript("OnEvent", function(_, event, arg)
 	if event == "ADDON_LOADED" and arg == ADDON then
-		local db = PerfectMapDB or {}
+		-- (AzerothVeil: one SavedVariables table, its engine part PerfectMap's own settings, as they were)
+		local root = FM.Database.Load()
+		local db = root.engine
 		-- (older settings: boats, zeppelins and the tram were one switch; the icon size's 1.10 is 1.00 now)
 		if db.pins and db.pins.transport ~= nil then
 			for _, k in ipairs({ "boat", "zeppelin", "tram" }) do db.pins[k] = db.pins.transport end
@@ -210,14 +213,16 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		if not db.routesHover then db.routes = nil db.routesHover = true end
 		-- (the other faction's harbors: off for everyone once, whatever a test left them at)
 		if not db.enemyHarborsOff then db.enemyHarbors = nil db.enemyHarborsOff = true end
-		PerfectMapDB = Merge(db, FM.defaults)
-		FM.db = PerfectMapDB
-		-- (the look, before anything's drawn; none chosen yet: modern, until the question at login is answered)
+		root.engine = Merge(db, FM.defaults)
+		FM.db = root.engine
+		-- (AzerothVeil: the classic look, always: Blizzard's own frames, never the modern one)
+		FM.db.style = "classic"
 		FM.Style.ApplyTheme(FM.db.style)
 		ev:UnregisterEvent("ADDON_LOADED")
+		-- (the settings are there: the modules can be set up, Core/Bootstrap.lua)
+		FM.Callbacks:Fire("SETTINGS_LOADED")
 	elseif event == "PLAYER_LOGIN" then
 		FM.ApplyBindings()
-		if FM.db.style == nil then FM.AskStyle() end
 	elseif event == "UPDATE_BINDINGS" then
 		FM.ApplyBindings()
 	elseif event == "PLAYER_REGEN_ENABLED" then
@@ -228,10 +233,14 @@ end)
 ---------------------------------------------------------------------------
 -- Slash commands
 ---------------------------------------------------------------------------
-SLASH_PERFECTMAP1, SLASH_PERFECTMAP2 = "/pmap", "/perfectmap"
-SlashCmdList.PERFECTMAP = function(msg)
+SLASH_AZEROTHVEIL1, SLASH_AZEROTHVEIL2 = "/av", "/azerothveil"
+SlashCmdList.AZEROTHVEIL = function(msg)
 	msg = (msg or ""):lower():match("^%s*(.-)%s*$")
-	if msg == "stats" then
+	if msg == "config" or msg == "options" then
+		if FM.Options then FM.Options.Open() end
+	elseif msg:match("^module") then
+		if FM.Modules then FM.Modules:SlashCommand(msg:match("^modules?%s*(.*)$")) end
+	elseif msg == "stats" then
 		if FM.Map then FM.Map.PrintStats() end
 	elseif msg == "reset" then
 		FM.db.window = { mapW = FM.defaults.window.mapW }
@@ -244,7 +253,7 @@ SlashCmdList.PERFECTMAP = function(msg)
 	elseif msg == "find" then
 		if FM.Map then FM.Map.Show() FM.Map.CenterOnPlayer() end
 	elseif msg == "help" then
-		FM.Print("/pmap - open/close  |  /pmap stats - performance  |  /pmap reset - window position  |  /pmap find - centre on you  |  /pmap sailings [log|test] - boats & zeppelins shared  |  /pmap addons - other addons' icons")
+		FM.Print("/av - open/close  |  /av config - settings & modules  |  /av modules [enable|disable <name>] - modules  |  /av stats - performance  |  /av reset - window position  |  /av find - centre on you  |  /av sailings [log|test] - boats & zeppelins shared  |  /av addons - other addons' icons")
 	else
 		FM.Toggle()
 	end

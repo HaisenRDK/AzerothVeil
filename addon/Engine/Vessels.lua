@@ -14,7 +14,7 @@ FM.Vessels = V
 
 local Geo = FM.Geo
 local floor, sqrt, min, max = math.floor, math.sqrt, math.min, math.max
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\MapUtils\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\MapUtils\\"
 -- (boats: our own painted ones, bow up as MapUtils' ship, in their faction's colours (the goblins', in
 -- yours: Pins.FactionArt); zeppelins: MapUtils')
 local ICONS = { zeppelin = MEDIA .. "vessel_zeppelin" }
@@ -29,7 +29,7 @@ local T = {
 	maxMove = 80, triggerCooldown = 30, iconSize = 22,
 }
 local CODE = "f"                        -- (WoW Forever's timetables)
-local PREFIX = "PerfectMapSail"         -- (PerfectMap's own messages: "T?f..." a question, "T!f..." sailings)
+local PREFIX = "PerfectMapSail"         -- (AzerothVeil: kept as is, so sightings are traded with PerfectMap users too) (PerfectMap's own messages: "T?f..." a question, "T!f..." sailings)
 local SERVER_CLOCK_PERIOD = 4294967296 / 1000 -- seconds in the transport clock's 32-bit millisecond counter
 
 local issecret = _G.issecretvalue
@@ -195,7 +195,7 @@ end
 -- Sharing: PerfectMap's own messages, with your guild, your group and your friends who use PerfectMap
 ---------------------------------------------------------------------------
 local Comm = { queue = {}, nextSend = 0, received = {}, pending = {}, announce = {}, lastAnnounce = {} }
--- (what went out and came in, for /pmap sailings)
+-- (what went out and came in, for /av sailings)
 local stats = { sent = 0, failed = 0, lastFail = nil, queries = 0, data = 0, heard = {}, raw = 0, rawBy = {} }
 
 local function SyncOn() return FM.db.vessels and FM.db.vesselSync end
@@ -610,7 +610,7 @@ local function NewPin()
 	spark:SetAlpha(0.55)            -- (discreet: a hint of where it is, not a flare)
 	spark:Hide()
 	spark.glow = spark:CreateTexture(nil, "OVERLAY", nil, 1)
-	spark.glow:SetTexture("Interface\\AddOns\\PerfectMap\\Media\\glow")
+	spark.glow:SetTexture("Interface\\AddOns\\AzerothVeil\\Media\\glow")
 	spark.glow:SetBlendMode("ADD")
 	spark.glow:SetVertexColor(0.35, 0.75, 1, 1)
 	spark.glow:SetAllPoints()
@@ -747,7 +747,7 @@ function V.SyncChanged()
 	if SyncOn() then V.Query(true) end
 end
 
--- /pmap sailings: whether the sharing is on, who's been heard, and what's known of each vessel
+-- /av sailings: whether the sharing is on, who's been heard, and what's known of each vessel
 function V.Status(arg)
 	local P = FM.Print
 	if arg == "test" then
@@ -773,7 +773,7 @@ function V.Status(arg)
 	local by = {}
 	for k, v in pairs(stats.rawBy) do by[#by + 1] = k .. " " .. v end
 	local friends = FM.Friends and FM.Friends.KnownFriends and #FM.Friends.KnownFriends(friendList) or 0
-	P(("Sailings: prefix %s; %d sent, %d failed%s; to your guild, group and %d friend(s) with PerfectMap."):format(
+	P(("Sailings: prefix %s; %d sent, %d failed%s; to your guild, group and %d friend(s) with AzerothVeil or PerfectMap."):format(
 		registered and "registered" or "NOT registered", stats.sent, stats.failed,
 		stats.lastFail and (" (last: " .. stats.lastFail .. ")") or "", friends))
 	P(("Sailings: %d heard%s; %d asking, %d with sailings, from %d players."):format(
@@ -791,7 +791,7 @@ function V.Status(arg)
 				SecondsToTime and SecondsToTime(max(60, Now() - k.t), true) or "?", status))
 		end
 	end
-	P(("Sailings: %d of %d boats and zeppelins known. Each becomes known when someone with PerfectMap rides it."):format(known, total))
+	P(("Sailings: %d of %d boats and zeppelins known. Each becomes known when someone with AzerothVeil or PerfectMap rides it."):format(known, total))
 end
 
 function V.OnShow()
@@ -825,7 +825,7 @@ ev:SetScript("OnEvent", function(_, event, ...)
 	elseif event == "CHAT_MSG_ADDON" then
 		local prefix, message, chatType, sender = ...
 		if Secret(prefix) or prefix ~= PREFIX then return end
-		-- (everything on our prefix counted, before anything is turned away: /pmap sailings)
+		-- (everything on our prefix counted, before anything is turned away: /av sailings)
 		stats.raw = stats.raw + 1
 		if not Secret(chatType) then stats.rawBy[tostring(chatType)] = (stats.rawBy[tostring(chatType)] or 0) + 1 end
 		if V.log then

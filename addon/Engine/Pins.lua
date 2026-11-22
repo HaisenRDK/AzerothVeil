@@ -11,7 +11,7 @@ FM.Pins = P
 local S, Geo = FM.Style, FM.Geo
 local floor = math.floor
 local TRACK = "Interface\\Minimap\\tracking\\"
-local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local CELL = 24                 -- grid cell, world units
 local GRID_W = 1000
 

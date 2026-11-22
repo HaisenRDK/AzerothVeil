@@ -1,0 +1,68 @@
+## Interface: 16001
+## Title: |cffe0b050Azeroth|rVeil
+## Notes: A seamless world map for WoW Forever, modular, based on PerfectMap. /av
+## Notes-frFR: Une carte du monde d'un seul tenant pour WoW Forever, modulaire, basée sur PerfectMap. /av
+## Version: 0.1.0
+## Author: Haisen (based on PerfectMap by sokenn_)
+## SavedVariables: AzerothVeilDB
+## OptionalDeps: Questie, ForeverQuestTint
+## Category: Map
+## IconTexture: Interface\AddOns\AzerothVeil\Media\icon
+## X-License: GPL-3.0 (see LICENSE.md and NOTICE.md)
+
+# Core: namespace, translations, message bus, events, settings, module manager
+Core\Init.lua
+Locales\enUS.lua
+Locales\frFR.lua
+Core\Callbacks.lua
+Core\Events.lua
+Core\Database.lua
+Core\ModuleManager.lua
+
+# Map engine: PerfectMap 1.5.6 (sokenn_, GPL-3.0), in its own load order
+Engine\Core.lua
+Engine\Style.lua
+Engine\Tint.lua
+Engine\Data\Tiles.lua
+Engine\Data\Places.lua
+Engine\Data\Townsfolk.lua
+Engine\Data\FlightMasters.lua
+Engine\Data\Levels.lua
+Engine\Data\Vessels.lua
+Engine\Data\Minimap.lua
+Engine\Data\DungeonMaps.lua
+Engine\Data\DungeonBosses.lua
+Engine\Data\DungeonSpots.lua
+Engine\Data\DungeonJournal.lua
+Engine\Data\DungeonDrawn.lua
+Engine\Data\DungeonEntrances.lua
+Engine\Data\VanillaQuests.lua
+Engine\Data\Reveal.lua
+Engine\Data\Caves.lua
+Engine\Data\CaveMinimap.lua
+Engine\Geo.lua
+Engine\Terrain.lua
+Engine\Cities.lua
+Engine\Isles.lua
+Engine\Caves.lua
+Engine\Routes.lua
+Engine\Vessels.lua
+Engine\Friends.lua
+Engine\Map.lua
+Engine\Pins.lua
+Engine\AddonPins.lua
+Engine\Spot.lua
+Engine\Quests.lua
+Engine\QuestLog.lua
+Engine\Takeover.lua
+Engine\Dungeon.lua
+Engine\Menu.lua
+
+# Modules (each registers itself with the module manager; nothing runs until it's enabled)
+Modules\Social.lua
+
+# Central options (the game's Settings window)
+UI\Options.lua
+
+# Start-up: settings to the modules, modules started at login
+Core\Bootstrap.lua

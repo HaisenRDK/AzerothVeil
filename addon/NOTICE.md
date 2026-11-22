@@ -1,3 +1,19 @@
+# AzerothVeil — notices
+
+AzerothVeil is a modified version of **PerfectMap 1.5.6** by **sokenn_** (CurseForge), licensed under the
+GNU GPL v3 (LICENSE.md). AzerothVeil is distributed under the same license.
+
+- `Engine/` holds PerfectMap's Lua code and `Engine/Data/` its data, adapted for AzerothVeil (renamed
+  addon, frames and paths; settings stored in `AzerothVeilDB`; the classic look only; the friends & guild
+  feature driven by a module). Every change is marked "AzerothVeil" in the code.
+- `Media/` and `Tiles/` are PerfectMap's, unchanged.
+- `Core/`, `Modules/`, `UI/` and `Locales/` are AzerothVeil's own (GPL v3).
+
+PerfectMap's own notice, unchanged, follows. Its paths are PerfectMap's (`Tint.lua` is now
+`Engine/Tint.lua`, `Data/...` is `Engine/Data/...`).
+
+---
+
 # Third-party material
 
 PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data derived from Questie.

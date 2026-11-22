@@ -278,7 +278,7 @@ end
 
 function A.Refresh() Changed() end
 
--- /pmap addons: what it sees, to find why an addon's icons don't show
+-- /av addons: what it sees, to find why an addon's icons don't show
 function A.Report()
 	local P = FM.Print
 	local wm = _G.WorldMapFrame
