@@ -557,6 +557,7 @@ local function LoadDungeons(saved, dj)
 		_G.ForeverDungeonJournal_Toggle = function() st.djShown = true end
 	end
 	assert(loadfile(ADDON_DIR .. "Integrations/DungeonJournal.lua"))("AzerothVeil", ns)
+	assert(loadfile(ADDON_DIR .. "Integrations/Questie.lua"))("AzerothVeil", ns)
 	assert(loadfile(ADDON_DIR .. "Modules/Dungeons.lua"))("AzerothVeil", ns)
 	-- (Boot without a reset: the stand-in DungeonJournal stays loaded)
 	ns.Database.Load() ns.Modules:LoadSettings()
@@ -724,6 +725,94 @@ test("unplaced bosses go to the Bosses tab, not over the map", function()
 	eq(ns.Dungeon.BossListInPanel(), false, "no tab: on the map, as before")
 	local ns2 = LoadDungeons(nil, {})
 	eq(ns2.Dungeon.BossListInPanel(), false, "DungeonJournal in charge: no tab of ours")
+end)
+
+-- a stand-in Questie: quests 1-5 in the Deadmines (area 1581, and 10029), 6 for the Horde only
+local function FakeQuestie(ready)
+	stub.loadedAddOns.Questie, stub.loadedAddOns.QuestieDB = true, true
+	local quests = {
+		[1] = { "Red Silk Bandanas", { { 101 } }, 18, 14, 0, 1581 },
+		[2] = { "Oh Brother...", { { 102 } }, 20, 15, 0, 10029 },
+		[3] = { "Underground Assault", { nil, nil, { 900 } }, 20, 15, 0, 1581 },
+		[4] = { "The Defias Brotherhood", { { 101 } }, 22, 14, 0, 1581 },
+		[5] = { "Too Soon", { { 102 } }, 30, 28, 0, 1581 },
+		[6] = { "Horde Only", { { 102 } }, 20, 15, 2, 1581 },
+		[7] = { "Elsewhere", { { 101 } }, 10, 5, 0, 12 },
+	}
+	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6 }
+	_G.QuestDB = {
+		GetAllIds = function() return { 1, 2, 3, 4, 5, 6, 7 } end,
+		Get = function(id, key) return quests[id] and quests[id][KEYS[key]] end,
+		GetAll = function(id, keys) local v = { n = #keys } for i, k in ipairs(keys) do v[i] = quests[id][KEYS[k]] end return v end,
+	}
+	_G.NpcDB = { Get = function(id, key)
+		if key == "name" then return id == 101 and "Gryan Stoutmantle" or "Wilder Thistlenettle" end
+		if key == "spawns" then return { [40] = { { 56.3, 47.5 } } } end
+	end }
+	_G.LibQuestieDB = { Enum = { factionRaceMasks = { Alliance = 1, Horde = 2 } } }
+	_G.Questie = { API = { isReady = ready } }
+	local zone = { instanceIdToAreaId = { [36] = 1581 }, GetDungeons = function() return { [1581] = { "The Deadmines", { 10029 } } } end,
+		GetUiMapIdByAreaId = function(_, area) return area == 40 and 1436 or nil end }
+	local qdb = { IsDoable = function(id) return id ~= 5 end }
+	_G.QuestieLoader = { ImportModule = function(_, name) return name == "ZoneDB" and zone or name == "QuestieDB" and qdb or nil end }
+	_G.UnitFactionGroup = function() return "Alliance" end
+	_G.UnitLevel = function() return 20 end
+	_G.bit = { band = function(a, b) return (a % (2 * b)) >= b and b or 0 end }
+	_G.C_Map = { GetAreaInfo = function(area) return area == 40 and "Marche de l'Ouest" or nil end }
+	_G.GetRealZoneText = function(id) return id == 36 and "Les Mortemines" or "" end
+	local log = { { isHeader = true, title = "Les Mortemines" }, { title = "Oh Brother...", questID = 2, level = 20 } }
+	_G.C_QuestLog = {
+		GetNumQuestLogEntries = function() return #log end, GetInfo = function(i) return log[i] end,
+		IsComplete = function() return false end, IsFailed = function() return false end,
+		GetQuestObjectives = function(q) return q == 2 and { { text = "Foreman Thistlenettle's Explorers' League Badge: 0/1", finished = false } } or {} end,
+		IsQuestFlaggedCompleted = function(q) return q == 1 end,
+		IsOnQuest = function(q) return q == 2 end,
+	}
+end
+local function ClearQuestie()
+	for _, k in ipairs({ "QuestDB", "NpcDB", "LibQuestieDB", "Questie", "QuestieLoader", "UnitFactionGroup", "UnitLevel", "bit", "C_Map", "GetRealZoneText", "C_QuestLog" }) do _G[k] = nil end
+end
+
+test("Questie: every quest of the dungeon for my faction, with the game's state, its giver and where", function()
+	local ns = LoadDungeons(nil)
+	FakeQuestie(true)
+	ns.Questie._Reset()
+	local quests, source = ns.Modules:Get("dungeons").QuestsFor(36)
+	eq(source, "questie", "from Questie")
+	local by = {}
+	for _, q in ipairs(quests) do by[q.questID] = q end
+	eq(by[6], nil, "the other faction's left out") eq(by[7], nil, "another zone's left out")
+	eq(by[1].status, "done", "done, as the game says") eq(by[2].status, "active", "in the log")
+	eq(by[2].inLog, true, "the log's own entry: its progress") eq(#by[2].objectives, 1, "objectives kept")
+	eq(by[2].giver.name, "Wilder Thistlenettle", "its giver (an alternative area)")
+	eq(by[4].status, "available", "available (Questie)") eq(by[5].status, "locked", "not yet") eq(by[5].reqLevel, 28, "required level")
+	eq(by[3].giver.item, "item:900", "started by an item")
+	eq(by[4].giver.areaName, "Marche de l'Ouest", "the giver's zone") eq(by[4].giver.uiMap, 1436, "its map")
+	eq(quests[1].status, "active", "in progress first")
+	ClearQuestie()
+end)
+test("Questie: option off, not ready, or a dungeon it doesn't know: the log only / nothing", function()
+	local ns = LoadDungeons(nil)
+	local mod = ns.Modules:Get("dungeons")
+	FakeQuestie(true)
+	ns.Questie._Reset()
+	ns.Modules:SetSetting("dungeons", "useQuestie", false)
+	local q, source = mod.QuestsFor(36)
+	eq(source, "log", "option off: the log") eq(#q, 1, "its one quest")
+	ns.Modules:SetSetting("dungeons", "useQuestie", true)
+	_G.Questie.API.isReady = false
+	eq(select(2, mod.QuestsFor(36)), "log", "not ready yet: the log")
+	_G.Questie.API.isReady = true
+	local none = mod.QuestsFor(2974)
+	eq(#none, 0, "Blackmaw Hold: Questie has nothing")
+	ClearQuestie()
+end)
+test("Questie: the giver shown on the world map, the dungeon's map put away", function()
+	local ns, st = LoadDungeons(nil)
+	st.current = 36
+	ns.Map.ShowSpot = function(m, x, y) st.spot = { m, x, y } end
+	ns.Modules:Get("dungeons").ShowGiver({ uiMap = 1436, x = 0.563, y = 0.475 })
+	eq(st.back, true, "back on the world") eq(st.spot[1], 1436, "its map") eq(st.spot[2], 0.563, "x")
 end)
 
 test("migration 4: PerfectMap's dungeon switches become the module's", function()

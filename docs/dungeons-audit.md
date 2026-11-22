@@ -72,6 +72,21 @@ seule (`Integrations/DungeonJournal.lua`) :
 Repaire des Noiregueules : aucune source ne place ses boss (DungeonJournal : « Locations unverified; no
 fabricated boss markers ») ; ils sont listés dans l'onglet Boss, sans position inventée.
 
+## 4 ter. Questie (v0.4.2)
+
+Questie 12.12.0 et QuestieDB 1.1.4 (Forever), **GPL v3** : leur équipe accepte la réutilisation sous GPLv3
+(réserve sur les contributions historiques, voir leur LICENSE.md). AzerothVeil **lit** leurs données à
+l'exécution, sans rien copier ni modifier (`Integrations/Questie.lua`) :
+- `QuestDB` / `NpcDB` (surface publique de QuestieDB) : nom localisé, donneur, niveaux, races, zone ;
+  nom localisé et positions des PNJ ;
+- `Questie.API.isReady` (API publique) ; modules `ZoneDB` (numéro d'instance → zones du donjon, zones
+  secondaires) et `QuestieDB.IsDoable` (disponibilité) via `QuestieLoader`, protégés par `pcall`.
+- L'état « terminée / en cours / prête / échouée » vient **du jeu** ; seul « disponible / pas encore »
+  vient de Questie. Pas de récompenses hors journal (ni Questie ni le jeu ne les donnent).
+- Index des quêtes par zone construit une fois, par tranches de 400 par image (pas d'à-coup).
+- Donjons propres à Forever absents de Questie (Cité engloutie, Repaire des Noiregueules, Prison d'Alcaz,
+  Terrasse du Façonneur, Bastion Krol'dok) : journal seulement.
+
 ## 5. Décisions
 
 - **Module `dungeons`** pilotant le moteur existant (comme Transports) : interrupteurs effectifs écrits

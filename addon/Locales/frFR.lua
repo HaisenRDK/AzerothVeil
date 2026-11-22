@@ -436,4 +436,21 @@ L["Loot isn't in AzerothVeil's own data: with DungeonJournal installed, each bos
 L["No loot known for this boss."] = "Aucun butin connu pour ce boss."
 L["To floor %d"] = "Vers le niveau %d"
 L["Click: go to that floor."] = "Clic : aller à ce niveau."
+L["Use Questie's data for dungeon quests"] = "Utiliser les données de Questie pour les quêtes de donjon"
+L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] =
+	"Avec Questie installé : toutes les quêtes du donjon pour votre faction, pas seulement celles de votre journal : disponible, pas encore, en cours ou terminée (l'état fourni par le jeu), qui la donne et où. Lu dans Questie, sans rien y modifier."
+L["Available"] = "Disponible"
+L["Not available yet"] = "Pas encore disponible"
+L["In progress"] = "En cours"
+L["Done"] = "Terminée"
+L["Reading Questie's quests..."] = "Lecture des quêtes de Questie..."
+L["Questie knows no quest for this dungeon."] = "Questie ne connaît aucune quête pour ce donjon."
+L["With Questie installed (and its option on), all the dungeon's quests show here."] =
+	"Avec Questie installé (et son option cochée), toutes les quêtes du donjon s'affichent ici."
+L["Click: more about it.   Shift-click: link it in chat."] = "Clic : en savoir plus.   Maj-clic : la lier dans le chat."
+L["Required level %d"] = "Niveau requis %d"
+L["Given by %s"] = "Donnée par %s"
+L["Started by an item: %s"] = "Commence avec un objet : %s"
+L["Its rewards show once it's in your quest log."] = "Ses récompenses s'affichent une fois la quête dans votre journal."
+L["Show the giver on the map"] = "Montrer le donneur sur la carte"
 

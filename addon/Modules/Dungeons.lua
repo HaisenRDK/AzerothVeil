@@ -59,6 +59,9 @@ local Dungeons = ns.Modules:Register({
 		{ key = "questsTab", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true,
 			label = L["Quests tab"],
 			tooltip = L["While a dungeon's map is up, beside it: the quests of your quest log for that dungeon, their progress and rewards."] },
+		{ key = "useQuestie", icon = "Interface\\AddOns\\Questie\\Icons\\questie.png", type = "toggle", default = true, parent = "questsTab",
+			label = L["Use Questie's data for dungeon quests"],
+			tooltip = L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] },
 		{ key = "bossesTab", icon = BOSS_ICON, type = "toggle", default = true,
 			label = L["Bosses tab"],
 			tooltip = L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] },
@@ -156,7 +159,7 @@ end
 -- quests under its name, in the player's language: GetRealZoneText gives the same name). Their state is
 -- the game's own: complete (ready to turn in), failed, or in progress, with each objective.
 -- { { questID, title, level, complete, failed, objectives = { { text, finished } } } }
-function Dungeons.QuestsFor(inst)
+function Dungeons.LogQuestsFor(inst)
 	local out = {}
 	local name = Dungeons.InstanceName(inst)
 	if name == "" or not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo) then return out end
@@ -172,16 +175,60 @@ function Dungeons.QuestsFor(inst)
 				for _, o in ipairs(C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(q) or {}) do
 					if o.text and o.text ~= "" then objectives[#objectives + 1] = { text = o.text, finished = o.finished and true or false } end
 				end
+				local complete = C_QuestLog.IsComplete and C_QuestLog.IsComplete(q) and true or false
+				local failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q) and true or false
 				out[#out + 1] = {
-					questID = q, title = info.title, level = info.level,
-					complete = C_QuestLog.IsComplete and C_QuestLog.IsComplete(q) and true or false,
-					failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q) and true or false,
+					questID = q, title = info.title, level = info.level, complete = complete, failed = failed,
+					status = failed and "failed" or complete and "complete" or "active", inLog = true,
 					objectives = objectives,
 				}
 			end
 		end
 	end
 	return out
+end
+
+local STATUS_ORDER = { complete = 1, active = 2, failed = 3, available = 4, locked = 5, done = 6 }
+
+-- The dungeon's quests for the Quests tab: with "Use Questie's data" and Questie there, every quest Questie
+-- files under the dungeon for your faction, each quest of your log taking its own entry's place (its
+-- progress and rewards); else the quests of your log. Second result: "questie" or "log". nil while
+-- Questie's quests are being read (onReady once they are).
+function Dungeons.QuestsFor(inst, onReady)
+	local log = Dungeons.LogQuestsFor(inst)
+	local Qz = ns.Questie
+	if not (Dungeons:IsOptionActive("useQuestie") and Qz and Qz.Available()) then return log, "log" end
+	local list = Qz.QuestsFor(inst, onReady)
+	if list == nil then return nil, "questie" end
+	local mine = {}
+	for _, q in ipairs(log) do mine[q.questID] = q end
+	local out = {}
+	for _, q in ipairs(list) do
+		local l = mine[q.questID]
+		if l then
+			l.giver, l.reqLevel = q.giver, q.reqLevel
+			out[#out + 1] = l
+			mine[q.questID] = nil
+		else
+			out[#out + 1] = q
+		end
+	end
+	for _, q in ipairs(log) do if mine[q.questID] then out[#out + 1] = q end end
+	table.sort(out, function(a, b)
+		local sa, sb = STATUS_ORDER[a.status] or 9, STATUS_ORDER[b.status] or 9
+		if sa ~= sb then return sa < sb end
+		if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end
+		return (a.title or "") < (b.title or "")
+	end)
+	return out, "questie"
+end
+
+-- a quest's giver shown on the world map: the dungeon's map put away, the map on the giver
+function Dungeons.ShowGiver(giver)
+	if not (giver and giver.uiMap and giver.x) then return end
+	if ns.Dungeon.Current() then ns.Dungeon.Back() end
+	ns.Map.ShowSpot(giver.uiMap, giver.x, giver.y)
+	ns.Map.MarkDirty()
 end
 
 -- The dungeon's bosses as its map shows them, floor by floor (Dungeon.CollectBosses):

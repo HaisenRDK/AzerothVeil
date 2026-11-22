@@ -112,8 +112,12 @@ la liste des AddOns), puis **avec**.
    boss dans l'onglet, « Non placé sur la carte ») ; clic → bon étage, repère qui clignote, et son butin
    (avec DungeonJournal installé) : icônes, noms en français, couleur de qualité, infobulle du jeu,
    Maj-clic → lien.
-6. Onglet Quêtes : avec une quête de ce donjon dans le journal (ex. Mortemines) : état, progression ;
-   clic → récompenses avec infobulles du jeu ; Maj-clic → lien dans le chat ; sans quête : message.
+6. Onglet Quêtes, option « Utiliser les données de Questie » cochée (Questie installé) : toutes les
+   quêtes des Mortemines de votre faction, en français, état (disponible / pas encore + niveau requis /
+   en cours / prête / terminée), « Donnée par … (zone) » ; une quête du journal garde sa progression et
+   ses récompenses au clic ; une autre : « Montrer le donneur sur la carte » → la carte du monde sur lui.
+   Option décochée (ou Questie absent) : seulement les quêtes du journal. Premier affichage : bref
+   « Lecture des quêtes de Questie... ».
 7. Bouton Monde ou clic droit : retour **exactement** à la vue d'avant (même endroit, même zoom), journal de
    quêtes revenu tel qu'il était (ouvert ou replié). Ouvrir un 2ᵉ donjon depuis le premier puis revenir :
    vue de départ.
