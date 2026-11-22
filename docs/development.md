@@ -56,9 +56,14 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console
 2. Client en français : menu ⚙ de la carte, infobulles des icônes, journal de quêtes, carte de donjon en
    français. Les noms de zones et villes sont ceux du jeu.
 
-**Fenêtre d'options**
-3. `/av config` ouvre la fenêtre (cadre Blizzard classique), `/av config` à nouveau la ferme ; croix et
-   Échap la ferment ; Options > AddOns > AzerothVeil a un bouton qui l'ouvre.
+**Écrans d'options (menu ⚙ de la carte = écran principal)**
+3. Menu ⚙ de la carte : onglets « Transports » et « Amis & guilde » avec « Activer le module », son état,
+   et toutes les options (bateaux, zeppelins, tram, tracés, suivi…) avec leurs icônes ; aucun bouton de
+   renvoi. Module désactivé : options grisées et non cliquables, valeurs conservées.
+3b. Changer une option dans le menu ⚙ : elle change aussitôt dans `/av config` et dans Options > AddOns >
+   AzerothVeil (et inversement, depuis chacun des trois écrans).
+3c. `/av config` ouvre la fenêtre (cadre Blizzard classique), `/av config` à nouveau la ferme ; croix et
+   Échap la ferment ; Options > AddOns > AzerothVeil affiche directement la liste des modules et leurs réglages.
 4. Déplacer la fenêtre par sa barre de titre ; impossible de la sortir de l'écran ; `/reload` : elle
    rouvre au même endroit.
 5. Pour chaque module : titre et case « Activer le module » sur la même ligne. Décocher : réglages grisés

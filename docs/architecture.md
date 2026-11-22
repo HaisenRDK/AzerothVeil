@@ -173,20 +173,26 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 
 ### Interface de configuration
 
-Fenêtre indépendante `AzerothVeilOptionsWindow` (`/av config`, menu ⚙ de la carte, ou bouton de la page
-Options > AddOns > AzerothVeil) : cadre classique de Blizzard (`PortraitFrameTemplate` sans portrait,
-comme la fenêtre de la carte), déplaçable par sa barre de titre, gardée à l'écran, position mémorisée
-(`AzerothVeilDB.core.optionsWindow`), fermée par sa croix ou Échap (capture clavier à la manière de la
-carte, jamais `UISpecialFrames` ; jamais activée en combat).
-- Gauche : les modules (couleur = état). Droite : **en-tête générique** pour tout module — titre et case
-  « Activer le module » sur la même ligne — puis description, état/raison, bouton de rechargement si
-  nécessaire, et les réglages **générés depuis la déclaration** (`UI/Controls.lua` : `header`, `toggle`,
-  `range`, indentation des options enfants). Grisés mais visibles quand le module ou l'option parente
-  est off. Aucun réglage n'est stocké par l'UI : tout passe par le ModuleManager.
-- Composants natifs : `InsetFrameTemplate`, `UICheckButtonTemplate`, `MinimalSliderWithSteppersTemplate`,
-  `UIPanelButtonTemplate`, polices `GameFont*`.
-- Les réglages historiques de la carte restent dans son menu ⚙ (ceux des modules y sont remplacés par
-  un bouton vers la fenêtre).
+Trois écrans, **les mêmes réglages**, tous lus et écrits uniquement via le ModuleManager :
+
+1. **Menu ⚙ de la carte — l'écran principal** (`Engine/Menu.lua`). Onglets de la carte (Carte, Lieux,
+   PNJ, Métiers, Quêtes), puis **un onglet par module, généré** depuis sa déclaration : « Activer le
+   module » + son état, puis ses options (icône `icon` de la déclaration, sous-options en retrait, un 2ᵉ
+   `header` ouvre la colonne de droite). Grisées et non cliquables quand le module ou l'option parente
+   est off. Aucun bouton de renvoi vers un autre écran.
+2. **Fenêtre AzerothVeil** (`/av config`, `UI/Options.lua`) : cadre classique de Blizzard, déplaçable par
+   sa barre de titre, gardée à l'écran, position mémorisée (`AzerothVeilDB.core.optionsWindow`), fermée
+   par sa croix ou Échap (capture clavier à la manière de la carte, jamais `UISpecialFrames`, jamais
+   activée en combat). Liste des modules, puis **en-tête générique** (titre et « Activer le module » sur
+   une ligne), description, état, réglages générés (`UI/Controls.lua`).
+3. **Options > AddOns > AzerothVeil** (page du jeu) : la même vue que la fenêtre, modifiable là aussi.
+
+Synchronisation : `SetSetting` émet `MODULE_SETTING_CHANGED`, `SetEnabled` émet `MODULE_ENABLED_CHANGED`
+(même si l'état effectif ne change pas), l'activation/désactivation effective `MODULE_STATE_CHANGED` ;
+les trois écrans (et le bouton des tracés de la carte) écoutent ces messages et se rafraîchissent.
+Déclaration : `icon` (module et option) accepte un chemin, un `"atlas:..."` ou une fonction (art de la
+faction du joueur, lu au moment du dessin). Composants natifs : `InsetFrameTemplate`,
+`UICheckButtonTemplate`, `MinimalSliderWithSteppersTemplate`, `UIPanelButtonTemplate`, polices `GameFont*`.
 
 ## 5. Contrat des intégrations tierces
 

@@ -332,6 +332,24 @@ local function LoadTransports(saved, engineDb)
 	return ns, st
 end
 
+test("every change is announced, so every option screen follows", function()
+	local ns = LoadCore(nil)
+	Recorder(ns, { name = "a", settings = { { key = "x", type = "toggle", default = false } } })
+	Recorder(ns, { name = "b", requiresAddOns = { "Missing" } })
+	Boot(ns)
+	local heard = {}
+	for _, msg in ipairs({ "MODULE_STATE_CHANGED", "MODULE_SETTING_CHANGED", "MODULE_ENABLED_CHANGED" }) do
+		ns.Callbacks:Register(msg, "screen", function(m) heard[#heard + 1] = m end)
+	end
+	ns.Modules:SetSetting("a", "x", true)
+	eq(heard[#heard], "MODULE_SETTING_CHANGED", "setting")
+	ns.Modules:Disable("a")
+	eq(heard[#heard], "MODULE_ENABLED_CHANGED", "switch")
+	local n = #heard
+	ns.Modules:Disable("b")                    -- (can't run anyway: its state doesn't change)
+	eq(#heard, n + 1, "still announced") eq(heard[#heard], "MODULE_ENABLED_CHANGED", "switch of a module that can't run")
+end)
+
 print("Transports module")
 test("on by default: the engine's switches written, tracking and sharing running", function()
 	local ns, st = LoadTransports(nil)

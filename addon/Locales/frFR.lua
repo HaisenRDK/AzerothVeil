@@ -44,16 +44,12 @@ L["Active"] = "Actif"
 L["Disabled: its settings are kept and come back when it's enabled."] =
 	"Désactivé : ses réglages sont conservés et reviennent à sa réactivation."
 L["Not running"] = "Inactif"
+L["Disabled: its settings are kept."] = "Désactivé : ses réglages sont conservés."
+L["The same settings are in the map's gear menu."] = "Les mêmes réglages sont dans le menu (roue dentée) de la carte."
 L["Enable this module"] = "Activer le module"
 L["Reload the interface"] = "Recharger l'interface"
 L["This module changed parts of the game that can only be put back by a reload."] =
 	"Ce module a modifié des éléments du jeu qui ne peuvent être rétablis que par un rechargement."
-L["The map's own settings: the gear in its title bar."] = "Réglages de la carte elle-même : la roue dentée de sa barre de titre."
-L["AzerothVeil's options are in a window of their own, which you can move anywhere: the button below, or /av config."] =
-	"Les options d'AzerothVeil sont dans une fenêtre indépendante, déplaçable où vous voulez : le bouton ci-dessous, ou /av config."
-L["Open AzerothVeil's options"] = "Ouvrir les options d'AzerothVeil"
-L["Friends & guild settings..."] = "Réglages Amis & guilde..."
-L["Transports settings..."] = "Réglages Transports..."
 
 ---------------------------------------------------------------------------
 -- Module: Friends & guild
@@ -350,7 +346,6 @@ L["Icon size"] = "Taille des icônes"
 L["Places"] = "Lieux"
 L["Enemy flight masters"] = "Maîtres de vol ennemis"
 L["The other faction's flight masters too, in red."] = "Les maîtres de vol de l'autre faction aussi, en rouge."
-L["Boats & zeppelins"] = "Bateaux et zeppelins"
 L["Townsfolk"] = "PNJ des villes"
 L["Profession trainers"] = "Maîtres de métiers"
 L["Professions"] = "Métiers"
@@ -368,6 +363,5 @@ L["L opens this map's quest log. Outside combat, so does clicking a quest in the
 	"L ouvre le journal de quêtes de cette carte. Hors combat, c'est aussi le cas d'un clic sur une quête dans le suivi des objectifs ou son menu."
 L["Quest log beside the map"] = "Journal de quêtes à côté de la carte"
 L["Docked to the map's right: the window grows, the map keeps its shape."] = "Ancré à droite de la carte : la fenêtre s'agrandit, la carte garde ses proportions."
-L["Social"] = "Social"
 L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help"] =
 	"Glisser : déplacer   Molette : zoom   Clic droit : repère / coordonnées (sur une icône : point de passage)   /av help"

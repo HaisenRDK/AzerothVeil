@@ -89,6 +89,93 @@ function Column:Buttons(list)
 	self.y = self.y - ROW - 2
 end
 
+---------------------------------------------------------------------------
+-- AzerothVeil: a module's options, from its declaration (Core/ModuleManager.lua: settings = { ... }),
+-- read and written only through the module manager: the same settings as AzerothVeil's own window and the
+-- game's Options page (UI/Options.lua), every screen refreshed on its messages. Greyed out (and not
+-- clickable) while the module, or the option it hangs from, is off; their saved values kept.
+---------------------------------------------------------------------------
+local MM = FM.Modules
+local INDENT = 14
+
+local function IconOf(x) if type(x) == "function" then return x() end return x end
+
+-- a switch row, greyed out and not clickable while editable() is false
+local function Greyable(r, editable)
+	local base = r.Refresh
+	function r:Refresh()
+		base(self)
+		local on = editable()
+		self:SetEnabled(on)
+		self:SetAlpha(on and 1 or 0.4)
+	end
+	r:Refresh()
+	return r
+end
+
+local function Depth(m, spec)
+	local d, x = 0, spec
+	while x and x.parent do d = d + 1 x = m.settingByKey[x.parent] end
+	return d
+end
+
+function Column:ModuleSetting(m, spec)
+	local d = Depth(m, spec)
+	local r = S.SwitchRow(self.page, spec.label or spec.key, IconOf(spec.icon),
+		function() return MM:GetSetting(m.name, spec.key) end,
+		function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, self.w - d * INDENT)
+	r:SetPoint("TOPLEFT", self.x + d * INDENT, self.y)
+	r.tip = { spec.label, spec.tooltip }
+	rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
+	self.y = self.y - ROW
+end
+
+-- the switch every module has: on or off, and under it its state (why it doesn't run, if it doesn't)
+function Column:ModuleSwitch(m)
+	local r = S.SwitchRow(self.page, L["Enable this module"], IconOf(m.icon),
+		function() return MM:IsEnabled(m.name) end,
+		function(v) MM:SetEnabled(m.name, v) M.Refresh() end, self.w)
+	r:SetPoint("TOPLEFT", self.x, self.y)
+	r.tip = { m.title, m.description }
+	rows[#rows + 1] = r
+	self.y = self.y - ROW
+	local state = S.Text(self.page, 10, S.DIM)
+	state:SetPoint("TOPLEFT", self.x + 4, self.y - 2)
+	state:SetWidth(self.w - 8)
+	state:SetJustifyH("LEFT")
+	state:SetWordWrap(false)
+	rows[#rows + 1] = { Refresh = function()
+		local st, reason = MM:State(m.name)
+		if st == "active" then state:SetText(L["Active"]) state:SetTextColor(0.4, 0.9, 0.4)
+		elseif st == "disabled" then state:SetText(L["Disabled: its settings are kept."]) state:SetTextColor(0.6, 0.6, 0.6)
+		else state:SetText(L["Not running"] .. (reason and (": " .. reason) or "")) state:SetTextColor(1, 0.55, 0.3) end
+	end }
+	self.y = self.y - 18
+end
+
+-- a module's page: its title and switch, then its options; its second header (if any) starts the
+-- right column
+local function ModulePage(page, m)
+	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
+	a:Section(m.title)
+	a:ModuleSwitch(m)
+	local col, headers = a, 0
+	for _, spec in ipairs(m.settings) do
+		if spec.type == "header" then
+			headers = headers + 1
+			if headers == 2 then col = b end
+			col:Section(spec.label or "")
+		elseif spec.type == "toggle" then
+			col:ModuleSetting(m, spec)
+		elseif spec.type == "range" then
+			col:Slider(spec.label or spec.key, IconOf(spec.icon), spec.min or 0, spec.max or 1, spec.step or 0.05,
+				function() return MM:GetSetting(m.name, spec.key) end,
+				function(v) MM:SetSetting(m.name, spec.key, v) end, spec.fmt)
+		end
+	end
+	return math.min(a.y, b.y)
+end
+
 local function Cats(group)
 	local out = {}
 	for _, cat in ipairs(FM.Pins.CATS) do if cat.group == group then out[#out + 1] = cat end end
@@ -177,10 +264,7 @@ function BUILD.places(page)
 			if r.icon then r.icon:SetVertexColor(P.ENEMY_TINT[1], P.ENEMY_TINT[2], P.ENEMY_TINT[3]) end
 		end
 	end
-	-- (AzerothVeil: boats, zeppelins, the tram, their routes and live icons are the Transports module's
-	-- settings (Modules/Transports.lua), set in the central options, greyed out while it's off)
-	b:Section(L["Boats & zeppelins"])
-	b:Buttons({ { L["Transports settings..."], function() M.Hide() if FM.Options then FM.Options.Open("transports") end end } })
+	-- (AzerothVeil: boats, zeppelins, the tram and their routes: the Transports module's own tab)
 	return math.min(a.y, b.y)
 end
 
@@ -217,15 +301,6 @@ function BUILD.quests(page)
 	return math.min(a.y, b.y)
 end
 
-function BUILD.social(page)
-	local a = NewColumn(page, 0, COL_W * 2 + GAP)
-	a:Section(L["Friends & guild"])
-	-- (AzerothVeil: these are the "Friends & guild" module's settings (Modules/Social.lua), set in the central
-	-- options with the module itself: one place for them, greyed out while the module is off)
-	a:Buttons({ { (FM.L and FM.L["Friends & guild settings..."]) or "Friends & guild settings...",
-		function() M.Hide() if FM.Options then FM.Options.Open("social") end end } })
-	return a.y
-end
 
 local TABS = {
 	{ key = "map", label = L["Map"], icon = ICON .. "INV_Misc_Map_01" },
@@ -233,8 +308,8 @@ local TABS = {
 	{ key = "townsfolk", label = L["Townsfolk"], icon = TRACK .. "innkeeper" },
 	{ key = "professions", label = L["Professions"], icon = "Interface\\GossipFrame\\TrainerGossipIcon", native = 16 },
 	{ key = "quests", label = L["Quests"], icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
-	{ key = "social", label = L["Social"], icon = "Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon" },
 }
+-- (AzerothVeil: then a tab for each module, its options built from its declaration: ModulePage)
 
 ---------------------------------------------------------------------------
 -- The panel and its tabs
@@ -316,6 +391,14 @@ local function Build()
 	end
 	body:SetFrameLevel(top + 1)
 
+	-- (AzerothVeil: the modules' tabs after the map's own)
+	if MM then
+		for _, m in ipairs(MM:Sorted()) do
+			local key = "module_" .. m.name
+			TABS[#TABS + 1] = { key = key, label = m.title, icon = IconOf(m.icon) or "Interface\\Icons\\INV_Misc_Gear_01" }
+			BUILD[key] = function(page) return ModulePage(page, m) end
+		end
+	end
 	-- the tabs, and the line between them and the pages
 	local y = -PAD
 	for _, spec in ipairs(TABS) do
@@ -384,4 +467,10 @@ end
 function M.Refresh()
 	if not panel then return end
 	for _, r in ipairs(rows) do r:Refresh() end
+end
+
+-- (AzerothVeil: a module or one of its settings changed anywhere (AzerothVeil's window, the game's Options
+-- page, /av modules, the map's tools): shown here at once)
+for _, message in ipairs({ "MODULE_STATE_CHANGED", "MODULE_SETTING_CHANGED", "MODULE_ENABLED_CHANGED" }) do
+	FM.Callbacks:Register(message, "menu", function() M.Refresh() end)
 end

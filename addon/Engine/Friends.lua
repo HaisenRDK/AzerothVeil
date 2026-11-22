@@ -399,13 +399,10 @@ end
 ---------------------------------------------------------------------------
 local ask
 local function Answer(share)
-	if F.cfg then
-		F.cfg.asked = true
-		if share then
-			F.cfg.share = true
-			F.Refresh()
-			if FM.Options and FM.Options.Refresh then FM.Options.Refresh() end
-		end
+	-- (through the module manager: every option screen shows the answer, the module is told)
+	if F.running and FM.Modules then
+		FM.Modules:SetSetting("social", "asked", true)
+		if share then FM.Modules:SetSetting("social", "share", true) end
 	end
 	ask:Hide()
 end

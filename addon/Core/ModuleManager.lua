@@ -210,6 +210,8 @@ function MM:SetEnabled(name, on)
 	if not on and m.reloadOnDisable and m.initialized then m.needsReload = true end
 	if on then m.needsReload = nil end
 	self:Evaluate()
+	-- (asked for, whatever came of it: the option screens show it, even a module that can't run)
+	ns.Callbacks:Fire("MODULE_ENABLED_CHANGED", name, on)
 end
 function MM:Enable(name) self:SetEnabled(name, true) end
 function MM:Disable(name) self:SetEnabled(name, false) end
