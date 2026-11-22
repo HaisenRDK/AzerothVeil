@@ -575,10 +575,72 @@ end
 
 -- the player and the group, every frame (a handful of positions: next to nothing)
 function Map.UpdateUnits()
+-- AzerothVeil: a marker put on a spot by a module (a dungeon quest's start: Modules/Dungeons.lua): the
+-- quest's "!" in a pulsing gold light, its tooltip (a title and a line); a click takes it off. One at a
+-- time; nothing drawn or run without one (its light's animation only while it's shown).
+local mark, markU, markV, markTitle, markSub
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
+
+function Map.SetMark(mapID, x, y, title, sub)
+	markU, markV = Geo.MapToUnits(mapID, x, y)
+	markTitle, markSub = title, sub
+	dirty = true
+end
+
+function Map.ClearMark()
+	markU, markV = nil, nil
+	if mark then mark.anim:Stop() mark:Hide() end
+end
+
+local function UpdateMark()
+	if not markU then if mark then mark:Hide() end return end
+	if not mark then
+		mark = CreateFrame("Button", nil, topLayer)
+		mark:SetFrameLevel(topLayer:GetFrameLevel() + 3)
+		mark:SetSize(26, 26)
+		mark.glow = mark:CreateTexture(nil, "BACKGROUND")
+		mark.glow:SetTexture(MEDIA .. "glow")
+		mark.glow:SetBlendMode("ADD")
+		mark.glow:SetVertexColor(1, 0.8, 0.2)
+		mark.glow:SetSize(70, 70)
+		mark.glow:SetPoint("CENTER")
+		mark.ring = mark:CreateTexture(nil, "BORDER")
+		mark.ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+		mark.ring:SetTexCoord(0, 0.6, 0, 0.6)
+		mark.ring:SetBlendMode("ADD")
+		mark.ring:SetSize(44, 44)
+		mark.ring:SetPoint("CENTER")
+		mark.icon = mark:CreateTexture(nil, "ARTWORK")
+		mark.icon:SetTexture("Interface\\GossipFrame\\AvailableQuestIcon")
+		mark.icon:SetAllPoints()
+		mark.anim = mark.glow:CreateAnimationGroup()
+		local a = mark.anim:CreateAnimation("Alpha")
+		a:SetFromAlpha(1) a:SetToAlpha(0.3) a:SetDuration(0.7)
+		mark.anim:SetLooping("BOUNCE")
+		mark:RegisterForClicks("LeftButtonUp")
+		mark:SetScript("OnClick", function() GameTooltip_Hide() Map.ClearMark() end)
+		mark:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetText(markTitle or "", 1, 0.82, 0)
+			if markSub then GameTooltip:AddLine(markSub, 1, 1, 1) end
+			GameTooltip:AddLine(L["Click: take this marker off."], 0.6, 0.6, 0.6)
+			GameTooltip:Show()
+		end)
+		mark:SetScript("OnLeave", GameTooltip_Hide)
+	end
+	local sx, sy = (markU - left) * scale, (markV - top) * scale
+	if sx < -30 or sy < -30 or sx > vw + 30 or sy > vh + 30 then mark:Hide() return end
+	mark:ClearAllPoints()
+	mark:SetPoint("CENTER", topLayer, "TOPLEFT", sx, -sy)
+	mark:Show()
+	if not mark.anim:IsPlaying() then mark.anim:Play() end
+end
+
 	Map.UpdatePlayer()
 	Map.UpdateCorpse()
 	UpdateGroup()
 end
+	UpdateMark()                                   -- AzerothVeil
 
 -- The zone under the cursor: lit as Blizzard's continent map lights it (its own highlight art), and
 -- named at the top in the middle on a small card of our own (flat, dark, an accent line under it): its

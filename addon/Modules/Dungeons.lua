@@ -62,6 +62,9 @@ local Dungeons = ns.Modules:Register({
 		{ key = "useQuestie", icon = "Interface\\AddOns\\Questie\\Icons\\questie.png", type = "toggle", default = true, parent = "questsTab",
 			label = L["Use Questie's data for dungeon quests"],
 			tooltip = L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] },
+		{ key = "hideOtherFaction", icon = "Interface\\TargetingFrame\\UI-PVP-FFA", type = "toggle", default = true, parent = "useQuestie",
+			label = L["Hide the other faction's quests"],
+			tooltip = L["Off: the other faction's quests of the dungeon show too, with its emblem (a quest for one faction only shows its emblem)."] },
 		{ key = "bossesTab", icon = BOSS_ICON, type = "toggle", default = true,
 			label = L["Bosses tab"],
 			tooltip = L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] },
@@ -198,7 +201,7 @@ function Dungeons.QuestsFor(inst, onReady)
 	local log = Dungeons.LogQuestsFor(inst)
 	local Qz = ns.Questie
 	if not (Dungeons:IsOptionActive("useQuestie") and Qz and Qz.Available()) then return log, "log" end
-	local list = Qz.QuestsFor(inst, onReady)
+	local list = Qz.QuestsFor(inst, onReady, not Dungeons:IsOptionActive("hideOtherFaction"))
 	if list == nil then return nil, "questie" end
 	local mine = {}
 	for _, q in ipairs(log) do mine[q.questID] = q end
@@ -206,7 +209,7 @@ function Dungeons.QuestsFor(inst, onReady)
 	for _, q in ipairs(list) do
 		local l = mine[q.questID]
 		if l then
-			l.giver, l.reqLevel = q.giver, q.reqLevel
+			l.giver, l.reqLevel, l.faction, l.text = q.giver, q.reqLevel, q.faction, q.text
 			out[#out + 1] = l
 			mine[q.questID] = nil
 		else
@@ -223,10 +226,15 @@ function Dungeons.QuestsFor(inst, onReady)
 	return out, "questie"
 end
 
--- a quest's giver shown on the world map: the dungeon's map put away, the map on the giver
-function Dungeons.ShowGiver(giver)
+-- a quest shown on the world map where it starts (its giver): the dungeon's map put away, the map on that
+-- spot, a marker there (the quest's name, its giver) until it's clicked or another takes its place
+function Dungeons.ShowQuest(q)
+	local giver = q and q.giver
 	if not (giver and giver.uiMap and giver.x) then return end
 	if ns.Dungeon.Current() then ns.Dungeon.Back() end
+	if ns.Map.SetMark then
+		ns.Map.SetMark(giver.uiMap, giver.x, giver.y, q.title, giver.name and L["Given by %s"]:format(giver.name))
+	end
 	ns.Map.ShowSpot(giver.uiMap, giver.x, giver.y)
 	ns.Map.MarkDirty()
 end
@@ -340,6 +348,7 @@ function Dungeons:Disable()
 	local inst, _, _, opened = ns.Dungeon.Current()
 	if inst and opened then ns.Dungeon.Back() end
 	saved = nil
+	if ns.Map.ClearMark then ns.Map.ClearMark() end
 	Apply(self, false)
 	if ns.Dungeon.HideChooser then ns.Dungeon.HideChooser() end
 end

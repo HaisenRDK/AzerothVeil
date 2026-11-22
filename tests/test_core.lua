@@ -745,15 +745,15 @@ end)
 local function FakeQuestie(ready)
 	stub.loadedAddOns.Questie, stub.loadedAddOns.QuestieDB = true, true
 	local quests = {
-		[1] = { "Red Silk Bandanas", { { 101 } }, 18, 14, 0, 1581 },
+		[1] = { "Red Silk Bandanas", { { 101 } }, 18, 14, 1, 1581 },
 		[2] = { "Oh Brother...", { { 102 } }, 20, 15, 0, 10029 },
 		[3] = { "Underground Assault", { nil, nil, { 900 } }, 20, 15, 0, 1581 },
-		[4] = { "The Defias Brotherhood", { { 101 } }, 22, 14, 0, 1581 },
+		[4] = { "The Defias Brotherhood", { { 101 } }, 22, 14, 0, 1581, { "Kill Edwin VanCleef." } },
 		[5] = { "Too Soon", { { 102 } }, 30, 28, 0, 1581 },
 		[6] = { "Horde Only", { { 102 } }, 20, 15, 2, 1581 },
 		[7] = { "Elsewhere", { { 101 } }, 10, 5, 0, 12 },
 	}
-	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6 }
+	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6, objectivesText = 7 }
 	_G.QuestDB = {
 		GetAllIds = function() return { 1, 2, 3, 4, 5, 6, 7 } end,
 		Get = function(id, key) return quests[id] and quests[id][KEYS[key]] end,
@@ -821,11 +821,13 @@ test("Questie: option off, not ready, or a dungeon it doesn't know: the log only
 	eq(#none, 0, "Blackmaw Hold: Questie has nothing")
 	ClearQuestie()
 end)
-test("Questie: the giver shown on the world map, the dungeon's map put away", function()
+test("Questie: a quest shown on the world map where it starts, marked there, the dungeon's map put away", function()
 	local ns, st = LoadDungeons(nil)
 	st.current = 36
 	ns.Map.ShowSpot = function(m, x, y) st.spot = { m, x, y } end
-	ns.Modules:Get("dungeons").ShowGiver({ uiMap = 1436, x = 0.563, y = 0.475 })
+	ns.Map.SetMark = function(m, x, y, title, sub) st.mark = { m, x, y, title, sub } end
+	ns.Modules:Get("dungeons").ShowQuest({ title = "The Defias Brotherhood",
+		giver = { name = "Gryan Stoutmantle", uiMap = 1436, x = 0.563, y = 0.475 } })
 	eq(st.back, true, "back on the world") eq(st.spot[1], 1436, "its map") eq(st.spot[2], 0.563, "x")
 end)
 
@@ -837,3 +839,12 @@ end)
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
+	eq(by[4].text[1], "Kill Edwin VanCleef.", "what it asks") eq(#by[2].text, 0, "none known: none")
+	eq(by[1].faction, "Alliance", "for one faction: said") eq(by[4].faction, nil, "for both: none")
+	-- the other faction's shown too when that option is off
+	ns.Modules:SetSetting("dungeons", "hideOtherFaction", false)
+	local all = {}
+	for _, q in ipairs(ns.Modules:Get("dungeons").QuestsFor(36)) do all[q.questID] = q end
+	eq(all[6] and all[6].faction, "Horde", "the Horde's, with its faction")
+	eq(st.mark[1], 1436, "marked there") eq(st.mark[4], "The Defias Brotherhood", "its name on the marker")
+	eq(st.mark[5], "Given by Gryan Stoutmantle", "and its giver")

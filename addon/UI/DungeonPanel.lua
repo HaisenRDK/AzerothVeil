@@ -7,7 +7,9 @@
 --   Bosses  the dungeon's bosses (portrait with its dragon as on the map, level in a gold circle, floor);
 --           a click picks one: its floor up on the map, its marker lit, its loot (DungeonJournal's, when
 --           it's installed) under it.
--- Quests with Questie's data when that option is on (Integrations/Questie.lua). The panel is at the map's
+-- Quests with Questie's data when that option is on (Integrations/Questie.lua): a line each, "(level)
+-- Name" (green: done; yellow: to do), the book when it's in your log, the faction's emblem; a click: what
+-- it asks, its giver, its rewards (yours), a button to its start on the world map (marked there). The panel is at the map's
 -- right: its tooltips open on its left. Built the first time; nothing runs while it's hidden.
 local _, ns = ...
 local L = ns.L
@@ -67,11 +69,17 @@ local function Take(kind)
 			f.icon:SetPoint("LEFT", 2, 0)
 			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 			f.text:SetPoint("LEFT", f.icon, "RIGHT", 4, 0)
-			f.text:SetPoint("RIGHT", -44, 0)
+			f.text:SetPoint("RIGHT", -38, 0)
 			f.text:SetJustifyH("LEFT")
 			f.text:SetWordWrap(false)
-			f.right = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-			f.right:SetPoint("RIGHT", -4, 0)
+			-- (at its right: the book when it's in your log, the faction's emblem when it's for one only)
+			f.log = f:CreateTexture(nil, "ARTWORK")
+			f.log:SetSize(15, 15)
+			f.log:SetPoint("RIGHT", -2, 0)
+			f.log:SetTexture("Interface\\QuestFrame\\UI-QuestLog-BookIcon")
+			f.faction = f:CreateTexture(nil, "ARTWORK")
+			f.faction:SetSize(16, 16)
+			f.faction:SetPoint("RIGHT", f.log, "LEFT", -2, 0)
 		elseif kind == "boss" then
 			-- its portrait in a ring, a dragon round it (the map's boss pins', Engine/Dungeon.lua: the same
 			-- picture, a 64-pixel portrait's), its level in a gold circle at its bottom left
@@ -203,14 +211,15 @@ end
 -- The tabs' contents
 ---------------------------------------------------------------------------
 -- each state: its icon (the game's quest marks) and its words
-local STATUS = {
-	available = { "Interface\\GossipFrame\\AvailableQuestIcon", false, L["Available"], 1, 0.82, 0 },
-	locked = { "Interface\\GossipFrame\\AvailableQuestIcon", true, L["Not available yet"], 0.6, 0.6, 0.6 },
-	active = { "Interface\\GossipFrame\\ActiveQuestIcon", true, L["In progress"], 0.85, 0.85, 0.85 },
-	complete = { "Interface\\GossipFrame\\ActiveQuestIcon", false, L["Ready to turn in"], 0.3, 1, 0.3 },
-	failed = { "Interface\\RaidFrame\\ReadyCheck-NotReady", false, L["Failed"], 1, 0.3, 0.3 },
-	done = { "Interface\\RaidFrame\\ReadyCheck-Ready", false, L["Done"], 0.5, 0.75, 0.5 },
-}
+-- a quest's icon: done, a tick; ready to hand in, the yellow "?"; else the "!" (greyed: not yet for you)
+local function QuestIcon(q)
+	if q.status == "done" then return "Interface\\RaidFrame\\ReadyCheck-Ready", false end
+	if q.status == "complete" then return "Interface\\GossipFrame\\ActiveQuestIcon", false end
+	if q.status == "failed" then return "Interface\\RaidFrame\\ReadyCheck-NotReady", false end
+	return "Interface\\GossipFrame\\AvailableQuestIcon", q.status == "locked"
+end
+
+local FACTION_ICON = { Alliance = "Interface\\FriendsFrame\\PlusManz-Alliance", Horde = "Interface\\FriendsFrame\\PlusManz-Horde" }
 
 local function QuestsPage()
 	local quests, source = module.QuestsFor(inst, function() P.Refresh() end)
@@ -225,19 +234,25 @@ local function QuestsPage()
 		return y
 	end
 	local myLevel = UnitLevel and UnitLevel("player") or 0
+	local myFaction = UnitFactionGroup and UnitFactionGroup("player")
 	for _, q in ipairs(quests) do
-		local st = STATUS[q.status] or STATUS.active
 		local row = Take("row")
 		row:SetPoint("TOPLEFT", PAD - 4, -y)
 		row:SetPoint("RIGHT", child, "RIGHT", -PAD, 0)
 		row:SetHeight(ROW)
 		row.sel:SetShown(expanded[q.questID] and true or false)
-		row.icon:SetTexture(st[1])
-		row.icon:SetDesaturated(st[2])
-		row.text:SetText(q.title or ("quest:" .. q.questID))
-		if q.status == "done" or q.status == "locked" then row.text:SetTextColor(0.6, 0.6, 0.6)
-		else row.text:SetTextColor(Colour(q.level)) end
-		row.right:SetText(q.level and tostring(q.level) or "")
+		local icon, grey = QuestIcon(q)
+		row.icon:SetTexture(icon)
+		row.icon:SetDesaturated(grey)
+		-- "(level) Name": green once done, yellow while it's to do, grey when not yet for you
+		local other = q.faction and myFaction and q.faction ~= myFaction
+		row.text:SetText((q.level and ("(" .. q.level .. ") ") or "") .. (q.title or ("quest:" .. q.questID)))
+		if q.status == "done" then row.text:SetTextColor(0.25, 0.9, 0.25)
+		elseif q.status == "locked" or other then row.text:SetTextColor(0.6, 0.6, 0.6)
+		else row.text:SetTextColor(1, 0.82, 0) end
+		row.log:SetShown(q.inLog and true or false)
+		row.faction:SetTexture(FACTION_ICON[q.faction or ""])
+		row.faction:SetShown(FACTION_ICON[q.faction or ""] ~= nil)
 		row:SetScript("OnClick", function()
 			if IsShiftKeyDown() and GetQuestLink and ChatEdit_InsertLink then
 				local link = GetQuestLink(q.questID)
@@ -251,27 +266,31 @@ local function QuestsPage()
 			if not pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. q.questID) then
 				GameTooltip:SetText(q.title or "", 1, 0.82, 0)
 			end
-			GameTooltip:AddLine(q.inLog and L["Click: its rewards.   Shift-click: link it in chat."]
-				or L["Click: more about it.   Shift-click: link it in chat."], 0.6, 0.6, 0.6, true)
+			if q.inLog then GameTooltip:AddLine(L["In your quest log."], 1, 1, 1) end
+			GameTooltip:AddLine(L["Click: what it asks, where it starts.   Shift-click: link it in chat."], 0.6, 0.6, 0.6, true)
 			GameTooltip:Show()
 		end)
 		row:SetScript("OnLeave", GameTooltip_Hide)
 		y = y + ROW + 1
-		-- its state (the game's), who gives it
-		local state = st[3]
-		if q.status == "locked" and q.reqLevel and q.reqLevel > myLevel then state = state .. "  -  " .. L["Required level %d"]:format(q.reqLevel) end
-		y = Line(state, y, 22, st[4], st[5], st[6])
-		local g = q.giver
-		if g and g.name then
-			y = Line(L["Given by %s"]:format(g.name) .. (g.areaName and ("  (" .. g.areaName .. ")") or ""), y, 22, 0.75, 0.75, 0.75)
-		elseif g and g.item then
-			y = Line(L["Started by an item: %s"]:format(g.item), y, 22, 0.75, 0.75, 0.75)
-		end
-		for _, o in ipairs(q.objectives or {}) do
-			if o.finished then y = Line("- " .. o.text, y, 22, 0.55, 0.85, 0.55)
-			else y = Line("- " .. o.text, y, 22, 0.85, 0.85, 0.85) end
-		end
 		if expanded[q.questID] then
+			-- what it asks (Questie's text), its progress (the game's), who gives it, then its rewards
+			for _, t in ipairs(q.text or {}) do y = Line(t, y, 22, 1, 1, 1) end
+			for _, o in ipairs(q.objectives or {}) do
+				if o.finished then y = Line("- " .. o.text, y, 22, 0.55, 0.85, 0.55)
+				else y = Line("- " .. o.text, y, 22, 0.85, 0.85, 0.85) end
+			end
+			if #(q.text or {}) == 0 and #(q.objectives or {}) == 0 then
+				y = Line(L["What it asks isn't known here."], y, 22, 0.6, 0.6, 0.6)
+			end
+			if q.status == "locked" and q.reqLevel and q.reqLevel > myLevel then
+				y = Line(L["Required level %d"]:format(q.reqLevel), y + 2, 22, 1, 0.3, 0.3)
+			end
+			local g = q.giver
+			if g and g.name then
+				y = Line(L["Given by %s"]:format(g.name) .. (g.areaName and ("  (" .. g.areaName .. ")") or ""), y + 2, 22, 0.75, 0.75, 0.75)
+			elseif g and g.item then
+				y = Line(L["Started by an item: %s"]:format(g.item), y + 2, 22, 0.75, 0.75, 0.75)
+			end
 			if q.inLog then
 				-- its rewards: the game's own (and its tooltips)
 				if C_QuestLog.SetSelectedQuest then pcall(C_QuestLog.SetSelectedQuest, q.questID) end
@@ -293,18 +312,16 @@ local function QuestsPage()
 				end
 				Grid(choose, L["You will be able to choose one of these rewards:"])
 				Grid(receive, #choose > 0 and L["You will also receive:"] or L["You will receive:"])
-			else
-				y = Line(L["Its rewards show once it's in your quest log."], y + 2, 22, 0.6, 0.6, 0.6)
 			end
 			if g and g.uiMap and g.x then
 				local b = Take("button")
-				b:SetPoint("TOPLEFT", PAD + 22, -(y + 2))
-				b:SetText(L["Show the giver on the map"])
-				b:SetScript("OnClick", function() module.ShowGiver(g) end)
-				y = y + 28
+				b:SetPoint("TOPLEFT", PAD + 22, -(y + 4))
+				b:SetText(L["Show it on the map"])
+				b:SetScript("OnClick", function() module.ShowQuest(q) end)
+				y = y + 30
 			end
+			y = y + 4
 		end
-		y = y + 6
 	end
 	return y
 end

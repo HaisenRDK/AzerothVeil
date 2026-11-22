@@ -88,6 +88,10 @@ l'exécution, sans rien copier ni modifier (`Integrations/Questie.lua`) :
   secondaires) et `QuestieDB.IsDoable` (disponibilité) via `QuestieLoader`, protégés par `pcall`.
 - L'état « terminée / en cours / prête / échouée » vient **du jeu** ; seul « disponible / pas encore »
   vient de Questie. Pas de récompenses hors journal (ni Questie ni le jeu ne les donnent).
+- Faction d'une quête d'après ses races (`requiredRaces` et `factionRaceMasks`) : celles de l'autre faction
+  masquées par défaut (option « Masquer les quêtes de l'autre faction »), sinon montrées avec son emblème.
+- « Ce qu'elle demande » : `objectivesText` de Questie (localisé). « La montrer sur la carte » : la carte du
+  monde sur son donneur et un repère (« ! » doré, `Map.SetMark`), retiré d'un clic.
 - Index des quêtes par zone construit une fois, par tranches de 400 par image (pas d'à-coup).
 - Donjons propres à Forever absents de Questie (Cité engloutie, Repaire des Noiregueules, Prison d'Alcaz,
   Terrasse du Façonneur, Bastion Krol'dok) : journal seulement.

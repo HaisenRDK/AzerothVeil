@@ -5,7 +5,8 @@
 --
 -- What it uses (Questie 12.12.0 / QuestieDB 1.1.4 for WoW Forever, read in their code):
 --   QuestDB.GetAllIds(), QuestDB.Get(id, key), NpcDB.Get(id, key)   QuestieDB's public surface (src/api.lua):
---       quest name (localized), startedBy, questLevel, requiredLevel, requiredRaces, zoneOrSort;
+--       quest name and objectives text (localized), startedBy, questLevel, requiredLevel, requiredRaces,
+--       zoneOrSort;
 --       NPC name (localized), spawns { [areaId] = { { x, y } } } (0..100)
 --   LibQuestieDB.Enum.factionRaceMasks                               ... its faction race masks
 --   Questie.API.isReady                                               Questie's public "ready" flag
@@ -91,17 +92,21 @@ end
 -- (for tests)
 function Q._Reset() index, building, waiting = nil, false, {} end
 
-local function FactionMask()
+local function Masks()
 	local lib = _G.LibQuestieDB
 	local masks = type(lib) == "table" and type(lib.Enum) == "table" and lib.Enum.factionRaceMasks
-	local faction = UnitFactionGroup and UnitFactionGroup("player")
-	return type(masks) == "table" and masks[faction] or nil
+	return type(masks) == "table" and masks or nil
 end
 
-local function ForMyFaction(races, mask)
-	if not races or races == 0 or not mask or not (bit and bit.band) then return true end
-	return bit.band(races, mask) ~= 0
+-- a quest's faction from the races it's for: "Alliance", "Horde", or nil (both, or not said)
+local function FactionOf(races, masks)
+	if not races or races == 0 or not masks or not (bit and bit.band) then return nil end
+	local a = masks.Alliance and bit.band(races, masks.Alliance) ~= 0
+	local h = masks.Horde and bit.band(races, masks.Horde) ~= 0
+	if a and not h then return "Alliance" elseif h and not a then return "Horde" end
+	return nil
 end
+Q.FactionOf = FactionOf
 
 -- where a quest starts: its giver (name, area, uiMap, x, y: 0..1) or the item that starts it
 local function Giver(startedBy)
@@ -138,22 +143,26 @@ local function Giver(startedBy)
 	return nil
 end
 
--- A dungeon's quests in Questie, for the player's faction: { { questID, title, level, reqLevel, status,
--- giver } }, status "done" | "active" | "complete" | "failed" | "available" | "locked". nil while the index
--- is being built (onReady called once it's there); {} for a dungeon it has nothing for.
-function Q.QuestsFor(inst, onReady)
+-- A dungeon's quests in Questie: { { questID, title, level, reqLevel, status, giver, faction, text } },
+-- status "done" | "active" | "complete" | "failed" | "available" | "locked"; faction "Alliance" | "Horde"
+-- | nil (both); text: what it asks (its objectives' text, in the player's language when Questie has it).
+-- The other faction's left out unless otherFaction. nil while the index is being built (onReady called
+-- once it's there); {} for a dungeon it has nothing for.
+function Q.QuestsFor(inst, onReady, otherFaction)
 	if not Q.Available() then return {} end
 	if not Q.Index(onReady) then return nil end
 	local qdb = _G.QuestDB
-	local mask = FactionMask()
+	local masks = Masks()
+	local mine = UnitFactionGroup and UnitFactionGroup("player")
 	local questie = Module("QuestieDB")
 	local out, seen = {}, {}
 	for area in pairs(Q.AreasFor(inst)) do
 		for _, id in ipairs(index[area] or {}) do
 			if not seen[id] then
 				seen[id] = true
-				local ok, v = pcall(qdb.GetAll, id, { "name", "startedBy", "questLevel", "requiredLevel", "requiredRaces" })
-				if ok and type(v) == "table" and ForMyFaction(v[5], mask) then
+				local ok, v = pcall(qdb.GetAll, id, { "name", "startedBy", "questLevel", "requiredLevel", "requiredRaces", "objectivesText" })
+				local faction = ok and type(v) == "table" and FactionOf(v[5], masks) or nil
+				if ok and type(v) == "table" and (otherFaction or not faction or faction == mine) then
 					local status
 					if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(id) then status = "done"
 					elseif C_QuestLog.IsOnQuest and C_QuestLog.IsOnQuest(id) then
@@ -165,7 +174,12 @@ function Q.QuestsFor(inst, onReady)
 						if questie and type(questie.IsDoable) == "function" then okDo, doable = pcall(questie.IsDoable, id) end
 						status = (okDo and doable) and "available" or "locked"
 					end
-					out[#out + 1] = { questID = id, title = v[1], level = v[3], reqLevel = v[4], status = status, giver = Giver(v[2]) }
+					local text = {}
+					for _, t in ipairs(type(v[6]) == "table" and v[6] or {}) do
+						if type(t) == "string" and t ~= "" then text[#text + 1] = t end
+					end
+					out[#out + 1] = { questID = id, title = v[1], level = v[3], reqLevel = v[4], status = status,
+						giver = Giver(v[2]), faction = faction, text = text }
 				end
 			end
 		end
