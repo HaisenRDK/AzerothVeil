@@ -321,12 +321,7 @@ function BUILD.map(page)
 		L["The map opens at the zoom you closed it at."], L["Off: it always opens at the same zoom."] })
 	a:Option(L["Highlight zone under cursor"], nil, "hoverHighlight", { L["Highlight zone under cursor"],
 		L["The zone under the mouse lights up, as on Blizzard's continent map."] }, function() FM.Map.MarkDirty() end)
-	a:Option(L["Dungeon maps inside"], nil, "dungeonMaps", { L["Dungeon maps inside"],
-		L["Inside a dungeon, raid or battleground the map shows its own map, every floor, you and your group on it."],
-		L["A right-click on it, or the header's World button, goes back to the world."] }, function() FM.Dungeon.Update() end)
-	a:Option(L["Bosses on dungeon maps"], nil, "dungeonBosses", { L["Bosses on dungeon maps"],
-		L["Where each boss stands on a dungeon's map, with its portrait and level, as MapUtils shows them."] },
-		function() FM.Dungeon.Refresh() end)
+	-- (AzerothVeil: dungeon maps and their bosses are the Dungeons module's: its own tab)
 	a:Option(L["Sum identical icons"], nil, "joinIcons", { L["Sum identical icons"],
 		L["Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom."],
 		L["Off: every icon on its own."] },

@@ -469,7 +469,7 @@ test("migration 2: PerfectMap's transport switches become the module's settings"
 	local get = function(k) return ns.Modules:GetSetting("transports", k) end
 	eq(get("boats"), false, "boats") eq(get("airships"), true, "airships") eq(get("routesAll"), true, "routes")
 	eq(get("tracking"), false, "tracking") eq(get("share"), false, "share") eq(get("enemyHarbors"), true, "enemy")
-	eq(get("zeppelins"), true, "missing: default") eq(_G.AzerothVeilDB.schema, 3, "schema 3")
+	eq(get("zeppelins"), true, "missing: default") eq(_G.AzerothVeilDB.schema, ns.Database.SCHEMA, "latest schema")
 end)
 test("migration 3 and the flight masters: theirs kept, enemy ones rebuilt only when changed", function()
 	local ns, st = LoadTransports({ schema = 2, engine = { pins = { flight = false }, enemyFlight = true } })
@@ -503,6 +503,199 @@ test("French client: French texts; English as the fallback", function()
 	eq(en.L["Enable this module"], "Enable this module", "English")
 	local de = LoadLocale("deDE")
 	eq(de.L["Transports"], "Transports", "another language: English")
+end)
+
+---------------------------------------------------------------------------
+-- Modules/Dungeons.lua and Integrations/DungeonJournal.lua, on a stand-in engine and DungeonJournal
+---------------------------------------------------------------------------
+-- dj: nil (not installed) or { locked = { [name] = true }, broken = true }
+local function LoadDungeons(saved, dj)
+	local ns = LoadCore(saved)
+	_G.ForeverDungeonJournal_NS, _G.ForeverDungeonJournalFrame, _G.ForeverDungeonJournal_Toggle = nil, nil, nil
+	local st = { opened = {}, chosen = nil, view = nil, suspended = nil, panel = nil, journal = {}, side = nil }
+	ns.db = { pins = {} }
+	ns.W = 1002
+	ns.Pins = {
+		DUNGEON_ICON = "d", RAID_ICON = "r",
+		RebuildPlaces = function() st.rebuilt = (st.rebuilt or 0) + 1 end,
+		InvalidatePlaces = function() st.rebuilt = (st.rebuilt or 0) + 1 end,
+		Ensure = function() end,
+		InstanceName = function(id) return "Instance " .. id end,
+		InstanceInfo = function() return { lo = 17, hi = 26 } end,
+	}
+	st.left, st.top, st.scale, st.vw, st.vh = 100, 50, 4, 800, 533
+	ns.Map = {
+		ViewNow = function() return st.left, st.top, st.scale, st.vw, st.vh end,
+		SetView = function(u, v, across) st.view = { u, v, across } end,
+		MarkDirty = function() end,
+		IsShown = function() return st.mapShown or false end,
+		SetSideWidth = function(w) st.side = w end,
+	}
+	ns.Dungeon = {
+		OpenWing = function(w) st.opened[#st.opened + 1] = w.id end,
+		Choose = function(entries, _, _, onPick) st.chosen = { entries = entries, onPick = onPick } end,
+		Update = function() end, Refresh = function() end, HideChooser = function() end,
+		Current = function() return st.current, 1, 2, st.currentOpened end,
+		Back = function() st.back = true end,
+		CollectBosses = function(inst) return st.bosses or {} end,
+	}
+	ns.QuestLog = { WIDTH = 300, Suspend = function(on) st.suspended = on end }
+	ns.DungeonPanel = { Show = function(_, inst) st.panel = inst end, Hide = function() st.panel = false end, Refresh = function() end }
+	if dj then
+		stub.loadedAddOns.ForeverDungeonJournal = true
+		local FDJ = { DB = { ["The Deadmines"] = {}, ["Stratholme: Living"] = {}, ["Stratholme: Undead"] = {},
+			["Scarlet Monastery: Library"] = {} }, DUNGEON_MAPS = { ["The Deadmines"] = {} } }
+		FDJ.IsDungeonMapLocked = function(name) return dj.locked and dj.locked[name] or false end
+		FDJ.OpenDungeonMap = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "map:" .. name end
+		FDJ.OpenBossPage = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "bosses:" .. name end
+		_G.ForeverDungeonJournal_NS = FDJ
+		_G.ForeverDungeonJournalFrame = { IsShown = function() return st.djShown end }
+		_G.ForeverDungeonJournal_Toggle = function() st.djShown = true end
+	end
+	assert(loadfile(ADDON_DIR .. "Integrations/DungeonJournal.lua"))("AzerothVeil", ns)
+	assert(loadfile(ADDON_DIR .. "Modules/Dungeons.lua"))("AzerothVeil", ns)
+	-- (Boot without a reset: the stand-in DungeonJournal stays loaded)
+	ns.Database.Load() ns.Modules:LoadSettings()
+	if dj then stub.loadedAddOns.ForeverDungeonJournal = true end
+	ns.Modules:Start()
+	return ns, st
+end
+local DEADMINES = { id = 36, name = "Deadmines", lo = 17, hi = 26 }
+
+print("Dungeons module")
+test("on by default: the engine's switches, its click and its way back", function()
+	local ns = LoadDungeons(nil)
+	local db = ns.db
+	eq(ns.Modules:IsActive("dungeons"), true, "active")
+	eq(db.pins.dungeon, true, "dungeons") eq(db.pins.raid, true, "raids") eq(db.dungeonLevels, true, "levels")
+	eq(db.dungeonBosses, true, "bosses") eq(db.dungeonWays, true, "ways") eq(db.dungeonMaps, true, "map inside")
+	eq(type(ns.Pins.OnDungeonClick), "function", "click") eq(type(ns.Dungeon.ReturnView), "function", "way back")
+end)
+test("disabled: nothing shows, its dungeon map closed, settings kept", function()
+	local ns, st = LoadDungeons(nil)
+	st.current, st.currentOpened = 36, true
+	ns.Modules:Disable("dungeons")
+	local db = ns.db
+	for _, k in ipairs({ "dungeon", "raid" }) do eq(db.pins[k], false, "pins." .. k) end
+	eq(db.dungeonMaps, false, "map inside") eq(db.dungeonBosses, false, "bosses")
+	eq(ns.Pins.OnDungeonClick, nil, "no click") eq(ns.Dungeon.ReturnView, nil, "no way back hook")
+	eq(st.back, true, "the dungeon opened from its entrance closed")
+	eq(ns.Modules:GetSetting("dungeons", "entrances"), true, "setting kept")
+end)
+test("parent options switch their children off", function()
+	local ns = LoadDungeons(nil)
+	ns.Modules:SetSetting("dungeons", "entrances", false)
+	eq(ns.db.pins.dungeon, false, "dungeons") eq(ns.db.pins.raid, false, "raids") eq(ns.db.dungeonLevels, false, "levels")
+	ns.Modules:SetSetting("dungeons", "maps", false)
+	eq(ns.db.dungeonBosses, false, "bosses") eq(ns.db.dungeonWays, false, "ways")
+	eq(ns.db.dungeonMaps, true, "the map inside is its own option")
+end)
+test("an entrance: its map opens, the world's view kept and put back", function()
+	local ns, st = LoadDungeons(nil)
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.opened[1], 36, "opened")
+	st.left, st.scale = 900, 20                 -- (moved meanwhile, on the dungeon's map)
+	eq(ns.Dungeon.ReturnView(), true, "put back")
+	eq(st.view[1], 100 + 800 / 2 / 4, "centre x") eq(st.view[2], 50 + 533 / 2 / 4, "centre y") eq(st.view[3], 200, "zoom")
+	eq(ns.Dungeon.ReturnView(), false, "nothing kept twice")
+end)
+test("several wings: a list, every one of them; a second dungeon keeps the first start", function()
+	local ns, st = LoadDungeons(nil)
+	local wings = { { id = 189, name = "Scarlet Monastery - Library" }, { id = 189, name = "Scarlet Monastery - Armory" } }
+	ns.Pins.OnDungeonClick(wings, "Scarlet Monastery")
+	eq(#st.opened, 0, "nothing opened yet") eq(#st.chosen.entries, 2, "both offered")
+	st.chosen.onPick(wings[2])
+	eq(st.opened[1], 189, "the picked one")
+	st.left = 700
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")          -- (another, the first still up)
+	ns.Dungeon.ReturnView()
+	eq(st.view[1], 100 + 800 / 2 / 4, "back to where it all began")
+end)
+test("interior maps off and no DungeonJournal: a click does nothing", function()
+	local ns, st = LoadDungeons(nil)
+	ns.Modules:SetSetting("dungeons", "maps", false)
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(#st.opened, 0, "nothing")
+end)
+test("DungeonJournal: its page of the dungeon; locked map: its boss page", function()
+	local ns, st = LoadDungeons(nil, { locked = {} })
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.journal[1], "map:The Deadmines", "its map") eq(st.djShown, true, "its window shown") eq(#st.opened, 0, "not ours")
+	local ns2, st2 = LoadDungeons(nil, { locked = { ["The Deadmines"] = true } })
+	ns2.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st2.journal[1], "bosses:The Deadmines", "its spoiler lock respected")
+end)
+test("DungeonJournal: by instance ID and wing, both parts of Stratholme, raids on our map", function()
+	local ns, st = LoadDungeons(nil, {})
+	ns.Pins.OnDungeonClick({ { id = 329, name = "Stratholme" } }, "Stratholme")
+	eq(#st.chosen.entries, 2, "its two parts")
+	st.chosen.onPick(st.chosen.entries[2])
+	eq(st.journal[1], "bosses:Stratholme: Undead", "the picked part")
+	ns.Pins.OnDungeonClick({ { id = 189, name = "Scarlet Monastery - Library" } }, "SM")
+	eq(st.journal[2], "bosses:Scarlet Monastery: Library", "a wing by its data name")
+	ns.Pins.OnDungeonClick({ { id = 409, name = "Molten Core", raid = true } }, "MC")
+	eq(st.opened[1], 409, "a raid it doesn't have: our map")
+end)
+test("DungeonJournal failing, or not wanted: our own map", function()
+	local ns, st = LoadDungeons(nil, { broken = true })
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.opened[1], 36, "fallback")
+	local ns2, st2 = LoadDungeons(nil, {})
+	ns2.Modules:SetSetting("dungeons", "useDJ", false)
+	ns2.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st2.opened[1], 36, "option off: ours") eq(#st2.journal, 0, "journal left alone")
+end)
+test("without DungeonJournal: no key, no error", function()
+	local ns = LoadDungeons(nil)
+	eq(#ns.DungeonJournal.KeysFor(DEADMINES), 0, "no keys") eq(ns.DungeonJournal.Available(), false, "not available")
+	eq(ns.DungeonJournal.Open("The Deadmines"), false, "nothing opened")
+end)
+test("side panel: up with a dungeon's map, the quest log given back after", function()
+	local ns, st = LoadDungeons(nil)
+	ns.Callbacks:Fire("DUNGEON_MAP_SHOWN", 36, true)
+	eq(st.panel, 36, "panel shown") eq(st.suspended, true, "quest log suspended") eq(st.side, 300, "room kept")
+	ns.Callbacks:Fire("DUNGEON_MAP_CLOSED", 36, true)
+	eq(st.panel, false, "panel hidden") eq(st.suspended, false, "quest log back")
+	ns.Modules:SetSetting("dungeons", "questsTab", false)
+	ns.Modules:SetSetting("dungeons", "bossesTab", false)
+	ns.Callbacks:Fire("DUNGEON_MAP_SHOWN", 36, true)
+	eq(st.panel, false, "no tab wanted: no panel") eq(st.suspended, false, "quest log untouched")
+end)
+test("side panel: none while DungeonJournal is in charge", function()
+	local ns, st = LoadDungeons(nil, {})
+	ns.Callbacks:Fire("DUNGEON_MAP_SHOWN", 36, false)
+	eq(st.panel, nil, "no second interface") eq(st.suspended, nil, "quest log untouched")
+end)
+test("quests: those under the dungeon's heading, their state as the game gives it", function()
+	local ns = LoadDungeons(nil)
+	_G.GetRealZoneText = function(id) return id == 36 and "Les Mortemines" or "" end
+	local log = {
+		{ isHeader = true, title = "Elwynn" }, { title = "Elsewhere", questID = 1, level = 5 },
+		{ isHeader = true, title = "Les Mortemines" }, { title = "Red Silk", questID = 2, level = 18 },
+		{ title = "The Defias", questID = 3, level = 22 }, { isHeader = true, title = "Westfall" },
+	}
+	_G.C_QuestLog = {
+		GetNumQuestLogEntries = function() return #log end, GetInfo = function(i) return log[i] end,
+		IsComplete = function(q) return q == 3 end, IsFailed = function() return false end,
+		GetQuestObjectives = function(q) return q == 2 and { { text = "Silk 3/6", finished = false } } or {} end,
+	}
+	local quests = ns.Modules:Get("dungeons").QuestsFor(36)
+	eq(#quests, 2, "only the dungeon's") eq(quests[1].questID, 2, "first") eq(quests[1].objectives[1].text, "Silk 3/6", "progress")
+	eq(quests[2].complete, true, "ready to turn in, as the game says")
+	_G.GetRealZoneText, _G.C_QuestLog = nil, nil
+end)
+test("bosses: as the map has them; none known: an empty list", function()
+	local ns, st = LoadDungeons(nil)
+	local mod = ns.Modules:Get("dungeons")
+	eq(#mod.BossesFor(36), 0, "no data, no error")
+	st.bosses = { { boss = { "Edwin VanCleef <Defias Kingpin>", 21, 1, 3 }, floor = 2 }, { boss = { "Mr. Smite", 20 } } }
+	local list = mod.BossesFor(36)
+	eq(list[1].name, "Edwin VanCleef", "title left out") eq(list[1].floor, 2, "its floor") eq(list[2].floor, nil, "not placed")
+end)
+test("migration 4: PerfectMap's dungeon switches become the module's", function()
+	local ns = LoadDungeons({ schema = 3, engine = { pins = { raid = false }, dungeonBosses = false } })
+	eq(ns.Modules:GetSetting("dungeons", "raidPins"), false, "raids") eq(ns.Modules:GetSetting("dungeons", "bosses"), false, "bosses")
+	eq(ns.Modules:GetSetting("dungeons", "dungeonPins"), true, "missing: default")
 end)
 
 print(("\n%d passed, %d failed"):format(passed, failed))

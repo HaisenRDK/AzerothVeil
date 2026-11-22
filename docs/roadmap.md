@@ -21,19 +21,17 @@
 - [x] Maîtres de vol rattachés au module Transports (v0.3.1)
 - [ ] Transports, piste : clic sur les bateaux en mouvement
 
-## Étape 2 — Donjons
+## Étape 2 — Donjons (v0.4.0)
 
-Approche validée : d'abord les données déjà présentes et les API natives, **sans dépendance à
-DungeonJournal** ; l'intégration DungeonJournal sera étudiée ensuite. Les onglets quêtes / boss /
-récompenses ne sont pas développés tant que ce n'est pas demandé.
-
-- Module **Donjons** sur `Dungeon.lua` : entrées interactives, carte intérieure, étages, retour à la
-  position précédente sur la carte du monde.
-- Intégration **DungeonJournal** (`conflictsWithAddOns` / `Integrations/DungeonJournal.lua`) : vérifier
-  l'API réelle de `_G.ForeverDungeonJournal_NS` avant tout usage ; si DJ est actif, il prend la main sur
-  les clics des icônes de donjon.
-- Sous-modules **Quêtes de donjon** et **Boss & butin** (dépendance `dungeons`, conflit avec DJ),
-  présentés en deux onglets du panneau latéral de la carte (à la place du journal de quêtes).
+- [x] Audit (PerfectMap, OpenMap, DungeonJournal 2.1.3, OpenMap_NoDungeonMap) : `docs/dungeons-audit.md`
+- [x] Module `dungeons` : entrées, sélecteur d'ailes, cartes intérieures, étages, boss, entrées/sorties,
+  carte automatique à l'intérieur, retour au contexte précédent
+- [x] Panneau latéral Quêtes / Boss (données du jeu et du moteur ; pas de butin ni de donneurs sans
+  DungeonJournal)
+- [x] Délégation à DungeonJournal (optionnelle, par numéro d'instance)
+- [ ] Validation en jeu (checklist de `docs/development.md`)
+- [ ] Pistes : noms des boss localisés (via le client, comme DungeonJournal), zoom/déplacement des
+  cartes intérieures dessinées, carte de DungeonJournal intégrée si une API publique le permet un jour
 
 ## Étape 3 — Exploration
 

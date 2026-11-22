@@ -31,8 +31,7 @@ AzerothVeil/                     dépôt Git (WSL)
 └── CLAUDE.local.md, .claude/    (ignorés) configuration de l'agent IA
 ```
 
-Les **intégrations tierces** (Questie, DungeonJournal, OpenMap…) iront dans `addon/Integrations/`
-quand la première sera écrite (le dossier n'est pas créé vide). Aujourd'hui celles de PerfectMap restent
+Les **intégrations tierces** vont dans `addon/Integrations/` (première : `DungeonJournal.lua`). Aujourd'hui celles de PerfectMap restent
 dans `Engine/` (Quests.lua, Tint.lua, AddonPins.lua).
 
 ### Ordre de chargement (`AzerothVeil.toc`)
@@ -142,6 +141,20 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 | `social` (Amis & guilde) | `Engine/Friends.lua` | `Friends.Start(cfg)/Stop()` ; lit les réglages du module en direct (`F.cfg`) |
 | `transports` | `Engine/Vessels.lua`, `Routes.lua`, `Pins.lua` | `Vessels.Start/Stop/SetTracking/SetSharing`, `Routes.SetEnabled`, `Pins.OnTravelClick` ; le module **écrit** les interrupteurs que le moteur lit (`FM.db.pins.flight/boat/zeppelin/tram/airship`, `enemyFlight`, `routes`, `vessels`, `vesselSync`, `enemyHarbors`) : ce sont des valeurs effectives, remises à `false` à chaque chargement (`Engine/Core.lua`) et tant que le module est désactivé ; ses vrais réglages sont dans `AzerothVeilDB.modules.transports` |
 
+| `dungeons` | `Engine/Dungeon.lua`, `Pins.lua`, `QuestLog.lua` | interrupteurs effectifs (`pins.dungeon/raid`, `dungeonMaps`, `dungeonBosses`, `dungeonLevels`, `dungeonWays`) ; `Pins.OnDungeonClick` (aiguillage du clic), `Dungeon.ReturnView` (retour au monde), `Dungeon.Choose(..., onPick)`, `Dungeon.CollectBosses/FocusBoss/Current`, messages `DUNGEON_MAP_SHOWN/CLOSED`, `QuestLog.Suspend` |
+
+**Donjons — détails** (audit : `docs/dungeons-audit.md`).
+- Clic sur une entrée : sans DungeonJournal, la carte intérieure du moteur (sélecteur si plusieurs
+  donjons/ailes) ; avec DungeonJournal et l'option, **sa** page du donjon (`Integrations/DungeonJournal.lua` :
+  fonctions publiques sous `pcall`, correspondance par numéro d'instance + nom d'aile de nos données,
+  repli sur notre carte en cas d'échec).
+- Retour : la vue du monde (centre, zoom) mémorisée à l'ouverture depuis une entrée est restaurée par le
+  bouton Monde et le clic droit ; un second donjon ouvert depuis le premier garde le point de départ.
+- Panneau latéral (`UI/DungeonPanel.lua`) : pendant qu'une carte de donjon est affichée (ouverte depuis
+  une entrée ou automatiquement à l'intérieur), le journal de quêtes est suspendu (préférence intacte) et
+  remplacé par les onglets Quêtes / Boss ; rétabli à la fermeture. Jamais quand DungeonJournal est aux
+  commandes (pas d'interface concurrente).
+
 **Transports — détails.**
 - Un point par trajet, comme OpenMap (PerfectMap fusionnait les quais proches en une icône) : chaque
   icône connaît la destination de son trajet (`pin.travel`) ; les icônes de transport ne sont jamais
@@ -167,7 +180,7 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 - Valeurs par défaut fusionnées à chaque chargement ; une valeur de mauvais type est remise par défaut.
 - **Migrations** : `Database.migrations[n]` amène un schéma n-1 à n, exécutées une fois dans l'ordre ;
   un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : options amis/guilde
-  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports`.
+  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports` ; migration 4 : entrées, cartes et boss des donjons → module `dungeons`.
 - Les anciennes migrations internes de PerfectMap (dans `Engine/Core.lua`) sont conservées telles quelles
   sur `engine`.
 

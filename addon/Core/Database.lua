@@ -22,7 +22,7 @@ local _, ns = ...
 local Database = {}
 ns.Database = Database
 
-Database.SCHEMA = 3
+Database.SCHEMA = 4
 
 -- Fills dst with what's missing from defaults (tables merged deeply). A value whose type differs from
 -- its default's is replaced by the default (a corrupted or hand-edited file).
@@ -94,6 +94,24 @@ migrations[3] = function(root)
 	m.settings = type(m.settings) == "table" and m.settings or {}
 	if m.settings.flight == nil and type(pins.flight) == "boolean" then m.settings.flight = pins.flight end
 	if m.settings.enemyFlight == nil and type(engine.enemyFlight) == "boolean" then m.settings.enemyFlight = engine.enemyFlight end
+end
+
+-- 4: the dungeons' and raids' icons, their maps and bosses become the Dungeons module's (PerfectMap's
+-- switches dungeon / raid / dungeonMaps / dungeonBosses), as migration 2 did for the transports
+migrations[4] = function(root)
+	local engine = root.engine
+	local pins = type(engine.pins) == "table" and engine.pins or {}
+	local m = root.modules.dungeons or {}
+	root.modules.dungeons = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	local set = m.settings
+	local function Copy(key, value)
+		if set[key] == nil and type(value) == "boolean" then set[key] = value end
+	end
+	Copy("dungeonPins", pins.dungeon)
+	Copy("raidPins", pins.raid)
+	Copy("auto", engine.dungeonMaps)
+	Copy("bosses", engine.dungeonBosses)
 end
 
 -- (for tests)

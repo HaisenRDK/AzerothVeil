@@ -181,7 +181,9 @@ function D.HideChooser()
 	if chooser then chooser:Hide() end
 end
 
-function D.Choose(insts, anchor, name)
+-- (AzerothVeil: onPick(entry): what a pick does instead of opening that map here (the Dungeons module:
+-- DungeonJournal's page, or its own handling); nil, as PerfectMap: its map)
+function D.Choose(insts, anchor, name, onPick)
 	if not insts or #insts == 0 then return end
 	local parent = _G.AzerothVeilFrame
 	if not chooser then
@@ -194,6 +196,7 @@ function D.Choose(insts, anchor, name)
 		chooser.head:SetPoint("TOPLEFT", 10, -8)
 		chooser.head:SetText(L["CHOOSE A DUNGEON"])
 	end
+	chooser.onPick = onPick
 	for _, r in ipairs(chooserRows) do r:Hide() end
 	-- (each entry: an instance, or one part of one as the entrance names it: { id, name, raid, lo, hi })
 	local ids = {}
@@ -206,6 +209,7 @@ function D.Choose(insts, anchor, name)
 		if not r then
 			r = S.Button(chooser, "", w - 12, 24, function(self)
 				D.HideChooser()
+				if chooser.onPick then chooser.onPick(self.entry) return end
 				D.Open(self.insts, self.name, self.id, self.floor)
 			end, "row")
 			r.icon = r:CreateTexture(nil, "ARTWORK")
@@ -220,10 +224,10 @@ function D.Choose(insts, anchor, name)
 			r.levels:SetPoint("RIGHT", -8, 0)
 			chooserRows[i] = r
 		end
-		r.insts, r.id, r.name = insts, id, info.name or name
+		r.insts, r.id, r.name, r.entry = insts, id, info.name or name, e
 		r.floor = type(e) == "table" and FloorNamed(id, e.name) or nil
 		S.SetIcon(r.icon, info.raid and FM.Pins.RAID_ICON or FM.Pins.DUNGEON_ICON)
-		r.label:SetText(info.name or tostring(id))
+		r.label:SetText(info.label or info.name or tostring(id))      -- (AzerothVeil: label, in the player's language)
 		local hasMap = FloorsOf(id)
 		r.label:SetAlpha(hasMap and 1 or 0.55)
 		if info.lo then
@@ -268,7 +272,7 @@ local function InstanceButton()
 	end
 	if view and view.insts and #view.insts > 1 then
 		local info = FM.Pins.InstanceInfo and FM.Pins.InstanceInfo(view.inst) or {}
-		instButton.label:SetText(info.name or view.name or "")
+		instButton.label:SetText(info.label or info.name or view.name or "")
 		instButton:Show()
 	else
 		instButton:Hide()
@@ -608,11 +612,14 @@ local function OtherPlace(inst, jb)
 	end
 end
 
-local function PlaceBosses(inst, index, floorName)
+-- (AzerothVeil: collect: a table to note each boss in ({ boss, floor, x, y }; floor nil: on no map),
+-- nothing drawn: the Dungeons module's boss list)
+local function PlaceBosses(inst, index, floorName, collect)
 	local n, ne = 0, 0
 	local unlisted = {}
 	local spots, ways = {}, {}
 	local function Pin(x, y, b)
+		if collect then collect[#collect + 1] = { boss = b, floor = index, x = x, y = y } return end
 		n = n + 1
 		local p = bossPins[n] or NewBossPin()
 		bossPins[n] = p
@@ -624,7 +631,7 @@ local function PlaceBosses(inst, index, floorName)
 		local key = FloorKey(inst, index, floorName)
 		local f = MUFloors(inst)
 		local dj = FM.DUNGEON_JOURNAL and FM.DUNGEON_JOURNAL[inst]
-		if dj and FM.db.dungeonBosses ~= false then
+		if dj and (collect or FM.db.dungeonBosses ~= false) then
 			-- the DungeonJournal's bosses, the surest: its list, levels, portraits and places (the others'
 			-- bosses it doesn't list left out). One it places on no map of ours: the others' place for it;
 			-- with none anywhere, listed beside the map
@@ -637,7 +644,7 @@ local function PlaceBosses(inst, index, floorName)
 				if f == index then Pin(x, y, b)
 				elseif not f then unlisted[#unlisted + 1] = b end
 			end
-		elseif FM.db.dungeonBosses ~= false then
+		elseif collect or FM.db.dungeonBosses ~= false then
 			-- (the ones it doesn't cover, the raids: MapUtils' pins on its pictures, else the game's journal's
 			-- places; listed beside the map where neither has one)
 			local seen = {}
@@ -668,6 +675,10 @@ local function PlaceBosses(inst, index, floorName)
 				end
 			end
 		end
+		if collect then
+			for _, b in ipairs(unlisted) do collect[#collect + 1] = { boss = b } end
+			return
+		end
 		-- the ways in: on the middle of each swirl drawn on this floor (Data\DungeonEntrances.lua, found
 		-- in the picture itself); none where the floor draws none
 		local ins = FM.DUNGEON_ENTRANCE_SPOTS and FM.DUNGEON_ENTRANCE_SPOTS[inst]
@@ -675,6 +686,8 @@ local function PlaceBosses(inst, index, floorName)
 		-- (a floor the DungeonJournal's maps add: its way in, from the journal)
 		local own = (FloorsOf(inst) or {})[index]
 		local list = ins and ins[index] or (own and own.entrance and { own.entrance }) or {}
+		-- (AzerothVeil: the Dungeons module's "entrances and exits" switch)
+		if FM.db.dungeonWays == false then list = {} end
 		for _, e in ipairs(list) do
 			ne = ne + 1
 			Entrance(ne, e[1], e[2], info and info.raid)
@@ -705,7 +718,10 @@ local function DrawData()
 		or (FM.DUNGEON_FLOORS and FM.DUNGEON_FLOORS[view.inst] and FM.DUNGEON_FLOORS[view.inst].name) or ""
 	-- (a floor named for a part of the instance, "Upper Blackrock Spire": that name alone)
 	local own = f.name and name ~= "" and f.name:find(name, 1, true)
-	title:SetText(f.name and f.name ~= name and (name ~= "" and not own and (name .. ": " .. f.name) or f.name) or name)
+	-- (AzerothVeil: shown in the player's language; the data's name still decides what's written)
+	local shown = FM.Pins.DisplayName and FM.Pins.DisplayName(view.inst, name ~= "" and name or nil) or name
+	local floorShown = f.name and FM.Pins.DisplayName and FM.Pins.DisplayName(nil, f.name) or f.name
+	title:SetText(f.name and f.name ~= name and (name ~= "" and not own and (shown .. ": " .. floorShown) or floorShown) or shown)
 	ClearTiles()
 	if f.texture then
 		local bottom = f.bottom or 683 / 1024
@@ -1136,6 +1152,8 @@ local function Show(v, fromIcon)
 	view, opened = v, fromIcon and true or false
 	if not layer:IsShown() then layer:Show() end
 	Draw()
+	-- (AzerothVeil: told to the modules, Modules/Dungeons.lua: its side panel)
+	FM.Callbacks:Fire("DUNGEON_MAP_SHOWN", v.inst, opened, v.uiMap)
 	if FM.Map.dungeonButton then
 		FM.Map.dungeonButton.label:SetText(L["World"])
 		FM.Map.dungeonButton:Show()
@@ -1144,8 +1162,10 @@ end
 
 local function Close()
 	D.HideChooser()
+	local was, wasOpened = view, opened
 	view, opened = nil, false
 	if layer:IsShown() then layer:Hide() FM.Map.MarkDirty() end
+	if was then FM.Callbacks:Fire("DUNGEON_MAP_CLOSED", was.inst, wasOpened) end
 	ClearBattleground()
 	EndBattlegroundTip()
 	local inside = D.Inside() and FM.db.dungeonMaps ~= false
@@ -1304,7 +1324,9 @@ function D.TogglePeek(fromRightClick)
 				FM.Map.MarkDirty()
 			end
 		else
-			ToEntrance(was)
+			-- (AzerothVeil: the Dungeons module puts the world back as it was before the dungeon was
+			-- opened (D.ReturnView); else, as PerfectMap, the map on its way in)
+			if not (D.ReturnView and D.ReturnView(was)) then ToEntrance(was) end
 		end
 	else
 		peek = false
@@ -1335,6 +1357,74 @@ end
 
 function D.Back()
 	if D.Active() then D.TogglePeek(true) end
+end
+
+---------------------------------------------------------------------------
+-- AzerothVeil: what the Dungeons module reads and asks (Modules/Dungeons.lua)
+---------------------------------------------------------------------------
+-- the dungeon shown: its instance, floor, number of floors, opened from an icon; nil when none
+function D.Current()
+	if not (view and view.inst and D.Active()) then return nil end
+	local floors = FloorsOf(view.inst)
+	return view.inst, view.floor or 1, floors and #floors or 0, opened
+end
+
+-- every boss of an instance as the map shows them, floor by floor: { { boss = { name, level, displayID,
+-- kind, levelText }, floor, x, y }, ... }; floor nil: on no map. Nothing drawn.
+function D.CollectBosses(inst)
+	local out = {}
+	if not inst then return out end
+	local floors = FloorsOf(inst)
+	if floors then
+		for i, f in ipairs(floors) do PlaceBosses(inst, i, f.name, out) end
+	else
+		PlaceBosses(inst, 1, nil, out)
+	end
+	-- (one boss found on several floors' lists: kept once, on the first floor that places it)
+	local seen, list = {}, {}
+	for _, e in ipairs(out) do
+		local k = e.boss and e.boss[1]
+		if k and not seen[k] then seen[k] = true list[#list + 1] = e end
+	end
+	return list
+end
+
+-- a boss of the dungeon shown: its floor up, its pin lit for a moment
+local glow
+function D.FocusBoss(name)
+	if not (view and view.inst and name) then return false end
+	for _, e in ipairs(D.CollectBosses(view.inst)) do
+		if e.boss[1] == name and e.floor then
+			if e.floor ~= view.floor then D.SetFloor(e.floor) end
+			for _, p in ipairs(bossPins) do
+				if p:IsShown() and p.boss and p.boss[1] == name then
+					if not glow then
+						glow = layer:CreateTexture(nil, "OVERLAY", nil, 7)
+						glow:SetTexture(RING)
+						glow:SetTexCoord(0, 0.6, 0, 0.6)
+						glow:SetBlendMode("ADD")
+						glow:SetVertexColor(1, 0.82, 0.2, 1)
+						glow.anim = glow:CreateAnimationGroup()
+						local a = glow.anim:CreateAnimation("Alpha")
+						a:SetFromAlpha(1) a:SetToAlpha(0.25) a:SetDuration(0.5)
+						glow.anim:SetLooping("BOUNCE")
+					end
+					glow:ClearAllPoints()
+					glow:SetPoint("CENTER", p, "CENTER")
+					local size = BOSS_SIZE * p:GetScale() * 1.9
+					glow:SetSize(size, size)
+					glow:Show()
+					glow.anim:Play()
+					local token = {}
+					glow.token = token
+					C_Timer.After(3, function() if glow.token == token then glow.anim:Stop() glow:Hide() end end)
+					return true
+				end
+			end
+			return true
+		end
+	end
+	return false
 end
 
 local function CreateUnitLayer(level)

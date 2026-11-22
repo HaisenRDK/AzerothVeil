@@ -91,3 +91,35 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console
 
 **Amis & guilde** (non-régression)
 14. Activation / désactivation et réglages comme en v0.1.0, depuis la nouvelle fenêtre.
+
+## Checklist en jeu — module Donjons (v0.4.0)
+
+Préparation : relancer le jeu (nouveaux fichiers). Faire les tests **sans** DungeonJournal (désactivé dans
+la liste des AddOns), puis **avec**.
+
+**Sans DungeonJournal**
+1. Onglet Donjons dans le menu ⚙ (et `/av config`, Options > AddOns) ; vos anciens réglages de donjons repris.
+2. Royaumes de l'Est et Kalimdor : icônes d'entrée (Mortemines, Uldaman, Hache-Tripes, Monastère écarlate,
+   Rochenoire), infobulle en français avec la plage de niveaux ; « Plages de niveaux » décoché : plus de niveaux.
+3. Clic sur Mortemines : sa carte dans la fenêtre de la carte, boss placés, entrée marquée ; panneau de droite
+   remplacé par les onglets Quêtes / Boss.
+4. Monastère écarlate / Hache-Tripes / Pic Rochenoire : liste des ailes, chacune ouvre la bonne carte.
+   Donjon à plusieurs étages (Rochenoire, Gnomeregan) : boutons d'étage.
+5. Onglet Boss : liste, clic → bon étage affiché, repère qui clignote ; boss non placés indiqués.
+6. Onglet Quêtes : avec une quête de ce donjon dans le journal (ex. Mortemines) : état, progression ;
+   clic → récompenses avec infobulles du jeu ; Maj-clic → lien dans le chat ; sans quête : message.
+7. Bouton Monde ou clic droit : retour **exactement** à la vue d'avant (même endroit, même zoom), journal de
+   quêtes revenu tel qu'il était (ouvert ou replié). Ouvrir un 2ᵉ donjon depuis le premier puis revenir :
+   vue de départ.
+8. Dans un donjon : la carte du donjon s'affiche (option « Carte du lieu où vous êtes »), avec les onglets ;
+   champ de bataille : sa carte, sans onglets. En combat : ouvrir/fermer la carte, cliquer, aucune erreur.
+9. Module désactivé : plus d'icônes ni de cartes de donjon ; réactivé : tout revient avec vos réglages.
+10. Raid (Cœur du Magma, Onyxia) : carte et boss ; donjon sans carte : message « Le jeu n'a pas de carte… ».
+
+**Avec DungeonJournal**
+11. Clic sur Mortemines : la fenêtre de DungeonJournal s'ouvre sur ce donjon (carte si débloquée, sinon ses
+    boss ; donjon verrouillé en mode RPG : sa propre notice). Aucun onglet AzerothVeil.
+12. Stratholme : choix entre ses deux parties ; Monastère : choix des ailes → bonne page.
+13. Raid (non couvert par DungeonJournal) : carte d'AzerothVeil.
+14. Option « Utiliser DungeonJournal » décochée : retour au fonctionnement sans DungeonJournal.
+

@@ -48,8 +48,8 @@ local CAPITALS = {               -- uiMapID, its faction
 }
 local CATS = {
 	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, minZoom = FM.Map.QUESTS_ZOOM, layer = 5, group = "transport" },   -- (with the townsfolk: M's zoom) (AzerothVeil: the Transports module's)
-	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
-	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
+	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "dungeons" },
+	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "dungeons" },
 	-- (the capitals: only right out (gone at the wheel's first step in), over every other icon: layer 8
 	-- sorts them first, drawn in the OVERLAY layer)
 	{ key = "capital", label = L["Capital cities"], icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = Steps(1),
@@ -1014,6 +1014,8 @@ function P.Click()
 					if not seen[k] then seen[k] = true wings[#wings + 1] = w end
 				end
 			end
+			-- (AzerothVeil: the Dungeons module's click while it runs (its map here, or DungeonJournal's page))
+			if P.OnDungeonClick then P.OnDungeonClick(wings, nHovered > 1 and nil or pin.title) return end
 			if #wings > 1 then FM.Dungeon.Choose(wings, nil, nHovered > 1 and nil or pin.title)
 			elseif wings[1] then FM.Dungeon.OpenWing(wings[1]) end
 			return
@@ -1141,6 +1143,7 @@ local function BuildCapitals()
 end
 
 local function LevelLine(name, lo, hi)
+	if FM.db.dungeonLevels == false then lo, hi = nil, nil end   -- (AzerothVeil: the Dungeons module's switch)
 	local mid = floor(((lo or 0) + (hi or lo or 0)) / 2)
 	local c = GetQuestDifficultyColor and GetQuestDifficultyColor(mid)
 	local text = name
@@ -1186,6 +1189,27 @@ end
 function P.InstanceName(id)
 	ReadInstances()
 	return instNames[id]
+end
+
+-- AzerothVeil: a dungeon's name as shown, in the player's language: a wing's (the game has no name of its
+-- own for one: translated here), else the game's name of the instance (GetRealZoneText, as DungeonJournal
+-- gets it), else the data's. The data's name stays the key everywhere else (floors, DungeonJournal).
+local WING_LABELS = {
+	["Scarlet Monastery - Graveyard"] = L["Scarlet Monastery - Graveyard"],
+	["Scarlet Monastery - Library"] = L["Scarlet Monastery - Library"],
+	["Scarlet Monastery - Armory"] = L["Scarlet Monastery - Armory"],
+	["Scarlet Monastery - Cathedral"] = L["Scarlet Monastery - Cathedral"],
+	["Dire Maul - East"] = L["Dire Maul - East"],
+	["Dire Maul - West"] = L["Dire Maul - West"],
+	["Dire Maul - North"] = L["Dire Maul - North"],
+	["Lower Blackrock Spire"] = L["Lower Blackrock Spire"],
+	["Upper Blackrock Spire"] = L["Upper Blackrock Spire"],
+}
+function P.DisplayName(id, dataName)
+	if dataName and WING_LABELS[dataName] then return WING_LABELS[dataName] end
+	local n = id and GetRealZoneText and FM.Plain(GetRealZoneText(id))
+	if type(n) == "string" and n ~= "" then return n end
+	return dataName or (id and P.InstanceName(id)) or ""
 end
 function P.InstanceInfo(id)
 	ReadInstances()
@@ -1284,11 +1308,11 @@ local function BuildPlaces()
 			local lines = {}
 			for _, inst in ipairs(list) do
 				if not inst[3] then allRaid = false end
-				lines[#lines + 1] = LevelLine(inst[2], inst[4], inst[5])
+				lines[#lines + 1] = LevelLine(P.DisplayName(inst[1], inst[2]), inst[4], inst[5])
 			end
 			local title
 			if #list == 1 then
-				title = list[1][2]
+				title = P.DisplayName(list[1][1], list[1][2])
 				lines[1] = LevelLine(list[1][3] and L["Raid"] or L["Dungeon"], list[1][4], list[1][5])
 			else
 				title = allRaid and L["Raids"] or L["Dungeons"]
@@ -1298,7 +1322,7 @@ local function BuildPlaces()
 			local insts, wings = {}, {}
 			for i, inst in ipairs(list) do
 				insts[i] = inst[1]
-				wings[i] = { id = inst[1], name = inst[2], raid = inst[3], lo = inst[4], hi = inst[5] }
+				wings[i] = { id = inst[1], name = inst[2], label = P.DisplayName(inst[1], inst[2]), raid = inst[3], lo = inst[4], hi = inst[5] }
 			end
 			AddPin(allRaid and raid or dungeon, u, v, { title = title, lines = lines, insts = insts, wings = wings })
 		end

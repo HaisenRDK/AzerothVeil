@@ -53,6 +53,8 @@ FM.defaults = {
 
 -- (AzerothVeil: the icon kinds the Transports module owns)
 FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
+-- (AzerothVeil: and the Dungeons module's)
+FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
 
 local function Merge(dst, src)
 	for k, v in pairs(src) do
@@ -225,6 +227,8 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		for _, k in ipairs(FM.TRANSPORT_PINS) do FM.db.pins[k] = false end
 		FM.db.routes, FM.db.vessels, FM.db.vesselSync, FM.db.enemyHarbors = false, false, false, false
 		FM.db.enemyFlight = false
+		for _, k in ipairs(FM.DUNGEON_PINS_KEYS) do FM.db.pins[k] = false end
+		FM.db.dungeonMaps, FM.db.dungeonBosses, FM.db.dungeonLevels, FM.db.dungeonWays = false, false, false, false
 		-- (AzerothVeil: the classic look, always: Blizzard's own frames, never the modern one)
 		FM.db.style = "classic"
 		FM.Style.ApplyTheme(FM.db.style)

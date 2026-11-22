@@ -331,14 +331,6 @@ L["The map opens at the zoom you closed it at."] = "La carte s'ouvre au zoom auq
 L["Off: it always opens at the same zoom."] = "Désactivé : elle s'ouvre toujours au même zoom."
 L["Highlight zone under cursor"] = "Surligner la zone sous le curseur"
 L["The zone under the mouse lights up, as on Blizzard's continent map."] = "La zone sous la souris s'éclaire, comme sur la carte des continents de Blizzard."
-L["Dungeon maps inside"] = "Cartes des donjons à l'intérieur"
-L["Inside a dungeon, raid or battleground the map shows its own map, every floor, you and your group on it."] =
-	"Dans un donjon, un raid ou un champ de bataille, la carte affiche son plan, chaque niveau, vous et votre groupe."
-L["A right-click on it, or the header's World button, goes back to the world."] =
-	"Un clic droit dessus, ou le bouton Monde de l'en-tête, revient au monde."
-L["Bosses on dungeon maps"] = "Boss sur les cartes des donjons"
-L["Where each boss stands on a dungeon's map, with its portrait and level, as MapUtils shows them."] =
-	"L'emplacement de chaque boss sur la carte d'un donjon, avec son portrait et son niveau, comme les affiche MapUtils."
 L["Sum identical icons"] = "Regrouper les icônes identiques"
 L["Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom."] =
 	"Les icônes identiques qui se chevauchent n'en forment qu'une, avec leur nombre, et toutes dans son infobulle, à tous les zooms."
@@ -382,3 +374,62 @@ L["Quest log beside the map"] = "Journal de quêtes à côté de la carte"
 L["Docked to the map's right: the window grows, the map keeps its shape."] = "Ancré à droite de la carte : la fenêtre s'agrandit, la carte garde ses proportions."
 L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help"] =
 	"Glisser : déplacer   Molette : zoom   Clic droit : repère / coordonnées (sur une icône : point de passage)   /av help"
+
+---------------------------------------------------------------------------
+-- Module: Dungeons
+---------------------------------------------------------------------------
+L["The dungeons' and raids' entrances on the map; a click opens the dungeon's own map in the map's window, its floors, its bosses, its ways in, with its quests and bosses beside it. With DungeonJournal, its page of the dungeon opens instead."] =
+	"Les entrées des donjons et des raids sur la carte ; un clic ouvre la carte du donjon dans la fenêtre de la carte, ses niveaux, ses boss, ses entrées, avec ses quêtes et ses boss à côté. Avec DungeonJournal, c'est sa page du donjon qui s'ouvre."
+L["the entrances, maps and tabs picked below are there; a dungeon's map is shown inside one if that option is on."] =
+	"les entrées, cartes et onglets choisis ci-dessous sont présents ; la carte d'un donjon s'affiche quand vous y êtes si l'option est cochée."
+L["no entrance icon, no dungeon map, no tab: nothing of it shows or runs."] =
+	"aucune icône d'entrée, aucune carte de donjon, aucun onglet : rien ne s'affiche et rien ne tourne."
+L["Show the entrances"] = "Afficher les entrées"
+L["An icon where each dungeon or raid is entered."] = "Une icône à l'entrée de chaque donjon ou raid."
+L["The dungeons' entrances."] = "Les entrées des donjons."
+L["The raids' entrances."] = "Les entrées des raids."
+L["Level ranges in tooltips"] = "Plages de niveaux dans les infobulles"
+L["Under each dungeon's name in its tooltip: the levels it's made for, coloured as the game colours them."] =
+	"Sous le nom de chaque donjon dans son infobulle : les niveaux auxquels il est destiné, colorés comme le fait le jeu."
+L["Interior maps"] = "Cartes intérieures"
+L["A click on an entrance shows the dungeon's map in the map's window (several dungeons there: a list to pick from). Back: the World button, or a right-click."] =
+	"Un clic sur une entrée affiche la carte du donjon dans la fenêtre de la carte (plusieurs donjons : une liste pour choisir). Retour : le bouton Monde, ou un clic droit."
+L["Boss markers"] = "Repères des boss"
+L["Where each boss stands on the dungeon's map, with its portrait."] = "L'emplacement de chaque boss sur la carte du donjon, avec son portrait."
+L["Entrances and exits"] = "Entrées et sorties"
+L["Where the dungeon's map is entered and left."] = "Les endroits où l'on entre dans le donjon et où l'on en sort."
+L["Map of the place you're in"] = "Carte du lieu où vous êtes"
+L["Inside a dungeon, raid or battleground, the map shows that place's own map (the header's World button: the world's)."] =
+	"Dans un donjon, un raid ou un champ de bataille, la carte affiche le plan de ce lieu (le bouton Monde de l'en-tête : celle du monde)."
+L["Side panel"] = "Panneau latéral"
+L["Quests tab"] = "Onglet Quêtes"
+L["While a dungeon's map is up, beside it: the quests of your quest log for that dungeon, their progress and rewards."] =
+	"Pendant qu'une carte de donjon est affichée, à côté : les quêtes de votre journal pour ce donjon, leur progression et leurs récompenses."
+L["Bosses tab"] = "Onglet Boss"
+L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] =
+	"Pendant qu'une carte de donjon est affichée, à côté : ses boss et leurs niveaux ; un clic montre où se trouve chacun."
+L["Integrations"] = "Intégrations"
+L["Use DungeonJournal when it's there"] = "Utiliser DungeonJournal s'il est présent"
+L["With the DungeonJournal addon loaded, a click on an entrance opens its page of that dungeon (its map, quests, bosses and loot); AzerothVeil's tabs then stay away. Its own settings (locked dungeons, spoilers) apply."] =
+	"Avec l'addon DungeonJournal chargé, un clic sur une entrée ouvre sa page du donjon (sa carte, ses quêtes, ses boss et son butin) ; les onglets d'AzerothVeil ne s'affichent alors pas. Ses propres réglages (donjons verrouillés, spoilers) s'appliquent."
+L["Stratholme: Living"] = "Stratholme : côté vivant"
+L["Stratholme: Undead"] = "Stratholme : côté mort-vivant"
+L["None of your quests is for this dungeon."] = "Aucune de vos quêtes ne concerne ce donjon."
+L["Click: its rewards.   Shift-click: link it in chat."] = "Clic : ses récompenses.   Maj-clic : la lier dans le chat."
+L["No boss is known for this place."] = "Aucun boss connu pour ce lieu."
+L["Floor %d"] = "Niveau %d"
+L["Not placed on the map"] = "Non placé sur la carte"
+L["Click: show where it stands."] = "Clic : montrer où il se trouve."
+L["Loot isn't in AzerothVeil's data: DungeonJournal's boss pages have it."] =
+	"Le butin ne fait pas partie des données d'AzerothVeil : les pages des boss de DungeonJournal le donnent."
+L["Bosses"] = "Boss"
+L["Levels %s"] = "Niveaux %s"
+L["Scarlet Monastery - Graveyard"] = "Monastère Écarlate - Cimetière"
+L["Scarlet Monastery - Library"] = "Monastère Écarlate - Bibliothèque"
+L["Scarlet Monastery - Armory"] = "Monastère Écarlate - Armurerie"
+L["Scarlet Monastery - Cathedral"] = "Monastère Écarlate - Cathédrale"
+L["Dire Maul - East"] = "Hache-Tripes - Est"
+L["Dire Maul - West"] = "Hache-Tripes - Ouest"
+L["Dire Maul - North"] = "Hache-Tripes - Nord"
+L["Lower Blackrock Spire"] = "Pic Rochenoire inférieur"
+L["Upper Blackrock Spire"] = "Pic Rochenoire supérieur"

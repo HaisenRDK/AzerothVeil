@@ -697,6 +697,22 @@ local function Tags(questID, info)
 	return table.concat(out, "   ")
 end
 
+-- (AzerothVeil: for the Dungeons module's quest list: the same rewards, the same native tooltips)
+QL.Rewards = Rewards
+function QL.RewardTooltip(owner, kind, index, questID, label, currency)
+	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+	local ok = false
+	if currency then
+		ok = GameTooltip.SetQuestLogCurrency and pcall(GameTooltip.SetQuestLogCurrency, GameTooltip, kind, index, questID)
+	elseif kind == "reward" or kind == "choice" then
+		ok = GameTooltip.SetQuestLogItem and pcall(GameTooltip.SetQuestLogItem, GameTooltip, kind, index, questID)
+	elseif kind == "spell" then
+		ok = GameTooltip.SetQuestLogRewardSpell and pcall(GameTooltip.SetQuestLogRewardSpell, GameTooltip, index, questID)
+	end
+	if not ok then GameTooltip:SetText(label or "", 1, 1, 1) end
+	GameTooltip:Show()
+end
+
 local rewardBox
 local function RewardBox(y0, y1)
 	if not rewardBox then
@@ -1070,9 +1086,27 @@ function QL.Attach(parent, headerHeight)
 	QL.SetShown(FM.db.questPanel)
 end
 
+-- AzerothVeil: suspended while the Dungeons module's side panel takes its place (Modules/Dungeons.lua):
+-- hidden, its preference (FM.db.questPanel) untouched; back as it was when the suspension ends
+local suspended = false
+function QL.Suspend(on)
+	suspended = on and true or false
+	if not panel then return end
+	if suspended then
+		panel:Hide()
+	else
+		panel:SetShown(FM.db.questPanel)
+		FM.Map.SetSideWidth(FM.db.questPanel and WIDTH or 0)
+		if FM.Map.questsButton then FM.Map.questsButton:SetActive(FM.db.questPanel) end
+	end
+end
+function QL.IsSuspended() return suspended end
+QL.WIDTH = WIDTH
+
 function QL.SetShown(on)
 	FM.db.questPanel = on and true or false
 	if not panel then return end
+	if suspended then return end         -- (kept for when the dungeon's panel goes)
 	panel:SetShown(on)
 	FM.Map.SetSideWidth(on and WIDTH or 0)
 	if FM.Map.questsButton then FM.Map.questsButton:SetActive(on) end
@@ -1086,6 +1120,8 @@ function QL.Toggle() QL.SetShown(not (panel and panel:IsShown())) end
 -- another addon's "show this quest"; its button flashes, as from the log)
 function QL.Open(questID)
 	FM.Map.Show()
+	-- (AzerothVeil: a quest asked for while a dungeon's panel holds the log's place: back on the world first)
+	if suspended and FM.Dungeon.Active() then FM.Dungeon.Back() end
 	QL.SetShown(true)
 	if questID then QL.ShowDetails(questID, false, true) else QL.ShowList() end
 end
