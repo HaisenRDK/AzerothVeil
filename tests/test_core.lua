@@ -365,6 +365,20 @@ test("the on/off check box's tooltip: what on and off do, why it doesn't run", f
 	eq(ns.Modules:CanBeUnavailable("a"), false, "a can always run") eq(ns.Modules:CanBeUnavailable("b"), true, "b may not")
 end)
 
+test("options grouped with the ones hanging from them, in order", function()
+	local ns = LoadCore(nil)
+	local m = ns.Modules:Register({ name = "g", settings = {
+		{ key = "a", type = "toggle" }, { key = "b", type = "toggle" },
+		{ key = "a1", type = "toggle", parent = "a" }, { key = "c", type = "toggle" },
+		{ key = "b1", type = "toggle", parent = "b" }, { key = "b11", type = "toggle", parent = "b1" },
+	} })
+	local groups = ns.Modules:OptionGroups("g", m.settings)
+	eq(#groups, 3, "three groups")
+	eq(groups[1][1].key .. groups[1][2].key, "aa1", "a then its child")
+	eq(groups[2][1].key .. groups[2][2].key .. groups[2][3].key, "bb1b11", "b, its child and grandchild")
+	eq(groups[3][1].key, "c", "c alone")
+end)
+
 print("Transports module")
 test("on by default: the engine's switches written, tracking and sharing running", function()
 	local ns, st = LoadTransports(nil)

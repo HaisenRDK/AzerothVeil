@@ -203,30 +203,46 @@ local function ModuleSection(page, m, label, specs, y, width)
 	rule:SetHeight(1)
 	rule:SetPoint("TOPLEFT", 10, -28)
 	rule:SetPoint("TOPRIGHT", -10, -28)
+	-- (an option and the ones hanging from it are one group, never split: each child right under its
+	-- parent. The groups go down the left column, then the right, in their order, the two about as tall)
 	local cellW = (width - 20 - 12) / 2
-	local slot, top = 0, -34
-	for _, spec in ipairs(specs) do
-		if spec.type == "toggle" then
-			local col, row = slot % 2, math.floor(slot / 2)
-			local d = Depth(m, spec)
-			local r = S.SwitchRow(sb, spec.label or spec.key, IconOf(spec.icon),
-				function() return MM:GetSetting(m.name, spec.key) end,
-				function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, cellW - d * INDENT)
-			r:SetPoint("TOPLEFT", 10 + col * (cellW + 12) + d * INDENT, top - row * ROW)
-			r.tip = { spec.label, spec.tooltip }
-			rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
-			slot = slot + 1
-		elseif spec.type == "range" then
-			if slot % 2 == 1 then slot = slot + 1 end           -- (a slider: a line of its own)
-			local f = S.Slider(sb, spec.label or spec.key, spec.min or 0, spec.max or 1, spec.step or 0.05,
-				function() return MM:GetSetting(m.name, spec.key) end,
-				function(v) MM:SetSetting(m.name, spec.key, v) end, spec.fmt, cellW, IconOf(spec.icon))
-			f:SetPoint("TOPLEFT", 10, top - math.floor(slot / 2) * ROW - 2)
-			slot = slot + 4
+	local top = -34
+	local groups = MM:OptionGroups(m.name, specs)
+	local function Height(g)
+		local n = 0
+		for _, spec in ipairs(g) do n = n + (spec.type == "range" and 2 or 1) end
+		return n
+	end
+	local total = 0
+	for _, g in ipairs(groups) do total = total + Height(g) end
+	local half = math.ceil(total / 2)
+	local used = { 0, 0 }
+	local col = 1
+	for _, g in ipairs(groups) do
+		local h = Height(g)
+		if col == 1 and used[1] > 0 and used[1] + h > half then col = 2 end
+		for _, spec in ipairs(g) do
+			local x = 10 + (col - 1) * (cellW + 12)
+			local yy = top - used[col] * ROW
+			if spec.type == "toggle" then
+				local d = Depth(m, spec)
+				local r = S.SwitchRow(sb, spec.label or spec.key, IconOf(spec.icon),
+					function() return MM:GetSetting(m.name, spec.key) end,
+					function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, cellW - d * INDENT)
+				r:SetPoint("TOPLEFT", x + d * INDENT, yy)
+				r.tip = { spec.label, spec.tooltip }
+				rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
+				used[col] = used[col] + 1
+			elseif spec.type == "range" then
+				local f = S.Slider(sb, spec.label or spec.key, spec.min or 0, spec.max or 1, spec.step or 0.05,
+					function() return MM:GetSetting(m.name, spec.key) end,
+					function(v) MM:SetSetting(m.name, spec.key, v) end, spec.fmt, cellW, IconOf(spec.icon))
+				f:SetPoint("TOPLEFT", x, yy - 2)
+				used[col] = used[col] + 2
+			end
 		end
 	end
-	local nRows = math.ceil(slot / 2)
-	sb:SetHeight(34 + nRows * ROW + 10)
+	sb:SetHeight(34 + math.max(used[1], used[2]) * ROW + 10)
 	return y - sb:GetHeight() - 8
 end
 

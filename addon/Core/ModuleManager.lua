@@ -216,6 +216,26 @@ function MM:SwitchTooltip(name)
 	return m.title, lines
 end
 
+-- A list of a module's settings (one section's) in groups: each top option with every option hanging from
+-- it (children, grandchildren...) right under it, in the declaration's order. A child declared without its
+-- parent in the list starts a group of its own. { { spec, spec... }, ... }
+function MM:OptionGroups(name, specs)
+	local m = self.byName[name]
+	local groups, groupOf = {}, {}
+	for _, spec in ipairs(specs) do
+		local parent = spec.parent and spec.key ~= spec.parent and groupOf[spec.parent]
+		if parent then
+			parent[#parent + 1] = spec
+			groupOf[spec.key] = parent
+		else
+			local g = { spec }
+			groups[#groups + 1] = g
+			if spec.key then groupOf[spec.key] = g end
+		end
+	end
+	return groups
+end
+
 -- whether a module may be enabled yet not run (an addon or a module it needs, an addon that takes its place)
 function MM:CanBeUnavailable(name)
 	local m = self.byName[name]
