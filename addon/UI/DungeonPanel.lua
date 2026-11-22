@@ -37,6 +37,14 @@ local BOSS_TEXT = 92                     -- its name, clear of its dragon's wing
 local BOSS_ROW = 68                      -- a row, then the next
 local LOOT_ICON = 34
 
+-- the game's tooltip beside a line of the panel, its top right corner at the line's top left (the panel
+-- is at the map's right: the tooltip on the map's side, level with what it's about)
+local function TipBeside(owner)
+	GameTooltip:SetOwner(owner, "ANCHOR_NONE")
+	GameTooltip:ClearAllPoints()
+	GameTooltip:SetPoint("TOPRIGHT", owner, "TOPLEFT", -4, 0)
+end
+
 local function Take(kind)
 	pool[kind] = pool[kind] or {}
 	local f = table.remove(pool[kind])
@@ -134,7 +142,7 @@ local function Take(kind)
 			f.sub = f:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
 			f.sub:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -3)
 			f:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+				TipBeside(self)
 				if not pcall(GameTooltip.SetItemByID, GameTooltip, self.itemID) then GameTooltip:SetText(self.text:GetText() or "") end
 				GameTooltip:Show()
 			end)
@@ -239,7 +247,7 @@ local function QuestsPage()
 			P.Refresh()
 		end)
 		row:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			TipBeside(self)
 			if not pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. q.questID) then
 				GameTooltip:SetText(q.title or "", 1, 0.82, 0)
 			end
@@ -371,7 +379,7 @@ local function BossesPage()
 			P.Refresh()
 		end)
 		row:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+			TipBeside(self)
 			GameTooltip:SetText(b.name, 1, 0.82, 0)
 			if b.level then GameTooltip:AddLine((LEVEL or L["Level"]) .. " " .. (b.levelText or b.level), Colour(b.level)) end
 			GameTooltip:AddLine(b.floor and L["Click: its loot, and where it stands."] or L["Click: its loot."], 0.6, 0.6, 0.6)
