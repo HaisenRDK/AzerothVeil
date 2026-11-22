@@ -54,6 +54,8 @@ L["Right-click: options"] = "Clic droit : options"
 L["Drag: move this button"] = "Glisser : déplacer ce bouton"
 L["Enable this module"] = "Activer le module"
 L["Reload the interface"] = "Recharger l'interface"
+L["Reload"] = "Recharger"
+L["As /reload: the addons are loaded again, the settings saved."] = "Comme /reload : les addons sont rechargés, les réglages enregistrés."
 L["This module changed parts of the game that can only be put back by a reload."] =
 	"Ce module a modifié des éléments du jeu qui ne peuvent être rétablis que par un rechargement."
 
