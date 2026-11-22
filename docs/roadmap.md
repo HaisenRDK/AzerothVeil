@@ -18,8 +18,8 @@
 - [x] Module **Transports** : un point par trajet comme OpenMap, tracés, suivi des bateaux conservé
   (et désactivable), partage, clic vers la destination
 - [ ] Validation en jeu de la v0.2.0 (checklist de `docs/development.md`)
-- [ ] Transports, pistes : maîtres de vol (aujourd'hui une catégorie « Lieux » du moteur), clic sur
-  les bateaux en mouvement
+- [x] Maîtres de vol rattachés au module Transports (v0.3.1)
+- [ ] Transports, piste : clic sur les bateaux en mouvement
 
 ## Étape 2 — Donjons
 

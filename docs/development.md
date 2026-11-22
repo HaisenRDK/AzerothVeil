@@ -70,6 +70,8 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console
 6. En combat : `/av config` puis Échap ne bloque aucune touche du jeu.
 
 **Transports**
+6b. Maîtres de vol : dans l'onglet Transports (« Afficher les maîtres de vol », sous-option « Maîtres de vol
+    ennemis »), plus dans l'onglet Lieux ; vos choix d'avant sont repris ; module désactivé : plus aucun.
 7. Ports, tours des zeppelins, tram visibles. À Tanaris (ou tout quai à plusieurs trajets) : **un point
    par trajet**, jamais regroupés, même en dézoomant.
 8. Clic sur un point : la carte va **directement** à l'autre extrémité, sans menu ni infobulle

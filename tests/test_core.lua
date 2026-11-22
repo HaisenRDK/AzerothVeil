@@ -319,7 +319,9 @@ local function LoadTransports(saved, engineDb)
 	}
 	ns.Routes = { SetEnabled = function(on) st.routes = on end }
 	ns.Pins = { RebuildPlaces = function() st.rebuilds = st.rebuilds + 1 end, Ensure = function() end,
-		InvalidatePlaces = function() st.rebuilds = st.rebuilds + 1 end }
+		InvalidatePlaces = function() st.rebuilds = st.rebuilds + 1 end,
+		RebuildFlights = function() st.flights = (st.flights or 0) + 1 end,
+		InvalidateFlights = function() st.flights = (st.flights or 0) + 1 end }
 	st.scale, st.vw = 2, 800
 	ns.Map = {
 		IsShown = function() return false end,
@@ -358,6 +360,7 @@ test("on by default: the engine's switches written, tracking and sharing running
 	eq(ns.Modules:IsActive("transports"), true, "active")
 	eq(db.pins.boat, true, "boats") eq(db.pins.zeppelin, true, "zeppelins")
 	eq(db.pins.tram, true, "tram") eq(db.pins.airship, false, "airships off by default")
+	eq(db.pins.flight, true, "flight masters") eq(db.enemyFlight, false, "enemy flight masters off by default")
 	eq(db.routes, false, "all routes off by default") eq(st.routes, true, "route lines on")
 	eq(db.vessels, true, "live boats") eq(db.vesselSync, true, "sync")
 	eq(st.started, true, "vessels started") eq(st.tracking, true, "tracking timer") eq(st.sharing, true, "sharing")
@@ -368,7 +371,8 @@ test("disabled: nothing of it shows or runs, its settings kept", function()
 	Boot(ns)
 	ns.Modules:Disable("transports")
 	local db = ns.db
-	for _, k in ipairs({ "boat", "zeppelin", "tram", "airship" }) do eq(db.pins[k], false, "pins." .. k) end
+	for _, k in ipairs({ "boat", "zeppelin", "tram", "airship", "flight" }) do eq(db.pins[k], false, "pins." .. k) end
+	eq(db.enemyFlight, false, "enemy flight masters")
 	eq(db.routes, false, "routes") eq(db.vessels, false, "vessels") eq(db.vesselSync, false, "sync")
 	eq(db.enemyHarbors, false, "enemy harbors")
 	eq(st.started, false, "vessels stopped") eq(st.stops, 1, "Stop called")
@@ -438,7 +442,19 @@ test("migration 2: PerfectMap's transport switches become the module's settings"
 	local get = function(k) return ns.Modules:GetSetting("transports", k) end
 	eq(get("boats"), false, "boats") eq(get("airships"), true, "airships") eq(get("routesAll"), true, "routes")
 	eq(get("tracking"), false, "tracking") eq(get("share"), false, "share") eq(get("enemyHarbors"), true, "enemy")
-	eq(get("zeppelins"), true, "missing: default") eq(_G.AzerothVeilDB.schema, 2, "schema 2")
+	eq(get("zeppelins"), true, "missing: default") eq(_G.AzerothVeilDB.schema, 3, "schema 3")
+end)
+test("migration 3 and the flight masters: theirs kept, enemy ones rebuilt only when changed", function()
+	local ns, st = LoadTransports({ schema = 2, engine = { pins = { flight = false }, enemyFlight = true } })
+	Boot(ns)
+	eq(ns.Modules:GetSetting("transports", "flight"), false, "flight from PerfectMap's switch")
+	eq(ns.Modules:GetSetting("transports", "enemyFlight"), true, "enemy flight kept")
+	eq(ns.db.enemyFlight, false, "not in effect: its parent is off")
+	ns.Modules:SetSetting("transports", "flight", true)
+	eq(ns.db.pins.flight, true, "flight masters shown") eq(ns.db.enemyFlight, true, "enemy ones too")
+	local n = st.flights or 0
+	ns.Modules:SetSetting("transports", "zeppelins", false)
+	eq(st.flights or 0, n, "no rebuild for another option")
 end)
 
 print("Localisation")

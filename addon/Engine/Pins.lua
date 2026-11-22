@@ -47,7 +47,7 @@ local CAPITALS = {               -- uiMapID, its faction
 	{ 1454, "Horde" }, { 1456, "Horde" }, { 1458, "Horde" },
 }
 local CATS = {
-	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, layer = 5, group = "places" },   -- (with the townsfolk: M's zoom)
+	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, layer = 5, group = "transport" },   -- (with the townsfolk: M's zoom) (AzerothVeil: the Transports module's)
 	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
 	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
 	-- (the capitals: only right out (gone at the wheel's first step in), over every other icon: layer 8
@@ -1422,6 +1422,11 @@ end
 function P.InvalidatePlaces()
 	byKey.dungeon.built = nil
 	if FM.Routes then FM.Routes.Rebuild() end
+end
+
+-- (AzerothVeil: the same for the flight masters, built when the map next opens)
+function P.InvalidateFlights()
+	byKey.flight.built = nil
 end
 
 function P.RebuildFlights()

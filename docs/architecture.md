@@ -140,7 +140,7 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 | Module | Moteur piloté | Mécanisme |
 |---|---|---|
 | `social` (Amis & guilde) | `Engine/Friends.lua` | `Friends.Start(cfg)/Stop()` ; lit les réglages du module en direct (`F.cfg`) |
-| `transports` | `Engine/Vessels.lua`, `Routes.lua`, `Pins.lua` | `Vessels.Start/Stop/SetTracking/SetSharing`, `Routes.SetEnabled`, `Pins.OnTravelClick` ; le module **écrit** les interrupteurs que le moteur lit (`FM.db.pins.boat/zeppelin/tram/airship`, `routes`, `vessels`, `vesselSync`, `enemyHarbors`) : ce sont des valeurs effectives, remises à `false` à chaque chargement (`Engine/Core.lua`) et tant que le module est désactivé ; ses vrais réglages sont dans `AzerothVeilDB.modules.transports` |
+| `transports` | `Engine/Vessels.lua`, `Routes.lua`, `Pins.lua` | `Vessels.Start/Stop/SetTracking/SetSharing`, `Routes.SetEnabled`, `Pins.OnTravelClick` ; le module **écrit** les interrupteurs que le moteur lit (`FM.db.pins.flight/boat/zeppelin/tram/airship`, `enemyFlight`, `routes`, `vessels`, `vesselSync`, `enemyHarbors`) : ce sont des valeurs effectives, remises à `false` à chaque chargement (`Engine/Core.lua`) et tant que le module est désactivé ; ses vrais réglages sont dans `AzerothVeilDB.modules.transports` |
 
 **Transports — détails.**
 - Un point par trajet, comme OpenMap (PerfectMap fusionnait les quais proches en une icône) : chaque
@@ -167,7 +167,7 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 - Valeurs par défaut fusionnées à chaque chargement ; une valeur de mauvais type est remise par défaut.
 - **Migrations** : `Database.migrations[n]` amène un schéma n-1 à n, exécutées une fois dans l'ordre ;
   un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : options amis/guilde
-  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports`.
+  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports`.
 - Les anciennes migrations internes de PerfectMap (dans `Engine/Core.lua`) sont conservées telles quelles
   sur `engine`.
 

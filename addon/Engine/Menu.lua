@@ -335,12 +335,6 @@ function BUILD.places(page)
 	a:Section(L["Places"])
 	for _, cat in ipairs(Cats("places")) do
 		a:Pin(cat)
-		if cat.key == "flight" then
-			-- (the flight masters' own icon: they show in it, in red)
-			local r = a:Option(L["Enemy flight masters"], cat.icon, "enemyFlight", { L["Enemy flight masters"],
-				L["The other faction's flight masters too, in red."] }, function() P.RebuildFlights() end)
-			if r.icon then r.icon:SetVertexColor(P.ENEMY_TINT[1], P.ENEMY_TINT[2], P.ENEMY_TINT[3]) end
-		end
 	end
 	-- (AzerothVeil: boats, zeppelins, the tram and their routes: the Transports module's own tab)
 	return math.min(a.y, b.y)

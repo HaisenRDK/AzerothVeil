@@ -1,5 +1,5 @@
 -- AzerothVeil — Modules/Transports.lua
--- "Transports": harbors, zeppelin towers, the Deeprun Tram and Zephras Isle's airships on the map, the
+-- "Transports": flight masters, harbors, zeppelin towers, the Deeprun Tram and Zephras Isle's airships on the map, the
 -- lines of their routes, each boat and zeppelin where it is now (tracking), the sightings traded with
 -- other AzerothVeil and PerfectMap users, and a click on a dock that takes the map to where it goes.
 --
@@ -22,16 +22,23 @@ local MEDIA = ns.MEDIA
 local function Harbor() return ns.Pins.FactionArt("harbor") end
 local function EnemyHarbor() return ns.Pins.EnemyArt("harbor") end
 local function Ship() return ns.Pins.FactionArt("boat") end
+local FLIGHT_ICON = "Interface\\Minimap\\tracking\\flightmaster"
 
 local Transports = ns.Modules:Register({
 	name = "transports",
 	title = L["Transports"],
-	description = L["Harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes.\n\nOff: none of it is shown and nothing of it runs."],
+	description = L["Flight masters, harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes.\n\nOff: none of it is shown and nothing of it runs."],
 	order = 40,
 	icon = Harbor,
 	defaultEnabled = true,
 	settings = {
 		{ type = "header", label = L["Display"] },
+		{ key = "flight", icon = FLIGHT_ICON, type = "toggle", default = true,
+			label = L["Show flight masters"],
+			tooltip = L["The flight masters of your faction (and the neutral ones) where WoW Forever has one."] },
+		{ key = "enemyFlight", icon = FLIGHT_ICON, type = "toggle", default = false, parent = "flight",
+			label = L["Enemy flight masters"],
+			tooltip = L["The other faction's flight masters too, in red."] },
 		{ key = "boats", icon = Harbor, type = "toggle", default = true,
 			label = L["Show boats"],
 			tooltip = L["Harbors and their boats (yours and the goblins', which take everyone)."] },
@@ -70,7 +77,7 @@ local Transports = ns.Modules:Register({
 })
 
 -- the engine's icon kind -> this module's setting
-local PIN_SETTING = { boat = "boats", zeppelin = "zeppelins", tram = "tram", airship = "airships" }
+local PIN_SETTING = { boat = "boats", zeppelin = "zeppelins", tram = "tram", airship = "airships", flight = "flight" }
 
 ---------------------------------------------------------------------------
 -- The click: the map to the other end (OpenMap's GlideToWorld(pin.to, 6), as a jump)
@@ -99,9 +106,10 @@ end
 local function Apply(self, running)
 	local function On(key) return running and self:IsOptionActive(key) or false end
 	local db = ns.db
-	local wasEnemy = db.enemyHarbors
+	local wasEnemy, wasEnemyFlight = db.enemyHarbors, db.enemyFlight
 	for kind, key in pairs(PIN_SETTING) do db.pins[kind] = On(key) end
 	db.enemyHarbors = On("enemyHarbors")
+	db.enemyFlight = On("enemyFlight")
 	db.routes = On("routesAll")
 	db.vessels = On("tracking")
 	db.vesselSync = On("share")
@@ -112,6 +120,9 @@ local function Apply(self, running)
 	end
 	ns.Pins.OnTravelClick = On("clickTravel") and Travel or nil
 	-- (which harbors there are changed: built again; else only what's shown)
+	if wasEnemyFlight ~= db.enemyFlight then
+		if ns.Map.IsShown() then ns.Pins.RebuildFlights() else ns.Pins.InvalidateFlights() end
+	end
 	if wasEnemy ~= db.enemyHarbors then
 		if ns.Map.IsShown() then ns.Pins.RebuildPlaces() else ns.Pins.InvalidatePlaces() end
 	elseif ns.Map.IsShown() then

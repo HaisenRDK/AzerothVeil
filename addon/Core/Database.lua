@@ -22,7 +22,7 @@ local _, ns = ...
 local Database = {}
 ns.Database = Database
 
-Database.SCHEMA = 2
+Database.SCHEMA = 3
 
 -- Fills dst with what's missing from defaults (tables merged deeply). A value whose type differs from
 -- its default's is replaced by the default (a corrupted or hand-edited file).
@@ -83,6 +83,17 @@ migrations[2] = function(root)
 	Copy("routesAll", engine.routes)
 	Copy("tracking", engine.vessels)
 	Copy("share", engine.vesselSync)
+end
+
+-- 3: the flight masters join the Transports module (their icons and the other faction's), as migration 2
+migrations[3] = function(root)
+	local engine = root.engine
+	local pins = type(engine.pins) == "table" and engine.pins or {}
+	local m = root.modules.transports or {}
+	root.modules.transports = m
+	m.settings = type(m.settings) == "table" and m.settings or {}
+	if m.settings.flight == nil and type(pins.flight) == "boolean" then m.settings.flight = pins.flight end
+	if m.settings.enemyFlight == nil and type(engine.enemyFlight) == "boolean" then m.settings.enemyFlight = engine.enemyFlight end
 end
 
 -- (for tests)

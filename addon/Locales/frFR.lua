@@ -84,10 +84,13 @@ L["Only your guild and friends, never from a dungeon, raid or battleground. /av 
 -- Module: Transports
 ---------------------------------------------------------------------------
 L["Transports"] = "Transports"
-L["Harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes.\n\nOff: none of it is shown and nothing of it runs."] =
-	"Les ports, les tours des zeppelins et le Tram des profondeurs sur la carte, le tracé de leurs itinéraires, et chaque bateau et zeppelin là où il se trouve. Un clic sur un quai emmène la carte à sa destination.\n\nDésactivé : rien de tout cela n'est affiché et rien ne tourne."
+L["Flight masters, harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes.\n\nOff: none of it is shown and nothing of it runs."] =
+	"Les maîtres de vol, les ports, les tours des zeppelins et le Tram des profondeurs sur la carte, le tracé de leurs itinéraires, et chaque bateau et zeppelin là où il se trouve. Un clic sur un quai emmène la carte à sa destination.\n\nDésactivé : rien de tout cela n'est affiché et rien ne tourne."
 L["Display"] = "Affichage"
 L["Show boats"] = "Afficher les bateaux"
+L["Show flight masters"] = "Afficher les maîtres de vol"
+L["The flight masters of your faction (and the neutral ones) where WoW Forever has one."] =
+	"Les maîtres de vol de votre faction (et les neutres), là où WoW Forever en a un."
 L["Harbors and their boats (yours and the goblins', which take everyone)."] =
 	"Les ports et leurs bateaux (ceux de votre faction et ceux des gobelins, ouverts à tous)."
 L["The other faction's harbors"] = "Ports de l'autre faction"
