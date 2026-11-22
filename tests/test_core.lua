@@ -752,10 +752,11 @@ local function FakeQuestie(ready)
 		[5] = { "Too Soon", { { 102 } }, 30, 28, 0, 1581 },
 		[6] = { "Horde Only", { { 102 } }, 20, 15, 2, 1581 },
 		[7] = { "Elsewhere", { { 101 } }, 10, 5, 0, 12 },
+		[8] = { "Mages Only", { { 102 } }, 20, 15, 0, 1581, nil, 128 },
 	}
-	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6, objectivesText = 7 }
+	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6, objectivesText = 7, requiredClasses = 8 }
 	_G.QuestDB = {
-		GetAllIds = function() return { 1, 2, 3, 4, 5, 6, 7 } end,
+		GetAllIds = function() return { 1, 2, 3, 4, 5, 6, 7, 8 } end,
 		Get = function(id, key) return quests[id] and quests[id][KEYS[key]] end,
 		GetAll = function(id, keys) local v = { n = #keys } for i, k in ipairs(keys) do v[i] = quests[id][KEYS[k]] end return v end,
 	}
@@ -771,6 +772,7 @@ local function FakeQuestie(ready)
 	_G.QuestieLoader = { ImportModule = function(_, name) return name == "ZoneDB" and zone or name == "QuestieDB" and qdb or nil end }
 	_G.UnitFactionGroup = function() return "Alliance" end
 	_G.UnitLevel = function() return 20 end
+	_G.UnitClass = function() return "Guerrier", "WARRIOR", 1 end
 	_G.bit = { band = function(a, b) return (a % (2 * b)) >= b and b or 0 end }
 	_G.C_Map = { GetAreaInfo = function(area) return area == 40 and "Marche de l'Ouest" or nil end }
 	_G.GetRealZoneText = function(id) return id == 36 and "Les Mortemines" or "" end
@@ -784,7 +786,7 @@ local function FakeQuestie(ready)
 	}
 end
 local function ClearQuestie()
-	for _, k in ipairs({ "QuestDB", "NpcDB", "LibQuestieDB", "Questie", "QuestieLoader", "UnitFactionGroup", "UnitLevel", "bit", "C_Map", "GetRealZoneText", "C_QuestLog" }) do _G[k] = nil end
+	for _, k in ipairs({ "QuestDB", "NpcDB", "LibQuestieDB", "Questie", "QuestieLoader", "UnitFactionGroup", "UnitLevel", "UnitClass", "bit", "C_Map", "GetRealZoneText", "C_QuestLog" }) do _G[k] = nil end
 end
 
 test("Questie: every quest of the dungeon for my faction, with the game's state, its giver and where", function()
@@ -841,10 +843,13 @@ print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
 	eq(by[4].text[1], "Kill Edwin VanCleef.", "what it asks") eq(#by[2].text, 0, "none known: none")
 	eq(by[1].faction, "Alliance", "for one faction: said") eq(by[4].faction, nil, "for both: none")
-	-- the other faction's shown too when that option is off
-	ns.Modules:SetSetting("dungeons", "hideOtherFaction", false)
+	eq(by[8], nil, "another class's left out")
+	-- the other faction's and other classes' shown too when that option is off
+	ns.Modules:SetSetting("dungeons", "onlyMine", false)
 	local all = {}
 	for _, q in ipairs(ns.Modules:Get("dungeons").QuestsFor(36)) do all[q.questID] = q end
 	eq(all[6] and all[6].faction, "Horde", "the Horde's, with its faction")
+	eq(all[8] and all[8].classes and all[8].classes[1], 8, "the mages', with its class (the game's 8)")
+	eq(ns.Questie.ClassesOf(1503), nil, "every class: no restriction")
 	eq(st.mark[1], 1436, "marked there") eq(st.mark[4], "The Defias Brotherhood", "its name on the marker")
 	eq(st.mark[5], "Given by Gryan Stoutmantle", "and its giver")

@@ -435,21 +435,10 @@ L["Loot isn't in AzerothVeil's own data: with DungeonJournal installed, each bos
 L["No loot known for this boss."] = "Aucun butin connu pour ce boss."
 L["To floor %d"] = "Vers le niveau %d"
 L["Click: go to that floor."] = "Clic : aller à ce niveau."
-L["Use Questie's data for dungeon quests"] = "Utiliser les données de Questie pour les quêtes de donjon"
-L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] =
-	"Avec Questie installé : toutes les quêtes du donjon pour votre faction, pas seulement celles de votre journal : disponible, pas encore, en cours ou terminée (l'état fourni par le jeu), qui la donne et où. Lu dans Questie, sans rien y modifier."
-L["In progress"] = "En cours"
-L["Reading Questie's quests..."] = "Lecture des quêtes de Questie..."
-L["Questie knows no quest for this dungeon."] = "Questie ne connaît aucune quête pour ce donjon."
-L["With Questie installed (and its option on), all the dungeon's quests show here."] =
-	"Avec Questie installé (et son option cochée), toutes les quêtes du donjon s'affichent ici."
-L["Required level %d"] = "Niveau requis %d"
-L["Given by %s"] = "Donnée par %s"
-L["Started by an item: %s"] = "Commence avec un objet : %s"
-
-L["Hide the other faction's quests"] = "Masquer les quêtes de l'autre faction"
-L["Off: the other faction's quests of the dungeon show too, with its emblem (a quest for one faction only shows its emblem)."] =
-	"Décoché : les quêtes du donjon de l'autre faction s'affichent aussi, avec son emblème (une quête réservée à une faction affiche son emblème)."
+L["Only quests for my faction and class"] = "Seulement les quêtes de ma faction et de ma classe"
+L["Off: every quest of the dungeon, those of the other faction and of other classes too; a quest for one faction or for some classes only shows their icons at the end of its line."] =
+	"Décoché : toutes les quêtes du donjon, celles de l'autre faction et des autres classes aussi ; une quête réservée à une faction ou à certaines classes affiche leurs icônes au bout de sa ligne."
+L["For: %s"] = "Pour : %s"
 L["In your quest log."] = "Dans votre journal de quêtes."
 L["Click: what it asks, where it starts.   Shift-click: link it in chat."] = "Clic : ce qu'elle demande, où elle commence.   Maj-clic : son lien dans la discussion."
 L["What it asks isn't known here."] = "Ce qu'elle demande n'est pas connu ici."
@@ -462,3 +451,15 @@ L["Swim down under water here to floor %d."] = "Plongez ici sous l'eau jusqu'au 
 L["The shark's way out: dangerous."] = "La sortie du requin : dangereuse."
 L["The safe way out."] = "La sortie sûre."
 L["Opens with Overseer Wrex's keyring, to floor %d."] = "S'ouvre avec le trousseau du surveillant Wrex, vers le niveau %d."
+L["Use Questie's data for dungeon quests"] = "Utiliser les données de Questie pour les quêtes de donjon"
+L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] =
+	"Avec Questie installé : toutes les quêtes du donjon pour votre faction, pas seulement celles de votre journal : disponible, pas encore, en cours ou terminée (l'état fourni par le jeu), qui la donne et où. Lu dans Questie, sans rien y modifier."
+L["In progress"] = "En cours"
+L["Reading Questie's quests..."] = "Lecture des quêtes de Questie..."
+L["Questie knows no quest for this dungeon."] = "Questie ne connaît aucune quête pour ce donjon."
+L["With Questie installed (and its option on), all the dungeon's quests show here."] =
+	"Avec Questie installé (et son option cochée), toutes les quêtes du donjon s'affichent ici."
+L["Required level %d"] = "Niveau requis %d"
+L["Given by %s"] = "Donnée par %s"
+L["Started by an item: %s"] = "Commence avec un objet : %s"
+

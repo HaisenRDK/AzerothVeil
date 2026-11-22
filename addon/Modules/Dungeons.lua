@@ -62,9 +62,9 @@ local Dungeons = ns.Modules:Register({
 		{ key = "useQuestie", icon = "Interface\\AddOns\\Questie\\Icons\\questie.png", type = "toggle", default = true, parent = "questsTab",
 			label = L["Use Questie's data for dungeon quests"],
 			tooltip = L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] },
-		{ key = "hideOtherFaction", icon = "Interface\\TargetingFrame\\UI-PVP-FFA", type = "toggle", default = true, parent = "useQuestie",
-			label = L["Hide the other faction's quests"],
-			tooltip = L["Off: the other faction's quests of the dungeon show too, with its emblem (a quest for one faction only shows its emblem)."] },
+		{ key = "onlyMine", icon = "Interface\\TargetingFrame\\UI-PVP-FFA", type = "toggle", default = true, parent = "useQuestie",
+			label = L["Only quests for my faction and class"],
+			tooltip = L["Off: every quest of the dungeon, those of the other faction and of other classes too; a quest for one faction or for some classes only shows their icons at the end of its line."] },
 		{ key = "bossesTab", icon = BOSS_ICON, type = "toggle", default = true,
 			label = L["Bosses tab"],
 			tooltip = L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] },
@@ -201,7 +201,7 @@ function Dungeons.QuestsFor(inst, onReady)
 	local log = Dungeons.LogQuestsFor(inst)
 	local Qz = ns.Questie
 	if not (Dungeons:IsOptionActive("useQuestie") and Qz and Qz.Available()) then return log, "log" end
-	local list = Qz.QuestsFor(inst, onReady, not Dungeons:IsOptionActive("hideOtherFaction"))
+	local list = Qz.QuestsFor(inst, onReady, not Dungeons:IsOptionActive("onlyMine"))
 	if list == nil then return nil, "questie" end
 	local mine = {}
 	for _, q in ipairs(log) do mine[q.questID] = q end
@@ -209,7 +209,7 @@ function Dungeons.QuestsFor(inst, onReady)
 	for _, q in ipairs(list) do
 		local l = mine[q.questID]
 		if l then
-			l.giver, l.reqLevel, l.faction, l.text = q.giver, q.reqLevel, q.faction, q.text
+			l.giver, l.reqLevel, l.faction, l.classes, l.text = q.giver, q.reqLevel, q.faction, q.classes, q.text
 			out[#out + 1] = l
 			mine[q.questID] = nil
 		else

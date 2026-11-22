@@ -8,7 +8,8 @@
 --           a click picks one: its floor up on the map, its marker lit, its loot (DungeonJournal's, when
 --           it's installed) under it.
 -- Quests with Questie's data when that option is on (Integrations/Questie.lua): a line each, "(level)
--- Name" (green: done; yellow: to do), the book when it's in your log, the faction's emblem; a click: what
+-- Name" (green: done; yellow: to do), the book when it's in your log, its faction's and classes' icons
+-- when every quest is listed (not only yours); a click: what
 -- it asks, its giver, its rewards (yours), a button to its start on the world map (marked there). The panel is at the map's
 -- right: its tooltips open on its left. Built the first time; nothing runs while it's hidden.
 local _, ns = ...
@@ -69,17 +70,13 @@ local function Take(kind)
 			f.icon:SetPoint("LEFT", 2, 0)
 			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 			f.text:SetPoint("LEFT", f.icon, "RIGHT", 4, 0)
-			f.text:SetPoint("RIGHT", -38, 0)
 			f.text:SetJustifyH("LEFT")
 			f.text:SetWordWrap(false)
-			-- (at its right: the book when it's in your log, the faction's emblem when it's for one only)
+			-- (at its end: the book when it's in your log; its faction's and classes' icons: QuestMarks)
 			f.log = f:CreateTexture(nil, "ARTWORK")
 			f.log:SetSize(15, 15)
-			f.log:SetPoint("RIGHT", -2, 0)
 			f.log:SetTexture("Interface\\QuestFrame\\UI-QuestLog-BookIcon")
-			f.faction = f:CreateTexture(nil, "ARTWORK")
-			f.faction:SetSize(16, 16)
-			f.faction:SetPoint("RIGHT", f.log, "LEFT", -2, 0)
+			f.marks = {}
 		elseif kind == "boss" then
 			-- its portrait in a ring, a dragon round it (the map's boss pins', Engine/Dungeon.lua: the same
 			-- picture, a 64-pixel portrait's), its level in a gold circle at its bottom left
@@ -220,6 +217,61 @@ local function QuestIcon(q)
 end
 
 local FACTION_ICON = { Alliance = "Interface\\FriendsFrame\\PlusManz-Alliance", Horde = "Interface\\FriendsFrame\\PlusManz-Horde" }
+local CLASS_ICONS = "Interface\\GLUES\\CHARACTERCREATE\\UI-CharacterCreate-Classes"
+local CLASS_TOKEN = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "MONK", "DRUID" }
+
+-- the end of a quest's line, right to left: the book (in your log), then (when every quest is listed,
+-- not only yours) its faction's emblem and its classes' icons; its name stops before them
+local function QuestMarks(row, q, showWho)
+	local right = row
+	local point = "RIGHT"
+	local function Put(t, size)
+		t:SetSize(size, size)
+		t:ClearAllPoints()
+		t:SetPoint("RIGHT", right, point, point == "RIGHT" and -2 or -1, 0)
+		t:Show()
+		right, point = t, "LEFT"
+	end
+	if q.inLog then Put(row.log, 15) else row.log:Hide() end
+	local n = 0
+	local function Mark()
+		n = n + 1
+		local t = row.marks[n]
+		if not t then t = row:CreateTexture(nil, "ARTWORK") row.marks[n] = t end
+		t:SetTexCoord(0, 1, 0, 1)
+		return t
+	end
+	if showWho then
+		for i = #(q.classes or {}), 1, -1 do
+			local token = CLASS_TOKEN[q.classes[i]]
+			local c = token and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[token]
+			if c then
+				local t = Mark()
+				t:SetTexture(CLASS_ICONS)
+				t:SetTexCoord(c[1], c[2], c[3], c[4])
+				Put(t, 14)
+			end
+		end
+		if FACTION_ICON[q.faction or ""] then
+			local t = Mark()
+			t:SetTexture(FACTION_ICON[q.faction])
+			Put(t, 16)
+		end
+	end
+	for i = n + 1, #row.marks do row.marks[i]:Hide() end
+	row.text:SetPoint("RIGHT", right, point, point == "RIGHT" and -4 or -3, 0)
+end
+
+-- who a quest is for, said in its tooltip: "Alliance", "Mage, Warlock"... (the game's own names)
+local function WhoFor(q)
+	local parts = {}
+	if q.faction then parts[#parts + 1] = q.faction == "Alliance" and (FACTION_ALLIANCE or "Alliance") or (FACTION_HORDE or "Horde") end
+	for _, id in ipairs(q.classes or {}) do
+		local token = CLASS_TOKEN[id]
+		parts[#parts + 1] = token and LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[token] or token
+	end
+	return #parts > 0 and table.concat(parts, ", ") or nil
+end
 
 local function QuestsPage()
 	local quests, source = module.QuestsFor(inst, function() P.Refresh() end)
@@ -235,6 +287,8 @@ local function QuestsPage()
 	end
 	local myLevel = UnitLevel and UnitLevel("player") or 0
 	local myFaction = UnitFactionGroup and UnitFactionGroup("player")
+	local myClass = UnitClass and select(3, UnitClass("player"))
+	local showWho = not module:IsOptionActive("onlyMine")
 	for _, q in ipairs(quests) do
 		local row = Take("row")
 		row:SetPoint("TOPLEFT", PAD - 4, -y)
@@ -246,13 +300,15 @@ local function QuestsPage()
 		row.icon:SetDesaturated(grey)
 		-- "(level) Name": green once done, yellow while it's to do, grey when not yet for you
 		local other = q.faction and myFaction and q.faction ~= myFaction
+		if not other and q.classes and myClass then
+			other = true
+			for _, c in ipairs(q.classes) do if c == myClass then other = false end end
+		end
 		row.text:SetText((q.level and ("(" .. q.level .. ") ") or "") .. (q.title or ("quest:" .. q.questID)))
 		if q.status == "done" then row.text:SetTextColor(0.25, 0.9, 0.25)
 		elseif q.status == "locked" or other then row.text:SetTextColor(0.6, 0.6, 0.6)
 		else row.text:SetTextColor(1, 0.82, 0) end
-		row.log:SetShown(q.inLog and true or false)
-		row.faction:SetTexture(FACTION_ICON[q.faction or ""])
-		row.faction:SetShown(FACTION_ICON[q.faction or ""] ~= nil)
+		QuestMarks(row, q, showWho)
 		row:SetScript("OnClick", function()
 			if IsShiftKeyDown() and GetQuestLink and ChatEdit_InsertLink then
 				local link = GetQuestLink(q.questID)
@@ -267,6 +323,8 @@ local function QuestsPage()
 				GameTooltip:SetText(q.title or "", 1, 0.82, 0)
 			end
 			if q.inLog then GameTooltip:AddLine(L["In your quest log."], 1, 1, 1) end
+			local who = WhoFor(q)
+			if who then GameTooltip:AddLine(L["For: %s"]:format(who), 1, 1, 1) end
 			GameTooltip:AddLine(L["Click: what it asks, where it starts.   Shift-click: link it in chat."], 0.6, 0.6, 0.6, true)
 			GameTooltip:Show()
 		end)

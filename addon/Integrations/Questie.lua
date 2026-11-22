@@ -108,6 +108,20 @@ local function FactionOf(races, masks)
 end
 Q.FactionOf = FactionOf
 
+-- the classes a quest is for, from its class mask (bit n-1: the game's class n, as Questie keys them):
+-- { classID, ... }, or nil (every class, or not said)
+local function ClassesOf(mask)
+	if not mask or mask == 0 or not (bit and bit.band) then return nil end
+	local out = {}
+	for id = 1, 12 do
+		local b = 2 ^ (id - 1)
+		if bit.band(mask, b) ~= 0 then out[#out + 1] = id end
+	end
+	if #out == 0 or #out >= 9 then return nil end   -- (all of a flavour's classes: no restriction)
+	return out
+end
+Q.ClassesOf = ClassesOf
+
 -- where a quest starts: its giver (name, area, uiMap, x, y: 0..1) or the item that starts it
 local function Giver(startedBy)
 	if type(startedBy) ~= "table" then return nil end
@@ -145,24 +159,32 @@ end
 
 -- A dungeon's quests in Questie: { { questID, title, level, reqLevel, status, giver, faction, text } },
 -- status "done" | "active" | "complete" | "failed" | "available" | "locked"; faction "Alliance" | "Horde"
--- | nil (both); text: what it asks (its objectives' text, in the player's language when Questie has it).
--- The other faction's left out unless otherFaction. nil while the index is being built (onReady called
+-- | nil (both); classes: { classID, ... } | nil (every class); text: what it asks (its objectives'
+-- text, in the player's language when Questie has it). Those of the other faction or of other classes
+-- left out unless all. nil while the index is being built (onReady called
 -- once it's there); {} for a dungeon it has nothing for.
-function Q.QuestsFor(inst, onReady, otherFaction)
+function Q.QuestsFor(inst, onReady, all)
 	if not Q.Available() then return {} end
 	if not Q.Index(onReady) then return nil end
 	local qdb = _G.QuestDB
 	local masks = Masks()
 	local mine = UnitFactionGroup and UnitFactionGroup("player")
+	local myClass = UnitClass and select(3, UnitClass("player"))
 	local questie = Module("QuestieDB")
 	local out, seen = {}, {}
 	for area in pairs(Q.AreasFor(inst)) do
 		for _, id in ipairs(index[area] or {}) do
 			if not seen[id] then
 				seen[id] = true
-				local ok, v = pcall(qdb.GetAll, id, { "name", "startedBy", "questLevel", "requiredLevel", "requiredRaces", "objectivesText" })
+				local ok, v = pcall(qdb.GetAll, id, { "name", "startedBy", "questLevel", "requiredLevel", "requiredRaces", "objectivesText", "requiredClasses" })
 				local faction = ok and type(v) == "table" and FactionOf(v[5], masks) or nil
-				if ok and type(v) == "table" and (otherFaction or not faction or faction == mine) then
+				local classes = ok and type(v) == "table" and ClassesOf(tonumber(v[7])) or nil
+				local forMe = (not faction or faction == mine)
+				if forMe and classes and myClass then
+					forMe = false
+					for _, c in ipairs(classes) do if c == myClass then forMe = true end end
+				end
+				if ok and type(v) == "table" and (all or forMe) then
 					local status
 					if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(id) then status = "done"
 					elseif C_QuestLog.IsOnQuest and C_QuestLog.IsOnQuest(id) then
@@ -179,7 +201,7 @@ function Q.QuestsFor(inst, onReady, otherFaction)
 						if type(t) == "string" and t ~= "" then text[#text + 1] = t end
 					end
 					out[#out + 1] = { questID = id, title = v[1], level = v[3], reqLevel = v[4], status = status,
-						giver = Giver(v[2]), faction = faction, text = text }
+						giver = Giver(v[2]), faction = faction, classes = classes, text = text }
 				end
 			end
 		end
