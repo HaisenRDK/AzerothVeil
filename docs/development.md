@@ -143,7 +143,8 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
 2. Chaque option agit comme avant (M, taille des icônes en direct, bouton de minicarte affiché/masqué…).
 3. **Brouillard de guerre** coché, sur un personnage qui n'a pas tout exploré : les zones inexplorées en
    parchemin vierge comme sur la carte de Blizzard (comparer avec elle), les zones explorées intactes ; aucune
-   bande ni bord net sur les zones voisines ; idem en zoom très proche (terrain de la minimap masqué dessous).
+   bande ni bord net sur les zones voisines ; en zoom rapproché, le terrain de la minimap sur les parties explorées et le
+   brouillard (bords doux) sur les parties inexplorées.
 4. Explorer un nouveau lieu, carte ouverte ou non : il apparaît sans `/reload`.
 5. Zoom le plus éloigné : la carte du monde de Blizzard, sans brouillard (comme chez Blizzard).
 6. Brouillard décoché : toute la carte revient. `/av stats` : coût du rafraîchissement acceptable avec et sans,
@@ -188,3 +189,22 @@ Préparation : relancer le jeu (nouveau fichier et `.toc`).
    terrain, à peu près où la carte dessinée les écrivait ; dans la langue du jeu. Avec le brouillard : seulement les
    lieux explorés, et un lieu découvert prend son nom sans `/reload`. Option Carte « Noms des lieux de près »
    décochée, ou terrain décoché : aucun nom.
+
+## Checklist en jeu — marqueurs de carte
+
+Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
+
+1. Onglet **Marqueurs de carte** dans les options (après Donjons), même page dans Options > AddOns.
+2. Ctrl+clic sur la carte : un marqueur (épingle) apparaît, suivi (flèche de Blizzard), sa fiche s'ouvre, saisie
+   de la note ; icône, couleur, catégorie modifiables et vues aussitôt sur la carte. Entrée ou Échap ferme.
+3. Survol : note, zone et coordonnées, catégorie. Clic : la fiche ; Maj+clic : lien dans le chat ; Alt+clic :
+   supprimé ; clic droit : suivre / ne plus suivre.
+4. Clic droit sur la carte : « Ajouter un marqueur ici », « Marqueurs de carte… » (aussi `/av markers`). Liste :
+   catégories (case affichée/masquée, nouvelle, renommer, supprimer en deux clics), marqueurs de la catégorie
+   (clic : la carte va dessus et ouvre la fiche ; croix : supprimé).
+5. Exporter puis Importer un code (et un code venu d'OpenMap) : les marqueurs arrivent dans la catégorie choisie.
+6. Partage, avec un autre joueur (AzerothVeil ou OpenMap) : groupe, guilde, cible ; il reçoit une fenêtre « Les
+   ajouter / Ignorer », les marqueurs vont dans « Partagés avec moi ». Plusieurs marqueurs : envoyés un par un,
+   sans message d'erreur de débit.
+7. « Recevoir les marqueurs partagés » décoché : plus rien n'arrive. Module désactivé : plus de marqueurs sur la
+   carte, Ctrl+clic pose le point de passage comme avant ; réactivé : tout revient. En combat : aucune erreur.

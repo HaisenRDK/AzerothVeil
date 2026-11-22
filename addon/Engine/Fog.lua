@@ -10,7 +10,8 @@
 -- files, and its explored pieces), and made again only when the player has explored more of it
 -- (F.Explored: MAP_EXPLORATION_UPDATED, heard by the module while the fog is on); one frame per zone, scaled
 -- as a whole (a pan or zoom moves frames, not textures); a zone off the view is hidden. Off: nothing shown,
--- every file let go. Over the minimap's terrain up close (Terrain.lua), under the icons; covered by the world's
+-- every file let go. Over the minimap's terrain up close (Terrain.lua: there only on the land not explored
+-- yet, Near), under the icons; covered by the world's
 -- own art zoomed right out (Map.lua's worldArt), as Blizzard's world map has no fog either.
 local _, FM = ...
 local F = {}
@@ -24,6 +25,7 @@ local NONE = {}
 
 local layer
 local on = false
+local terrain = 0                       -- AzerothVeil: how much the minimap's terrain shows (Terrain.lua)
 local zones = {}                        -- { id, r, frame, tex = { textures }, count = explored pieces when made, whole, dirty }
 
 local function Pow2(px) local s = 16 while s < px do s = s * 2 end return s end
@@ -55,8 +57,78 @@ local function Drop(z)
 	if z.frame then
 		z.frame:Hide()
 		for _, t in ipairs(z.tex) do t:SetTexture(nil) end
+		for _, t in ipairs(z.near or NONE) do t:SetTexture(nil) end
 	end
-	z.frame, z.tex = nil, nil
+	z.frame, z.tex, z.near, z.art = nil, nil, nil, nil
+end
+
+-- AzerothVeil: up close, over the minimap's terrain (Terrain.lua), the fog only where it hides something: the
+-- base art through each piece not explored yet (the piece's own file as the mask: its soft edges), so the
+-- terrain shows through the land you've explored and the fog stays on the rest. Made the first time the
+-- terrain comes in over the zone (and again with it when more is explored); its alpha the terrain's.
+local function Near(z)
+	local f, a = z.frame, z.art
+	if not (f and a) or z.near then return end
+	local data = FM.FOG_PIECES and FM.FOG_PIECES[C_Map.GetMapArtID and FM.Plain(C_Map.GetMapArtID(z.id))]
+	local near = CreateFrame("Frame", nil, f)
+	near:SetAllPoints(f)
+	near:SetAlpha(terrain)
+	f.near = near
+	z.near = {}
+	if not data then return end
+	local done = {}
+	for _, e in ipairs(a.explored) do
+		done[e.textureWidth .. ":" .. e.textureHeight .. ":" .. e.offsetX .. ":" .. e.offsetY] = true
+	end
+	local tw, th, sx, sy, lw, lh = a.tw, a.th, a.sx, a.sy, a.lw, a.lh
+	local cols = ceil(lw / tw)
+	for key, list in pairs(data) do
+		if not done[key] then
+			local pw, ph, px, py = key:match("^(%d+):(%d+):(%d+):(%d+)$")
+			pw, ph, px, py = tonumber(pw), tonumber(ph), tonumber(px), tonumber(py)
+			local ids = {}
+			for fid in tostring(list):gmatch("%d+") do ids[#ids + 1] = tonumber(fid) end
+			local across, down = ceil((pw or 0) / tw), ceil((ph or 0) / th)
+			for j = 1, down do
+				local h = j < down and th or (ph - (down - 1) * th)
+				local fh = j < down and th or Pow2(h)
+				for k = 1, across do
+					local w = k < across and tw or (pw - (across - 1) * tw)
+					local fw = k < across and tw or Pow2(w)
+					local file = ids[(j - 1) * across + k]
+					local x0, y0 = px + tw * (k - 1), py + th * (j - 1)
+					if file and w > 0 and h > 0 then
+						-- the piece's file as it's laid on the map (its whole file, from its corner)
+						local mask = near:CreateMaskTexture()
+						local ok = pcall(mask.SetTexture, mask, file, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+						if ok then
+							mask:SetPoint("TOPLEFT", f, "TOPLEFT", x0 * sx, -y0 * sy)
+							mask:SetSize(fw * sx, fh * sy)
+							-- the base art's tiles under it, each cut to the piece's rectangle
+							local x1, y1 = x0 + w, y0 + h
+							for i, base in ipairs(a.files) do
+								local bx, by = ((i - 1) % cols) * tw, floor((i - 1) / cols) * th
+								local bw, bh = min(tw, lw - bx), min(th, lh - by)
+								local ix0, iy0 = math.max(x0, bx), math.max(y0, by)
+								local ix1, iy1 = min(x1, bx + bw), min(y1, by + bh)
+								if bw > 0 and bh > 0 and ix1 > ix0 and iy1 > iy0 then
+									local ew, eh = (bw < tw and bw - 2 or bw) / tw, (bh < th and bh - 2 or bh) / th
+									local t = near:CreateTexture(nil, "ARTWORK")
+									t:SetTexture(base, nil, nil, "TRILINEAR")
+									t:SetTexCoord((ix0 - bx) / bw * ew, (ix1 - bx) / bw * ew, (iy0 - by) / bh * eh, (iy1 - by) / bh * eh)
+									t:SetPoint("TOPLEFT", f, "TOPLEFT", ix0 * sx, -iy0 * sy)
+									t:SetPoint("BOTTOMRIGHT", f, "TOPLEFT", ix1 * sx, -iy1 * sy)
+									t:AddMaskTexture(f.territory)
+									t:AddMaskTexture(mask)
+									z.near[#z.near + 1] = t
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
 end
 
 -- the zone as Blizzard's map draws it: base art, then the explored pieces over it, through its territory
@@ -72,12 +144,18 @@ local function Build(z, pieces)
 	f:SetSize(ART_W, ART_H)
 	f:SetFrameLevel(layer:GetFrameLevel())
 	f:Hide()
+	-- (AzerothVeil: the zone as the map draws it, away from the terrain; Near's cut-outs over the terrain)
+	local far = CreateFrame("Frame", nil, f)
+	far:SetAllPoints(f)
+	far:SetAlpha(1 - terrain)
+	f.far = far
 	local territory = f:CreateMaskTexture()
 	territory:SetTexture(TERRITORY .. id, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 	territory:SetAllPoints(f)
+	f.territory = territory
 	local tex = {}
 	local function Tile(file, sub, x, y, w, h, u, v)
-		local t = f:CreateTexture(nil, "ARTWORK", nil, sub)
+		local t = far:CreateTexture(nil, "ARTWORK", nil, sub)
 		t:SetTexture(file, nil, nil, "TRILINEAR")
 		t:SetTexCoord(0, u, 0, v)
 		t:SetPoint("TOPLEFT", f, "TOPLEFT", x * sx, -y * sy)
@@ -110,6 +188,8 @@ local function Build(z, pieces)
 		end
 	end
 	z.frame, z.tex = f, tex
+	z.art = { files = files, lw = lw, lh = lh, tw = tw, th = th, sx = sx, sy = sy, explored = pieces }
+	if terrain > 0 then Near(z) end
 end
 
 -- up to date with what's explored: made again only when the game lists more explored pieces than when it was
@@ -149,6 +229,7 @@ function F.Layout(left, top, scale, vw, vh, covered)
 				f:ClearAllPoints()
 				f:SetPoint("TOPLEFT", layer, "TOPLEFT", (r[1] - left) * scale / k, (top - r[3]) * scale / k)
 				f:Show()
+				if terrain > 0 and not z.near then Near(z) end   -- (AzerothVeil: the fog over the terrain)
 			end
 		elseif f and f:IsShown() then
 			f:Hide()
@@ -168,6 +249,21 @@ function F.SetEnabled(v)
 	if FM.Map and FM.Map.MarkDirty then FM.Map.MarkDirty() end
 end
 function F.IsEnabled() return on end
+
+-- AzerothVeil: up close the minimap's terrain takes over (Terrain.lua tells how much of it shows): the zone as the
+-- map draws it fades out, and the fog stays only on the land not explored yet (Near)
+function F.SetTerrain(k)
+	if k == terrain then return end
+	terrain = k
+	for _, z in ipairs(zones) do
+		local f = z.frame
+		if f then
+			if k > 0 and f:IsShown() then Near(z) end
+			f.far:SetAlpha(1 - k)
+			if f.near then f.near:SetAlpha(k) end
+		end
+	end
+end
 
 -- the player explored somewhere (MAP_EXPLORATION_UPDATED): each zone checked again as it comes into view
 function F.Explored()

@@ -57,11 +57,15 @@
   ni nous) : il faudrait extraire du client les images de minimap du WMO d'Orgrimmar (`WMOMinimapTexture`) et leur
   position, comme `tools/map-caves/minimap.py` d'OpenMap ; demande un lecteur CASC (outil à installer, accord requis).
 
-## Étape 4 — Marqueurs
+## Étape 4 — Marqueurs (v0.6.0)
 
-- Points d'intérêt configurables avec les icônes de PerfectMap, catégories indépendantes.
-- Compatibilité avec les marqueurs partagés d'OpenMap (préfixe `OpenMap`, protocole à étudier dans
-  `.reference/OpenMap/Map/Pins.lua`) pour le groupe et la guilde.
+- [x] Module **Marqueurs de carte** : marqueurs illimités (note, icône, couleur), catégories libres affichables
+  séparément, Ctrl+clic pour poser (suivi), fiche, liste par catégorie, lien dans le chat
+- [x] Partage compatible OpenMap (préfixe `OpenMap`, messages `P1`, code `OMPINS1:`) : groupe, guilde, cible ;
+  réception confirmée par notre fenêtre (option : ceux du groupe sans demander)
+- [ ] Validation en jeu (checklist de `docs/development.md`)
+- [ ] Pistes : partager l'icône entre utilisateurs d'AzerothVeil (OpenMap n'en a pas : il faudrait un message à part),
+  marqueurs sur la minicarte
 
 ## Questions ouvertes
 

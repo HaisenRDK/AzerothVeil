@@ -116,10 +116,11 @@ end
 function T.SwitchZoom(deepest) return At(deepest, CAVES) end
 
 local function Shown() return Smooth(mix, 0, 1) end
--- AzerothVeil: what goes with the terrain, told how much of it shows: the cities in the open fade under it
--- (Cities.lua), the places' names come over it (Labels.lua)
+-- AzerothVeil: what goes with the terrain, told how much of it shows: the cities in the open and the fog of war
+-- fade under it (Cities.lua, Fog.lua), the places' names come over it (Labels.lua)
 local function Under(k)
 	if FM.Cities then FM.Cities.SetTerrain(k) end
+	if FM.Fog then FM.Fog.SetTerrain(k) end
 	if FM.Labels then FM.Labels.SetTerrain(k) end
 end
 -- (whether it's there or coming: Labels.lua lays its names out then)

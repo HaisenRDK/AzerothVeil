@@ -739,6 +739,165 @@ test("migration 7: the engine's townsfolk, trainers and capitals become the modu
 	eq(ns.db.pins.food, true, "in effect")
 end)
 
+---------------------------------------------------------------------------
+-- Modules/Markers.lua, on a stand-in engine, network and UI
+---------------------------------------------------------------------------
+local function strsplitStub(sep, text, limit)
+	local out, start = {}, 1
+	while true do
+		if limit and #out == limit - 1 then out[#out + 1] = text:sub(start) break end
+		local i = text:find(sep, start, true)
+		if not i then out[#out + 1] = text:sub(start) break end
+		out[#out + 1] = text:sub(start, i - 1)
+		start = i + #sep
+	end
+	return unpack(out)
+end
+local function LoadMarkers(saved)
+	local ns = LoadCore(saved)
+	local st = { sets = {}, followed = nil, cleared = 0, sent = {}, edited = nil, asked = nil, group = false, guild = true }
+	_G.strsplit, _G.GetTime, _G.time = strsplitStub, function() return st.now or 0 end, os.time
+	_G.IsInRaid = function() return false end
+	_G.IsInGroup = function() return st.group end
+	_G.IsInGuild = function() return st.guild end
+	_G.UnitName = function() return "Me" end
+	_G.Ambiguate = function(name) return (name:gsub("%-.*$", "")) end
+	_G.IsAltKeyDown = function() return false end
+	_G.IsModifiedClick = function() return false end
+	_G.C_ChatInfo = {
+		RegisterAddonMessagePrefix = function(p) st.prefix = p end,
+		SendAddonMessage = function(prefix, text, channel, target) st.sent[#st.sent + 1] = { prefix, text, channel, target } end,
+	}
+	_G.C_Map = { HasUserWaypoint = function() return false end, GetMapInfo = function(id) return { name = "Zone" .. id } end }
+	ns.db = { pins = {} }
+	ns.Plain = function(v) return v end
+	ns.Pins = {
+		SetPins = function(key, list)
+			for _, pin in ipairs(list) do assert(pin.u and pin.v, "a pin without its place") end
+			st.sets[#st.sets + 1] = list
+		end,
+		FollowAt = function(key, u, v) st.followed = { u, v } end,
+		ClearPin = function() st.cleared = st.cleared + 1 end,
+	}
+	local rects = { [1429] = { 0, 100, 0, 100 }, [1415] = { 0, 200, 0, 200 } }
+	ns.Geo = {
+		Rect = function(id) return rects[id] end,
+		MapToUnits = function(id, x, y) local r = rects[id] if r then return r[1] + x * (r[2] - r[1]), r[3] + y * (r[4] - r[3]) end end,
+		UnitsToMap = function(id, u, v) local r = rects[id] if r then return (u - r[1]) / (r[2] - r[1]), (v - r[3]) / (r[4] - r[3]) end end,
+		ZoneAt = function(u, v) if u <= 100 and v <= 100 then return 1429 end end,
+		ContinentAt = function() return 1415 end,
+	}
+	ns.Map = { MarkDirty = function() end, IsShown = function() return true end }
+	ns.Spot = {}
+	assert(loadfile(ADDON_DIR .. "Modules/Markers.lua"))("AzerothVeil", ns)
+	ns.MarkersUI = {
+		Edit = function(m, fresh) st.edited = { m, fresh } end,
+		Ask = function(batch, onAdd, onDone) st.asked = { batch, onAdd, onDone } end,
+		HideAll = function() end,
+	}
+	return ns, st
+end
+local function LastSet(st) return st.sets[#st.sets] or {} end
+
+print("Map markers module")
+test("Ctrl-click drops a marker, followed, its card open; on the map", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	local d = ns.Database.Root().markers
+	eq(#d.cats, 1, "one category") eq(#d.list, 0, "no marker")
+	eq(ns.Pins.OnCtrlClick(45, 63), true, "taken")
+	eq(#d.list, 1, "dropped") eq(d.list[1].map, 1429, "on its zone") eq(d.list[1].x, 0.45, "x")
+	eq(st.followed ~= nil, true, "followed") eq(st.edited[2], true, "card, fresh")
+	eq(#LastSet(st), 1, "on the map") eq(ns.db.pins.marker, true, "kind on")
+	eq(ns.Pins.OnCtrlClick(150, 150), true, "at sea: on the continent") eq(d.list[2].map, 1415, "continent")
+	ns.Modules:SetSetting("markers", "ctrlClick", false)
+	eq(ns.Pins.OnCtrlClick(10, 10), false, "off: the waypoint's, as before")
+end)
+test("categories: hidden off the map; one deleted with its markers; the first stays", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	local M = ns.Markers
+	local c = M.AddCat("Rares")
+	M.Add(1429, 0.1, 0.1, "a", 2, 3, c.id)
+	M.Add(1429, 0.2, 0.2, "b")
+	M.Changed()
+	eq(#LastSet(st), 2, "both shown")
+	c.shown = false
+	M.Changed()
+	eq(#LastSet(st), 1, "hidden category: off the map")
+	eq(M.RemoveCat(c.id), true, "deleted") eq(#M.Data().list, 1, "its marker with it")
+	eq(M.RemoveCat(M.Data().cats[1].id), false, "the first stays")
+end)
+test("OpenMap's message and code: same format, notes cleaned and escaped", function()
+	local ns = LoadMarkers(nil)
+	Boot(ns)
+	local M = ns.Markers
+	local m = M.Add(1429, 0.452, 0.631, "note|with\ncodes", 2)
+	eq(m.note, "note/with codes", "cleaned")
+	eq(M.Message(m), "P1\t1429\t0.4520\t0.6310\t2\tnote/with codes", "message")
+	m.note = "a;b,c%d"
+	local code = M.CodeOf({ m })
+	eq(code:sub(1, 8), "OMPINS1:", "code") eq(code:find("a;b", 1, true), nil, "escaped")
+	local back = M.FromCode("paste: " .. code)
+	eq(#back, 1, "read back") eq(back[1].note, "a;b,c%d", "note back") eq(back[1].color, 2, "colour")
+	eq(M.Valid(9999, 0.5, 0.5, 1, ""), nil, "unknown map refused") eq(M.Valid(1429, 1.5, 0.5, 1, ""), nil, "off the map refused")
+end)
+test("sharing: paced, to the right channel; nothing without a group", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	local M = ns.Markers
+	local a, b = M.Add(1429, 0.1, 0.1, "a"), M.Add(1429, 0.2, 0.2, "b")
+	eq(M.Share({ a, b }, "group"), false, "no group")
+	st.group = true
+	eq(M.Share({ a, b }, "group"), true, "shared")
+	eq(#st.sent, 1, "one at once") eq(st.sent[1][1], "OpenMap", "OpenMap's prefix") eq(st.sent[1][3], "PARTY", "party")
+	stub.runTimers()
+	eq(#st.sent, 2, "the next after its gap")
+end)
+test("receiving: asked, then added to Shared with me; your own ignored; off: not heard", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	local M = ns.Markers
+	stub.fire("CHAT_MSG_ADDON", "OpenMap", "P1\t1429\t0.5\t0.5\t3\thi", "GUILD", "Me-Realm")
+	stub.fire("CHAT_MSG_ADDON", "OpenMap", "V1\t1.0\tx", "GUILD", "Bob-Realm")
+	stub.fire("CHAT_MSG_ADDON", "OpenMap", "P1\t1429\t0.5\t0.5\t3\thi", "GUILD", "Bob-Realm")
+	st.now = 2
+	stub.runTimers()
+	eq(st.asked ~= nil, true, "asked") eq(#st.asked[1].list, 1, "one marker (own and version left out)")
+	eq(st.asked[1].from, "Bob", "from")
+	st.asked[2]()
+	local got = M.Data().list[1]
+	eq(got.note, "hi", "added") eq(got.from, "Bob", "its sender") eq(M.CatName(M.Cat(got.cat)), "Shared with me", "category")
+	ns.Modules:SetSetting("markers", "receive", false)
+	eq(ns.Events:Count("CHAT_MSG_ADDON"), 0, "not heard any more")
+end)
+test("your group's without asking, if said so", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	ns.Modules:SetSetting("markers", "groupAdd", true)
+	stub.fire("CHAT_MSG_ADDON", "OpenMap", "P1\t1429\t0.3\t0.3\t1\t", "PARTY", "Ann")
+	st.now = 2
+	stub.runTimers()
+	eq(st.asked, nil, "not asked") eq(#ns.Markers.Data().list, 1, "added")
+end)
+test("disabled: nothing on the map, no click of its own, markers kept", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	ns.Markers.Add(1429, 0.1, 0.1, "a")
+	ns.Modules:Disable("markers")
+	eq(ns.Pins.OnCtrlClick, nil, "no Ctrl-click") eq(ns.Pins.OnMarkerClick, nil, "no click")
+	eq(#LastSet(st), 0, "off the map") eq(ns.db.pins.marker, false, "kind off")
+	eq(ns.Events:Count("CHAT_MSG_ADDON"), 0, "nothing heard")
+	eq(#ns.Database.Root().markers.list, 1, "kept")
+end)
+test("saved markers checked: a marker without a place dropped, a lost category put back", function()
+	local ns = LoadMarkers({ schema = 7, markers = { list = { { id = 3, map = 1429, x = 0.1, y = 0.1, cat = 9 }, { id = 4 } },
+		cats = { { id = 1, name = "Mine" } } } })
+	ns.Database.Load()
+	local d = ns.Database.Root().markers
+	eq(#d.list, 1, "one kept") eq(d.list[1].cat, 1, "in the first category") eq(d.nextId, 4, "next id") eq(d.cats[1].shown, true, "shown")
+end)
+
 print("Localisation")
 local function LoadLocale(locale)
 	stub.reset()

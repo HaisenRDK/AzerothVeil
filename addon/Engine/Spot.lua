@@ -106,6 +106,10 @@ function SP.Open(u, v)
 		end
 		list[#list + 1] = { L["Copy coordinates"], "Interface\\Buttons\\UI-GuildButton-PublicNote-Up", Copy }
 	end
+	-- (AzerothVeil: the Markers module's, while it runs: SP.markerItems = { { label, icon, fn(u, v), atlas } })
+	for _, item in ipairs(SP.markerItems or {}) do
+		list[#list + 1] = { item[1], item[2], function() item[3](u, v) end, item[4] }
+	end
 	for _, r in ipairs(rows) do r:Hide() end
 	local y = -26
 	for i, item in ipairs(list) do

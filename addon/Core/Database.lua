@@ -9,6 +9,10 @@
 --       [name] = { enabled = <bool>, settings = { [key] = value } },
 --     },
 --     core    = { ... },               -- the core's own preferences (the options window's last module...)
+--     markers = {                      -- the map markers (Modules/Markers.lua): data, not settings
+--       list = { { id, map, x, y, note, icon, color, cat, from, at } },  nextId,
+--       cats = { { id, name, shown } },  nextCat,  shared = <cat id of the markers others shared>,
+--     },
 --   }
 --
 -- Rules:
@@ -194,6 +198,35 @@ end
 -- (for tests)
 Database.migrations = migrations
 
+-- The markers' part, there and sound (a new part: no migration, it's simply made when missing). A marker with
+-- no place, or in a category that's gone, is dropped or put back in the first one
+function Database.CheckMarkers(db)
+	local mk = type(db.markers) == "table" and db.markers or {}
+	db.markers = mk
+	if type(mk.list) ~= "table" then mk.list = {} end
+	if type(mk.cats) ~= "table" or #mk.cats == 0 then mk.cats = { { id = 1, shown = true } } end
+	local cats, top = {}, 0
+	for _, c in ipairs(mk.cats) do
+		if type(c) == "table" and tonumber(c.id) then
+			cats[c.id] = true
+			top = math.max(top, c.id)
+			if c.shown == nil then c.shown = true end
+		end
+	end
+	if type(mk.nextCat) ~= "number" or mk.nextCat <= top then mk.nextCat = top + 1 end
+	local first, kept, last = mk.cats[1].id, {}, 0
+	for _, m in ipairs(mk.list) do
+		if type(m) == "table" and tonumber(m.map) and tonumber(m.x) and tonumber(m.y) then
+			if not cats[m.cat] then m.cat = first end
+			kept[#kept + 1] = m
+			last = math.max(last, tonumber(m.id) or 0)
+		end
+	end
+	mk.list = kept
+	if type(mk.nextId) ~= "number" or mk.nextId <= last then mk.nextId = last + 1 end
+	if mk.shared and not cats[mk.shared] then mk.shared = nil end
+end
+
 local root
 
 -- Reads (once) and returns the SavedVariables table, migrated and with its parts present.
@@ -205,6 +238,7 @@ function Database.Load()
 	if type(db.engine) ~= "table" then db.engine = {} end
 	if type(db.modules) ~= "table" then db.modules = {} end
 	if type(db.core) ~= "table" then db.core = {} end
+	Database.CheckMarkers(db)
 	local from = tonumber(db.schema) or 0
 	if from < Database.SCHEMA then
 		for n = from + 1, Database.SCHEMA do

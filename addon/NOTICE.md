@@ -48,6 +48,10 @@ PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data 
   game's tables; **Media/FogTerritory/** (each zone map's territory, a mask) is copied from its `MapTerritory` (MIT).
   **Fog.lua** draws a zone not explored whole as the game's own map does (its base art and its explored pieces, the
   client's, at run time), through that territory.
+- **Modules/Markers.lua** (map markers) follows OpenMap's map pins (`Map/Pins.lua`, MIT): their sharing protocol
+  (addon messages under the prefix `OpenMap`, "P1" map, x, y, colour, note), their colours and their code
+  (`OMPINS1:`), so the two addons trade markers; the note cleaning and chat link are done as it does them. Written
+  anew here; its confirmation window is AzerothVeil's own (UI/Markers.lua).
 - **Data/AreaLabels.lua** (each explorable place's area and the middle of its ground, for its name over the minimap's
   terrain up close: **Labels.lua**) is taken from OpenMap's `Data/Forever/Explore.lua` (MIT), generated there from the
   game's tables and terrain; the names themselves are the client's.

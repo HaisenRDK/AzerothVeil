@@ -248,6 +248,7 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		for k, v in pairs(FM.MAP_OFF) do FM.db[k] = v end
 		for _, c in ipairs(FM.Pins.CATS) do if FM.ICON_GROUPS[c.group] then FM.db.pins[c.key] = false end end
 		FM.db.allClassTrainers = false
+		FM.db.pins.marker = false                 -- (AzerothVeil: the Markers module's, Modules/Markers.lua)
 		-- (AzerothVeil: the classic look, always: Blizzard's own frames, never the modern one)
 		FM.db.style = "classic"
 		FM.Style.ApplyTheme(FM.db.style)
@@ -281,12 +282,14 @@ SlashCmdList.AZEROTHVEIL = function(msg)
 		FM.Print(L["window reset"])
 	elseif msg:match("^sailings") then
 		if FM.Vessels then FM.Vessels.Status(msg:match("^sailings%s+(%a+)")) end
+	elseif msg == "markers" then
+		if FM.MarkersUI then FM.MarkersUI.OpenList() end          -- (AzerothVeil: the Markers module's list)
 	elseif msg == "addons" then
 		if FM.AddonPins then FM.AddonPins.Report() end
 	elseif msg == "find" then
 		if FM.Map then FM.Map.Show() FM.Map.CenterOnPlayer() end
 	elseif msg == "help" then
-		FM.Print(L["/av - open/close  |  /av config - settings & modules  |  /av modules [enable|disable <name>] - modules  |  /av stats - performance  |  /av reset - window position  |  /av find - centre on you  |  /av sailings [log|test] - boats & zeppelins shared  |  /av addons - other addons' icons"])
+		FM.Print(L["/av - open/close  |  /av config - settings & modules  |  /av modules [enable|disable <name>] - modules  |  /av stats - performance  |  /av reset - window position  |  /av find - centre on you  |  /av sailings [log|test] - boats & zeppelins shared  |  /av addons - other addons' icons  |  /av markers - map markers"])
 	else
 		FM.Toggle()
 	end

@@ -1198,8 +1198,8 @@ local function Build()
 	terrainLayer:SetAllPoints()
 	terrainLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 1)
 	FM.Terrain.Init(terrainLayer)
-	-- AzerothVeil: the fog of war (Fog.lua, the Map module): unexplored land as Blizzard's map shows it, over
-	-- the terrain up close, under the icons and the world's art
+	-- AzerothVeil: the fog of war (Fog.lua, the Map module): unexplored land as Blizzard's map shows it, under
+	-- the icons and the world's art; it fades out as the terrain comes in up close (Fog.SetTerrain)
 	local fogLayer = CreateFrame("Frame", nil, view)
 	fogLayer:SetAllPoints()
 	fogLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 2)

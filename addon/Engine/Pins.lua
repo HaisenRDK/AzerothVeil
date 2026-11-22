@@ -66,6 +66,10 @@ local CATS = {
 
 	{ key = "questie", label = L["Questie icons"], icon = MEDIA .. "Questie\\available", size = 16, layer = 4, group = "quests", external = true,
 		free = true },   -- (Questie's: exactly where Questie puts them, each on its own: never summed or moved)
+	-- AzerothVeil: the map markers (the Markers module's, Modules/Markers.lua: P.SetPins("marker", ...)), each on its
+	-- own, at every zoom, over the rest
+	{ key = "marker", label = L["Map markers"], icon = "atlas:Waypoint-MapPin-Untracked", size = 20, minZoom = 0, layer = 7,
+		group = "markers", noJoin = true },
 
 	-- the kinds Questie's townsfolk menu has (and its icons for them)
 	{ key = "innkeeper", label = L["Innkeepers"], icon = TRACK .. "innkeeper", data = true },
@@ -773,12 +777,20 @@ end
 function P.SetPins(key, list)
 	local cat = byKey[key]
 	if not cat then return end
+	-- (AzerothVeil: the waypoint on one of them stays on its new self, at the same place)
+	local was = waypointPin and waypointPin.cat == cat and waypointPin
 	ClearCat(cat)
 	for _, pin in ipairs(list) do
 		AddPin(cat, pin.u, pin.v, pin)
 		Warm(pin.icon)
 	end
 	cat.built = true
+	if was then
+		waypointPin = nil
+		for _, pin in ipairs(cat.pins or {}) do
+			if math.abs(pin.u - was.u) < 0.01 and math.abs(pin.v - was.v) < 0.01 then waypointPin = pin break end
+		end
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -979,6 +991,14 @@ end
 
 -- (the map's right-click menu, Spot.lua: the pin on a bare spot, or off)
 function P.PlaceAt(u, v) SetWaypointAt(u, v, nil, nil) end
+-- AzerothVeil: the waypoint on an icon of a kind (a map marker: its key and place), outlined as an icon followed
+function P.FollowAt(key, u, v)
+	local cat = byKey[key]
+	for _, pin in ipairs(cat and cat.pins or {}) do
+		if math.abs(pin.u - u) < 0.01 and math.abs(pin.v - v) < 0.01 then SetWaypointAt(u, v, nil, pin) return end
+	end
+	SetWaypointAt(u, v, nil, nil)
+end
 function P.ClearPin() ClearWaypoint() end
 
 -- the waypoint on an icon, or off it again if it's on it already
@@ -1007,6 +1027,8 @@ function P.Click()
 		local pin = hovered[1]
 		-- (a Questie icon: Questie's own click: a chat link while typing, shift: hide the quest / remove
 		-- a note, ctrl: TomTom; its map's own part, opening Blizzard's map, is left out as that's shut)
+		-- (AzerothVeil: a map marker: the Markers module's click, its card)
+		if pin.marker and P.OnMarkerClick then P.OnMarkerClick(pin.marker) return end
 		local click = pin.qicon and pin.qicon:GetScript("OnClick")
 		if click then pcall(click, pin.qicon, "LeftButton") return end
 		-- (a dungeon's: its map; the waypoint is the right button's, on every icon)
@@ -1031,6 +1053,8 @@ function P.Click()
 		if pin.travel and P.OnTravelClick then P.OnTravelClick(pin) return end
 	elseif IsControlKeyDown() then
 		local u, v = FM.Map.CursorUnits()
+		-- (AzerothVeil: the Markers module's Ctrl-click while it's on: a marker dropped there)
+		if P.OnCtrlClick and P.OnCtrlClick(u, v) then return end
 		SetWaypointAt(u, v)
 	end
 end
