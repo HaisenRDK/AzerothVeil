@@ -254,11 +254,6 @@ function Dungeons.BossLoot(inst, wingName, boss)
 	return DJ.BossLoot(inst, wingName, names) or false
 end
 
--- whether this instance is shown on the game's own maps (DungeonJournal's passages fit them then)
-local function OnGameTiles(inst)
-	return ns.DUNGEON_MAPS and ns.DUNGEON_MAPS[inst] ~= nil and not (ns.DUNGEON_DRAWN and ns.DUNGEON_DRAWN[inst])
-end
-
 ---------------------------------------------------------------------------
 -- The side panel: up with a dungeon's map, the quest log suspended meanwhile
 ---------------------------------------------------------------------------
@@ -310,7 +305,7 @@ local function Apply(self, running)
 	ns.Pins.OnDungeonClick = running and function(wings, title) self:Click(wings, title) end or nil
 	ns.Dungeon.ReturnView = running and Dungeons.ReturnView or nil
 	-- (the passages between floors: DungeonJournal's, where it's installed and the maps are the game's)
-	ns.Dungeon.FloorLinks = On("ways") and function(inst) return DJ.FloorLinks(inst, OnGameTiles(inst)) end or nil
+	ns.Dungeon.FloorLinks = On("ways") and DJ.FloorLinks or nil
 	-- (the bosses no map places: in the Bosses tab, not over the map, while that tab is there)
 	ns.Dungeon.BossListInPanel = running and function() return self:TabsWanted() and self:IsOptionActive("bossesTab") end or nil
 	-- (the level ranges are written into the icons' tooltips: those built again)

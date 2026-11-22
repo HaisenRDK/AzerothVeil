@@ -67,6 +67,11 @@ seule (`Integrations/DungeonJournal.lua`) :
 - passages entre étages (`DUNGEON_MAPS[nom].transitions`), sur les cartes du jeu uniquement (ses étages
   pointent vers les dalles du jeu `<Nom><n>_` = notre étage n ; les donjons Forever dessinés ne
   correspondent pas) ;
+- passages entre étages des donjons propres à Forever : Cité engloutie, Dalaran, Prison d'Alcaz,
+  dont ses images sont **les mêmes** que les nôtres (dessins de Santiago Reyes, comparées une à une le
+  22/11/2026 ; ordre des étages parfois différent : à Dalaran, ses Bas-Fonds sont son étage 1, notre 2).
+  Table explicite par nom de fichier d'image (`DJ.PICTURES`), hauteur ramenée à la partie visible de
+  notre image ; indications (nager, sauter, sortie du requin…) dites avec nos propres mots ;
 - butin des boss (`DB[nom].bosses[i].loot` : itemID, nom, emplacement, qualité), affiché avec les noms,
   icônes et infobulles natives du jeu.
 Repaire des Noiregueules : aucune source ne place ses boss (DungeonJournal : « Locations unverified; no

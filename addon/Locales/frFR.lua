@@ -454,3 +454,10 @@ L["Started by an item: %s"] = "Commence avec un objet : %s"
 L["Its rewards show once it's in your quest log."] = "Ses récompenses s'affichent une fois la quête dans votre journal."
 L["Show the giver on the map"] = "Montrer le donneur sur la carte"
 
+-- (what DungeonJournal says of a passage, in our words)
+L["Jump down to floor %d."] = "Sautez jusqu'au niveau %d."
+L["Swim down under water to floor %d."] = "Plongez sous l'eau jusqu'au niveau %d."
+L["Swim down under water here to floor %d."] = "Plongez ici sous l'eau jusqu'au niveau %d."
+L["The shark's way out: dangerous."] = "La sortie du requin : dangereuse."
+L["The safe way out."] = "La sortie sûre."
+L["Opens with Overseer Wrex's keyring, to floor %d."] = "S'ouvre avec le trousseau du surveillant Wrex, vers le niveau %d."

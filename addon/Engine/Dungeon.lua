@@ -690,36 +690,49 @@ local function PlaceBosses(inst, index, floorName, collect)
 			ways[#ways + 1] = { x = geo.x + e[1] * geo.w, y = geo.y + e[2] * geo.h }
 		end
 	end
-	-- AzerothVeil: the passages to other floors (stairs, ladders, portals) where the Dungeons module knows
-	-- them (D.FloorLinks: DungeonJournal's, on the game's own maps): an arrow; a click, that floor
+	-- AzerothVeil: the passages to other floors (stairs, ladders, portals, swims) where the Dungeons module
+	-- knows them (D.FloorLinks(inst, floors): DungeonJournal's): an arrow (its own colour, if it has one)
+	-- with the floor it leads to under it, what to do there in its tooltip; a click, that floor
 	local nl = 0
-	local links = D.FloorLinks and inst and D.FloorLinks(inst) or nil
+	local links = D.FloorLinks and inst and D.FloorLinks(inst, FloorsOf(inst)) or nil
 	for _, lk in ipairs(links or {}) do
 		if lk.floor == index and lk.to then
 			nl = nl + 1
 			local b = linkPins[nl]
 			if not b then
 				b = CreateFrame("Button", nil, layer)
-				b:SetSize(28, 28)
+				b:SetSize(30, 30)
 				b.tex = b:CreateTexture(nil, "ARTWORK")
 				b.tex:SetAllPoints()
 				b.tex:SetTexture("Interface\\Minimap\\MiniMap-QuestArrow")
 				b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight", "ADD")
+				b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+				b.label:SetPoint("TOP", b, "BOTTOM", 0, 2)
+				b.label:SetShadowColor(0, 0, 0, 1)
+				b.label:SetShadowOffset(1, -1)
 				b:SetScript("OnClick", function(self) D.SetFloor(self.to) end)
 				b:SetScript("OnEnter", function(self)
 					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 					GameTooltip:SetText(L["To floor %d"]:format(self.to), 1, 0.82, 0)
 					if self.toName then GameTooltip:AddLine(self.toName, 1, 1, 1) end
+					if self.hint then
+						local c = self.color
+						GameTooltip:AddLine(self.hint, c and c[1] or 0.35, c and c[2] or 1, c and c[3] or 0.35, true)
+					end
 					GameTooltip:AddLine(L["Click: go to that floor."], 0.6, 0.6, 0.6)
 					GameTooltip:Show()
 				end)
 				b:SetScript("OnLeave", GameTooltip_Hide)
 				linkPins[nl] = b
 			end
-			b.to = lk.to
+			b.to, b.hint, b.color = lk.to, lk.hint, lk.color
 			local fl = (FloorsOf(inst) or {})[lk.to]
 			b.toName = fl and fl.name
 			b.tex:SetRotation(lk.dir == "down" and math.pi or 0)
+			local c = lk.color
+			b.tex:SetVertexColor(c and c[1] or 1, c and c[2] or 1, c and c[3] or 1)
+			b.label:SetText(L["Floor %d"]:format(lk.to))
+			b.label:SetTextColor(c and c[1] or 0.35, c and c[2] or 1, c and c[3] or 0.35)
 			b:SetFrameLevel(layer:GetFrameLevel() + 6)
 			b:ClearAllPoints()
 			b:SetPoint("CENTER", layer, "TOPLEFT", geo.x + lk.x * geo.w, -(geo.y + lk.y * geo.h))

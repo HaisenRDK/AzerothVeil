@@ -130,26 +130,65 @@ local function KeysOf(inst, wingName)
 	return DJ.KEYS[inst] or {}
 end
 
--- The passages to other floors on the game's own maps of a dungeon (4 x 3 tiles: its classic ones),
--- as its maps mark them: { { floor, to, x, y, dir } } in AzerothVeil's floors. Its floor i is the game's
--- map "<Name><n>_": AzerothVeil's floor n (the same pictures, in the game's order). ourTiles: whether
--- AzerothVeil shows the game's tiles for this instance (else the pictures differ: none).
-function DJ.FloorLinks(inst, ourTiles)
+-- WoW Forever's own dungeons: its pictures of them that are the same as AzerothVeil's (Santiago Reyes's
+-- drawings, compared one by one, 22/11/2026: the same picture, at the same place in the file; its own
+-- labels aside), by its picture's file name -> AzerothVeil's floor. (Its order isn't always ours:
+-- Dalaran's Underbelly is its first floor, our second.) A picture not here: its passages left out.
+DJ.PICTURES = {
+	[2959] = { DalaranUnderbellyMap = 2, DalaranCityMap = 1 },
+	[2970] = { DrownedCityMap = 1, DrownedCityAtalByzalMap = 2 },
+	[2994] = { AlcazPrisonMap = 1, AlcazPrisonMap2 = 2 },
+}
+
+local L = ns.L
+
+-- what its passages say of themselves (its keys: its words aren't copied, ours say it), %d: the floor
+local HINTS = {
+	MAP_JUMP_LEVEL = L["Jump down to floor %d."],
+	MAP_SWIM_LEVEL = L["Swim down under water to floor %d."],
+	MAP_SWIM_HERE = L["Swim down under water here to floor %d."],
+	MAP_SHARK_EXIT = L["The shark's way out: dangerous."],
+	MAP_SAFE_EXIT = L["The safe way out."],
+	MAP_WREX_KEYRING = L["Opens with Overseer Wrex's keyring, to floor %d."],
+}
+
+-- our floor n: the game's own map (its 12 tiles by file ID), not a drawing
+local function GameTiles(f)
+	return type(f) == "table" and type(f.tiles) == "table" and type(f.tiles[1]) == "number" and not f.texture
+end
+
+-- The passages to other floors of a dungeon as its maps mark them: { { floor, to, x, y, dir, hint, color } }
+-- in AzerothVeil's floors (ours: the engine's list of them). On the game's own maps, its floor i is the
+-- game's map "<Name><n>_": our floor n when ours is that same map. On its pictures, the floor of ours that
+-- is the same picture (PICTURES), its height scaled to ours (each picture's visible part). Any other: none.
+function DJ.FloorLinks(inst, ours)
 	local f = DJ.NS()
-	if not (f and ourTiles and type(f.DUNGEON_MAPS) == "table") then return nil end
+	if not (f and type(ours) == "table" and type(f.DUNGEON_MAPS) == "table") then return nil end
+	local pictures = DJ.PICTURES[inst]
 	local out = {}
 	for _, key in ipairs(KeysOf(inst)) do
 		local data = f.DUNGEON_MAPS[key]
 		if type(data) == "table" and type(data.transitions) == "table" and type(data.floors) == "table" then
-			local ours = {}
+			local map, sy = {}, {}
 			for i, fl in ipairs(data.floors) do
-				local n = type(fl) == "table" and type(fl.tiles) == "string" and tonumber(fl.tiles:match("(%d+)_$"))
-				ours[i] = n
+				local n
+				if type(fl) == "table" and type(fl.tiles) == "string" then
+					n = tonumber(fl.tiles:match("(%d+)_$"))
+					if n and not GameTiles(ours[n]) then n = nil end
+					sy[i] = 1
+				elseif type(fl) == "table" and type(fl.texture) == "string" and pictures then
+					n = pictures[fl.texture:match("([^\\/]+)$")]
+					if n and not (type(ours[n]) == "table" and ours[n].texture) then n = nil end
+					sy[i] = n and (tonumber(fl.texBottom) or 1) / (tonumber(ours[n].bottom) or 1)
+				end
+				map[i] = n
 			end
 			for _, t in ipairs(data.transitions) do
-				local from, to = ours[t.floor], ours[t.to]
+				local from, to = map[t.floor], map[t.to]
 				if from and to and tonumber(t.x) and tonumber(t.y) then
-					out[#out + 1] = { floor = from, to = to, x = t.x, y = t.y, dir = t.dir }
+					local hint = HINTS[t.tipKey or t.labelKey or ""]
+					out[#out + 1] = { floor = from, to = to, x = t.x, y = t.y * sy[t.floor], dir = t.dir,
+						hint = hint and hint:format(to), color = type(t.color) == "table" and t.color or nil }
 				end
 			end
 		end

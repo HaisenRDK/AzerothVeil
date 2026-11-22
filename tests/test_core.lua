@@ -548,7 +548,12 @@ local function LoadDungeons(saved, dj)
 			["Stratholme: Living"] = {}, ["Stratholme: Undead"] = {}, ["Scarlet Monastery: Library"] = {} },
 			DUNGEON_MAPS = { ["The Deadmines"] = {
 				floors = { { tiles = "Interface\\WorldMap\\TheDeadmines\\TheDeadmines1_" }, { tiles = "Interface\\WorldMap\\TheDeadmines\\TheDeadmines3_" } },
-				transitions = { { floor = 1, to = 2, x = 0.4, y = 0.5, dir = "down" } } } } }
+				transitions = { { floor = 1, to = 2, x = 0.4, y = 0.5, dir = "down" } } },
+				["City of Dalaran"] = {
+					floors = { { texture = "Interface\\AddOns\\ForeverDungeonJournal\\Media\\DalaranUnderbellyMap", texBottom = 0.5 },
+						{ texture = "Interface\\AddOns\\ForeverDungeonJournal\\Media\\DalaranCityMap", texBottom = 0.5 } },
+					transitions = { { floor = 1, to = 2, x = 0.7, y = 0.6, labelKey = "MAP_SAFE_EXIT", color = { 1, 0, 0 } },
+						{ floor = 2, to = 1, x = 0.2, y = 0.2, labelKey = "MAP_UNKNOWN" } } } } }
 		FDJ.IsDungeonMapLocked = function(name) return dj.locked and dj.locked[name] or false end
 		FDJ.OpenDungeonMap = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "map:" .. name end
 		FDJ.OpenBossPage = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "bosses:" .. name end
@@ -697,13 +702,22 @@ test("bosses: as the map has them; none known: an empty list", function()
 	local list = mod.BossesFor(36)
 	eq(list[1].name, "Edwin VanCleef", "title left out") eq(list[1].floor, 2, "its floor") eq(list[2].floor, nil, "not placed")
 end)
-test("passages between floors: DungeonJournal's, in our floors, only on the game's own maps", function()
+test("passages between floors: DungeonJournal's, in our floors, on the same pictures only", function()
 	local ns = LoadDungeons(nil, {})
-	local links = ns.DungeonJournal.FloorLinks(36, true)
+	local GAME = { tiles = { 1, 2, 3 } }
+	local links = ns.DungeonJournal.FloorLinks(36, { GAME, GAME, GAME })
 	eq(#links, 1, "one passage") eq(links[1].floor, 1, "from our floor 1") eq(links[1].to, 3, "to our floor 3 (the game's map 3)")
-	eq(ns.DungeonJournal.FloorLinks(36, false), nil, "other pictures: none")
+	eq(links[1].y, 0.5, "the game's maps: as it is")
+	local drawn = { texture = "x", bottom = 0.25 }
+	eq(#ns.DungeonJournal.FloorLinks(36, { drawn, drawn, drawn }), 0, "other pictures: none")
+	-- its own pictures of Forever's dungeons, matched by picture (Dalaran: its floors the other way round)
+	local d = ns.DungeonJournal.FloorLinks(2959, { { texture = "city", bottom = 0.5 }, { texture = "underbelly", bottom = 0.25 } })
+	eq(#d, 2, "both") eq(d[1].floor, 2, "its Underbelly: our floor 2") eq(d[1].to, 1, "to our City")
+	eq(d[1].y, 1.2, "its height scaled to our picture's") eq(d[1].hint, "The safe way out.", "what to do there")
+	eq(d[1].color[1], 1, "its colour") eq(d[2].hint, nil, "a hint it has that we don't know: none")
+	eq(#ns.DungeonJournal.FloorLinks(2959, { GAME, GAME }), 0, "our floors not drawings: none")
 	local ns2 = LoadDungeons(nil)
-	eq(ns2.DungeonJournal.FloorLinks(36, true), nil, "no DungeonJournal: none")
+	eq(ns2.DungeonJournal.FloorLinks(36, { GAME, GAME, GAME }), nil, "no DungeonJournal: none")
 	eq(type(ns.Dungeon.FloorLinks), "function", "given to the engine")
 	ns.Modules:SetSetting("dungeons", "ways", false)
 	eq(ns.Dungeon.FloorLinks, nil, "entrances and exits off: none")
