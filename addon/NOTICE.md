@@ -54,7 +54,10 @@ PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data 
   anew here; its confirmation window is AzerothVeil's own (UI/Markers.lua).
 - **Data/AreaLabels.lua** (each explorable place's area and the middle of its ground, for its name over the minimap's
   terrain up close: **Labels.lua**) is taken from OpenMap's `Data/Forever/Explore.lua` (MIT), generated there from the
-  game's tables and terrain; the names themselves are the client's.
+  game's tables and terrain; the names themselves are the client's. Its `FM.AREA_LABEL_ALIAS` (WoW Forever's redrawn
+  zones to their old art) was matched on the pieces of OpenMap's `Data/Forever/Reveal.lua` (MIT). Its
+  `FM.CITY_DISTRICTS` places the capitals' districts at the middle of their townsfolk in `Data/Townsfolk.lua`
+  (from Questie / QuestieDB, GPL v3).
 - **Pins.lua**'s townsfolk shown only where you've explored (the Map module's "Townsfolk of unexplored areas" off)
   follows OpenMap's "Only places you've found" (`Map/Stitch.lua`, MIT): the game's explored areas at the spot or a
   little round it, a capital found once visited or explored under it. Written anew here; no OpenMap code is called.

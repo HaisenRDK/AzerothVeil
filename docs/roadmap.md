@@ -76,6 +76,14 @@
   suivies/total après le nom d'une zone repliée ; quatre options du module Quêtes ; couleurs adoucies.
 - Friz Quadrata TT dans tout l'addon (`Style.FontPath`, `Style.Friz`, `Style.FrizButton`).
 
+## Étape 4 ter — Noms et niveaux (v0.6.2, fait)
+
+- Noms des lieux de près dans toutes les zones, y compris celles que WoW Forever a redessinées
+  (`FM.AREA_LABEL_ALIAS`) ; quartiers des capitales (`FM.CITY_DISTRICTS`, option « Quartiers des capitales »).
+- Niveau des quêtes au survol sur la carte, « (niv) Nom » (option du module Quêtes).
+- Zoom sur le lieu de rendu d'une quête terminée (Questie, sinon point de passage du jeu), aura bleue de la quête
+  suivie, marqueur temporaire de rendu.
+
 ## Questions ouvertes
 
 - Permissions de Santiago Reyes / Exehn si AzerothVeil devait être distribué (cf. audit §1).

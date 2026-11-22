@@ -37,6 +37,9 @@ local Quests = ns.Modules:Register({
 		{ key = "questie", icon = QUESTIE_ICON, type = "toggle", default = true,
 			label = L["Questie icons"],
 			tooltip = L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] },
+		{ key = "tipLevel", icon = "Interface\\Icons\\INV_Misc_Note_02", type = "toggle", default = true,
+			label = L["Quest level in tooltips"],
+			tooltip = L["Hovering a quest on the map: its level before its name, \"(level) Name\"."] },
 		{ type = "header", label = L["Quest log"] },
 		{ key = "log", icon = "Interface\\Icons\\INV_Misc_Book_09", type = "toggle", default = true,
 			label = L["Quest log beside the map"],
@@ -69,6 +72,7 @@ local function Apply(self, running)
 	db.pins.questie = On("questie")
 	db.questLog = On("log")
 	db.replaceQuestLog = On("replace")
+	db.questTipLevel = On("tipLevel")
 	db.questSearch = On("search")
 	db.questCount = On("count")
 	db.questFoldAll = On("foldAll")

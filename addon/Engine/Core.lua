@@ -50,12 +50,14 @@ FM.defaults = {
 	replaceQuestLog = true,          -- L, and every "show this quest", open this map's quest log
 	questLog = true,                 -- AzerothVeil: the quest log docked beside the map is there at all (the Quests module)
 	questPanel = true,               -- the quest log docked beside the map (out or folded away)
+	questTipLevel = true,            -- AzerothVeil: "(level) Name" in a quest's tooltip on the map (the Quests module's)
 	questSearch = true,              -- AzerothVeil: the log's search box (the Quests module's)
 	questCount = true,               -- AzerothVeil: ... its count of quests, under it
 	questFoldAll = true,             -- AzerothVeil: ... its Collapse all / Expand all button, at the count's end
 	questZoneCount = true,           -- AzerothVeil: ... a folded zone's quests tracked / in the log, after its name
 	npcUnexplored = true,            -- AzerothVeil: the townsfolk of land not explored yet too (the Map module's)
 	terrainNames = true,             -- AzerothVeil: the places' names over the minimap's terrain up close (the Map module's)
+	cityDistricts = true,            -- AzerothVeil: ... and the capitals' districts' (the Map module's)
 	allClassTrainers = false,        -- AzerothVeil: every class's trainers, not only yours (the Icons module's)
 }
 
@@ -65,12 +67,12 @@ FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
 FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
 -- (AzerothVeil: and the Quests module's switches)
 FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog",
-	"questSearch", "questCount", "questFoldAll", "questZoneCount" }
+	"questSearch", "questCount", "questFoldAll", "questZoneCount", "questTipLevel" }
 -- (AzerothVeil: and the Map module's switches, as they are while it's off: Modules/Map.lua)
 FM.MAP_OFF = {
 	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
 	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
-	npcUnexplored = true, terrainNames = false,
+	npcUnexplored = true, terrainNames = false, cityDistricts = false,
 }
 -- (AzerothVeil: and the Icons module's kinds of icon: those of these groups of Pins.CATS, Modules/Icons.lua)
 FM.ICON_GROUPS = { places = true, townsfolk = true, professions = true }

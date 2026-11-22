@@ -643,3 +643,66 @@ FM.AREA_LABELS = {
 		"620:344:81:0", 2657, 0.4431, 0.2805,   -- Valley of Bones
 	},
 }
+
+-- AzerothVeil: WoW Forever drew most zones again (their map art 21xx, not the 12xx above): the same places, its pieces
+-- cut at the same spots (only their files' sizes differ). Each new art's labels are its old art's: matched on where
+-- their pieces are (tools: the pieces' offsets in Data/Fog.lua's FM.FOG_PIECES, at least 70% of them shared).
+FM.AREA_LABEL_ALIAS = {
+	[2126] = 1210, [2130] = 1251, [2133] = 1205, [2147] = 1206, [2148] = 1209, [2149] = 1224, [2150] = 1233,
+	[2151] = 1216, [2152] = 1235, [2153] = 1228, [2154] = 1214, [2156] = 1236, [2157] = 1220, [2158] = 1211,
+	[2159] = 1207, [2160] = 1238, [2161] = 1239, [2162] = 1215, [2164] = 1212, [2165] = 1240, [2166] = 1243,
+	[2167] = 1248, [2168] = 1259, [2169] = 1194, [2170] = 1252, [2171] = 1247, [2173] = 1253, [2174] = 1260,
+	[2175] = 1263, [2178] = 1250, [2179] = 1254, [2180] = 1244, [2181] = 1202, [2182] = 1249, [2184] = 1261,
+	[2185] = 1266,
+}
+
+-- AzerothVeil: the capitals' districts (the Map module's "Districts of the capitals"): no table of the game places
+-- them, so each name sits in the middle of the townsfolk who make the district what it is (Data/Townsfolk.lua's
+-- trainers, bankers...), on the city's own map (x, y 0..1). Names in English, shown through L (Locales/).
+--   FM.CITY_DISTRICTS[uiMapID] = { name, x, y, ... }
+FM.CITY_DISTRICTS = {
+	[1454] = {                                  -- Orgrimmar
+		"Valley of Strength", 0.52, 0.66,       -- (bank, inn, auction house)
+		"The Drag", 0.60, 0.47,                 -- (tailors, leatherworkers)
+		"Valley of Honor", 0.76, 0.24,          -- (warriors, hunters, smiths)
+		"Valley of Wisdom", 0.39, 0.36,         -- (shamans)
+		"Valley of Spirits", 0.37, 0.85,        -- (mages, priests)
+		"Cleft of Shadow", 0.46, 0.50,          -- (rogues, warlocks)
+	},
+	[1456] = {                                  -- Thunder Bluff
+		"Elder Rise", 0.77, 0.28,               -- (druids)
+		"Spirit Rise", 0.24, 0.18,              -- (mages, priests, shamans)
+		"Hunter Rise", 0.57, 0.87,              -- (hunters, warriors)
+	},
+	[1453] = {                                  -- Stormwind
+		"Trade District", 0.62, 0.73,           -- (bank, auction house, inn)
+		"Cathedral Square", 0.49, 0.48,         -- (paladins, priests)
+		"Old Town", 0.79, 0.63,                 -- (rogues, warriors)
+		"Dwarven District", 0.62, 0.34,         -- (smiths, engineers, miners)
+		"Mage Quarter", 0.46, 0.85,             -- (mages, warlocks, tailors)
+		"The Park", 0.35, 0.66,                 -- (druids)
+	},
+	[1455] = {                                  -- Ironforge
+		"The Commons", 0.31, 0.66,              -- (bank, auction house)
+		"The Great Forge", 0.52, 0.40,          -- (smiths)
+		"Tinker Town", 0.68, 0.46,              -- (engineers)
+		"Military Ward", 0.69, 0.87,            -- (warriors, hunters)
+		"Mystic Ward", 0.25, 0.08,              -- (mages, priests, paladins)
+		"Forlorn Cavern", 0.51, 0.10,           -- (rogues, warlocks)
+	},
+	[1457] = {                                  -- Darnassus
+		"Temple of the Moon", 0.39, 0.84,       -- (priests, mages)
+		"Warrior's Terrace", 0.60, 0.38,        -- (warriors)
+		"Cenarion Enclave", 0.37, 0.12,         -- (druids, hunters, rogues)
+		"Craftsmen's Terrace", 0.60, 0.19,      -- (alchemists, enchanters, leatherworkers)
+		"Tradesmen's Terrace", 0.62, 0.50,      -- (auction house, merchants)
+	},
+	[1458] = {                                  -- Undercity
+		"Trade Quarter", 0.66, 0.44,            -- (bank, auction house)
+		"Magic Quarter", 0.85, 0.15,            -- (mages, warlocks)
+		"War Quarter", 0.48, 0.16,              -- (warriors, priests, paladins)
+		"Rogues' Quarter", 0.84, 0.73,          -- (rogues)
+		"The Apothecarium", 0.48, 0.74,         -- (alchemists)
+		"Royal Quarter", 0.57, 0.91,
+	},
+}

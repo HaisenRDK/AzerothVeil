@@ -72,6 +72,9 @@ local Map = ns.Modules:Register({
 		{ key = "terrainNames", type = "toggle", default = true, parent = "minimapTerrain",
 			label = L["Places' names up close"],
 			tooltip = L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes."] .. "\n" .. L["With the fog of war, only the places you've explored."] },
+		{ key = "cityDistricts", type = "toggle", default = true, parent = "terrainNames",
+			label = L["Districts of the capitals"],
+			tooltip = L["Over the minimap's terrain, the names of the capitals' districts (Elder Rise, Valley of Wisdom...)."] },
 		{ key = "zoneFishing", type = "toggle", default = false,
 			label = L["Fishing skill of zones"],
 			tooltip = L["Under the zone's name: the fishing skill its waters want."] },
@@ -96,6 +99,7 @@ local function Apply(self, running)
 	db.minimapTerrain = On("minimapTerrain")
 	db.zoneFishing = On("zoneFishing")
 	db.terrainNames = On("terrainNames")
+	db.cityDistricts = On("cityDistricts")
 	db.npcUnexplored = not running or self:IsOptionActive("unexploredNPCs")
 	if was.replaceM ~= db.replaceM and ns.ApplyBindings then ns.ApplyBindings() end   -- (M: ours or Blizzard's)
 	if was.iconScale ~= db.iconScale and ns.Pins and ns.Pins.ApplyScale then ns.Pins.ApplyScale() end

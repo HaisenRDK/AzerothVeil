@@ -120,6 +120,33 @@ function Gather()
 	end
 end
 
+-- AzerothVeil: a quest's level, for "(level) Name" in its tooltip (the Quests module's option): the log's, else
+-- the game's for a quest not taken (when it has it), else Questie's database (when it's there); nil if none knows
+local function QuestLevel(q)
+	local index = C_QuestLog.GetLogIndexForQuestID(q)
+	local info = index and C_QuestLog.GetInfo(index)
+	local lvl = info and FM.Plain(info.level)
+	if type(lvl) == "number" and lvl > 0 then return lvl end
+	if C_QuestLog.GetQuestDifficultyLevel then
+		local ok, l = pcall(C_QuestLog.GetQuestDifficultyLevel, q)
+		l = ok and FM.Plain(l)
+		if type(l) == "number" and l > 0 then return l end
+	end
+	local QL = _G.QuestieLoader
+	if QL and QL.ImportModule then
+		local ok, db = pcall(QL.ImportModule, QL, "QuestieDB")
+		if ok and type(db) == "table" and db.QueryQuestSingle then
+			local ok2, l = pcall(db.QueryQuestSingle, q, "questLevel")
+			if ok2 and type(l) == "number" and l > 0 then return l end
+		end
+	end
+end
+local function TipTitle(q, name)
+	if not (FM.db.questTipLevel and name and name ~= "") then return name end
+	local lvl = QuestLevel(q)
+	return lvl and ("(%d) %s"):format(lvl, name) or name
+end
+
 local function POIEnter(self)
 	local q = self:GetQuestID()
 	if not q then return end
@@ -129,7 +156,7 @@ local function POIEnter(self)
 	local index = C_QuestLog.GetLogIndexForQuestID(q)
 	local info = index and C_QuestLog.GetInfo(index)
 	local c = info and GetQuestDifficultyColor and GetQuestDifficultyColor(info.level)
-	GameTooltip:SetText(C_QuestLog.GetTitleForQuestID(q) or "", c and c.r or 1, c and c.g or 0.82, c and c.b or 0)
+	GameTooltip:SetText(TipTitle(q, C_QuestLog.GetTitleForQuestID(q) or ""), c and c.r or 1, c and c.g or 0.82, c and c.b or 0)
 	local waypoint = q == Super() and C_QuestLog.GetNextWaypointText and C_QuestLog.GetNextWaypointText(q)
 	if waypoint then
 		GameTooltip:AddLine("- " .. waypoint, 1, 1, 1, true)
@@ -492,7 +519,7 @@ local function OfferEnter(self)
 	local o = self.offer
 	if not o then return end
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT", 5, 2)
-	GameTooltip:SetText(o.name or "", 1, 0.82, 0)
+	GameTooltip:SetText(TipTitle(o.questID, o.name or ""), 1, 0.82, 0)
 	if o.line and o.line ~= "" then GameTooltip:AddLine(o.line, 0.8, 0.8, 0.8, true) end
 	GameTooltip:AddLine(AVAILABLE_QUEST or L["Available Quest"], 1, 1, 1)
 	GameTooltip:Show()
