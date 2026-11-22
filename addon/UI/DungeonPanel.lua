@@ -4,11 +4,11 @@
 -- game's fonts and scroll bar), two tabs:
 --   Quests  the quests of your log for that dungeon, their state and progress as the game gives them;
 --           a click unfolds a quest's rewards (the game's own tooltips); Shift-click: its link in chat.
---   Bosses  the dungeon's bosses (portrait, level, floor); a click picks one: its floor up on the map,
---           its marker lit.
--- Only what the data really has: no quest givers, no "available" quests, no loot (DungeonJournal has
--- them: with it, its own pages are used instead of this panel). Built the first time; nothing runs while
--- it's hidden.
+--   Bosses  the dungeon's bosses (portrait with its dragon as on the map, level in a gold circle, floor);
+--           a click picks one: its floor up on the map, its marker lit, its loot (DungeonJournal's, when
+--           it's installed) under it.
+-- Quests with Questie's data when that option is on (Integrations/Questie.lua). The panel is at the map's
+-- right: its tooltips open on its left. Built the first time; nothing runs while it's hidden.
 local _, ns = ...
 local L = ns.L
 local S = ns.Style
@@ -29,6 +29,14 @@ local pending = false
 ---------------------------------------------------------------------------
 -- Pieces, pooled: each refresh puts them back and takes what it needs
 ---------------------------------------------------------------------------
+local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
+local DRAGONS = { [2] = "dragon_rare-elite", [4] = "dragon_rare" }   -- (else the elite's, gold)
+local BOSS_PORTRAIT = 44                 -- a boss's portrait
+local BOSS_X, BOSS_Y = 34, 32            -- its centre in its row (room for its dragon above and on the left)
+local BOSS_TEXT = 92                     -- its name, clear of its dragon's wing
+local BOSS_ROW = 68                      -- a row, then the next
+local LOOT_ICON = 34
+
 local function Take(kind)
 	pool[kind] = pool[kind] or {}
 	local f = table.remove(pool[kind])
@@ -57,6 +65,8 @@ local function Take(kind)
 			f.right = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 			f.right:SetPoint("RIGHT", -4, 0)
 		elseif kind == "boss" then
+			-- its portrait in a ring, a dragon round it (the map's boss pins', Engine/Dungeon.lua: the same
+			-- picture, a 64-pixel portrait's), its level in a gold circle at its bottom left
 			f = CreateFrame("Button", nil, child)
 			f:RegisterForClicks("LeftButtonUp")
 			f:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
@@ -65,43 +75,66 @@ local function Take(kind)
 			f.sel:SetBlendMode("ADD")
 			f.sel:SetVertexColor(1, 0.82, 0, 0.5)
 			f.sel:SetAllPoints()
+			local k = BOSS_PORTRAIT / 64
 			f.portrait = f:CreateTexture(nil, "ARTWORK")
-			f.portrait:SetSize(34, 34)
-			f.portrait:SetPoint("LEFT", 2, 0)
-			f.ring = f:CreateTexture(nil, "OVERLAY")
+			f.portrait:SetSize(BOSS_PORTRAIT, BOSS_PORTRAIT)
+			f.portrait:SetPoint("CENTER", f, "TOPLEFT", BOSS_X, -BOSS_Y)
+			f.ring = f:CreateTexture(nil, "OVERLAY", nil, 1)
 			f.ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 			f.ring:SetTexCoord(0, 0.6, 0, 0.6)
-			f.ring:SetSize(50, 50)
-			f.ring:SetPoint("CENTER", f.portrait, "CENTER", 0, 0)
-			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-			f.text:SetPoint("TOPLEFT", f.portrait, "TOPRIGHT", 8, -3)
-			f.text:SetPoint("RIGHT", -40, 0)
+			f.ring:SetSize(BOSS_PORTRAIT * 1.55, BOSS_PORTRAIT * 1.55)
+			f.ring:SetPoint("CENTER", f.portrait, "CENTER")
+			f.dragon = f:CreateTexture(nil, "OVERLAY", nil, 2)
+			f.dragon:SetSize(256 * k, 128 * k)
+			f.dragon:SetPoint("CENTER", f.portrait, "CENTER", -54 * k, -20 * k)
+			f.badge = CreateFrame("Frame", nil, f)
+			f.badge:SetSize(20, 20)
+			f.badge:SetFrameLevel(f:GetFrameLevel() + 2)
+			f.badge:SetPoint("CENTER", f.portrait, "CENTER", -BOSS_PORTRAIT * 0.36, -BOSS_PORTRAIT * 0.36)
+			f.badgeRing = f.badge:CreateTexture(nil, "BORDER")
+			f.badgeRing:SetTexture(MEDIA .. "dot")
+			f.badgeRing:SetVertexColor(1, 0.78, 0.2)
+			f.badgeRing:SetAllPoints()
+			f.badgeFill = f.badge:CreateTexture(nil, "ARTWORK")
+			f.badgeFill:SetTexture(MEDIA .. "dot")
+			f.badgeFill:SetVertexColor(0.08, 0.05, 0.02)
+			f.badgeFill:SetPoint("TOPLEFT", 2, -2)
+			f.badgeFill:SetPoint("BOTTOMRIGHT", -2, 2)
+			f.badgeText = f.badge:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			f.badgeText:SetPoint("CENTER", 0.5, 0)
+			local font, _, flags = f.badgeText:GetFont()
+			if font then f.badgeText:SetFont(font, 9, flags) end
+			f.badgeSkull = f.badge:CreateTexture(nil, "OVERLAY")
+			f.badgeSkull:SetSize(13, 13)
+			f.badgeSkull:SetPoint("CENTER")
+			f.badgeSkull:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Skull")
+			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+			f.text:SetPoint("LEFT", f, "TOPLEFT", BOSS_TEXT, -BOSS_Y + 1)
+			f.text:SetPoint("RIGHT", -4, 0)
 			f.text:SetJustifyH("LEFT")
 			f.text:SetWordWrap(false)
-			f.sub = f:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+			f.sub = f:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 			f.sub:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -3)
-			f.right = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-			f.right:SetPoint("RIGHT", -4, 0)
 		elseif kind == "loot" then
 			f = CreateFrame("Button", nil, child)
 			f:RegisterForClicks("LeftButtonUp")
 			f.edge = f:CreateTexture(nil, "BORDER")
 			f.edge:SetTexture("Interface\\Buttons\\WHITE8X8")
-			f.edge:SetSize(26, 26)
+			f.edge:SetSize(LOOT_ICON + 2, LOOT_ICON + 2)
 			f.edge:SetPoint("LEFT", 0, 0)
 			f.icon = f:CreateTexture(nil, "ARTWORK")
-			f.icon:SetSize(24, 24)
+			f.icon:SetSize(LOOT_ICON, LOOT_ICON)
 			f.icon:SetPoint("CENTER", f.edge, "CENTER")
 			f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-			f.text:SetPoint("TOPLEFT", f.edge, "TOPRIGHT", 6, -1)
+			f.text = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+			f.text:SetPoint("TOPLEFT", f.edge, "TOPRIGHT", 8, -4)
 			f.text:SetPoint("RIGHT", 0, 0)
 			f.text:SetJustifyH("LEFT")
 			f.text:SetWordWrap(false)
 			f.sub = f:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-			f.sub:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -2)
+			f.sub:SetPoint("TOPLEFT", f.text, "BOTTOMLEFT", 0, -3)
 			f:SetScript("OnEnter", function(self)
-				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 				if not pcall(GameTooltip.SetItemByID, GameTooltip, self.itemID) then GameTooltip:SetText(self.text:GetText() or "") end
 				GameTooltip:Show()
 			end)
@@ -206,7 +239,7 @@ local function QuestsPage()
 			P.Refresh()
 		end)
 		row:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			if not pcall(GameTooltip.SetHyperlink, GameTooltip, "quest:" .. q.questID) then
 				GameTooltip:SetText(q.title or "", 1, 0.82, 0)
 			end
@@ -272,9 +305,9 @@ end
 -- once the server has sent it: asked for, drawn again when it comes), its slot; the game's own tooltip
 local function LootRow(it, y)
 	local row = Take("loot")
-	row:SetPoint("TOPLEFT", PAD + 34, -y)
+	row:SetPoint("TOPLEFT", PAD + 14, -y)
 	row:SetPoint("RIGHT", child, "RIGHT", -PAD, 0)
-	row:SetHeight(26)
+	row:SetHeight(LOOT_ICON + 2)
 	local id = it.itemID
 	local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
 	row.icon:SetTexture(icon or 134400)
@@ -291,7 +324,7 @@ local function LootRow(it, y)
 	end
 	row.sub:SetText(it.slot or "")
 	row.itemID = id
-	return y + 28
+	return y + LOOT_ICON + 6
 end
 
 local function BossesPage()
@@ -305,23 +338,32 @@ local function BossesPage()
 		local row = Take("boss")
 		row:SetPoint("TOPLEFT", PAD - 4, -y)
 		row:SetPoint("RIGHT", child, "RIGHT", -PAD, 0)
-		row:SetHeight(40)
+		row:SetHeight(BOSS_ROW - 4)
 		local picked = selectedBoss == b.key
 		row.sel:SetShown(picked)
 		if not (b.displayID and b.displayID > 0 and SetPortraitTextureFromCreatureDisplayID
 			and pcall(SetPortraitTextureFromCreatureDisplayID, row.portrait, b.displayID)) then
 			row.portrait:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Skull")
 		end
+		row.dragon:SetTexture(MEDIA .. (DRAGONS[b.kind] or "dragon_elite"))
 		row.text:SetText(b.name)
 		local where
 		if not b.floor then where = L["Not placed on the map"]
 		elseif (nFloors or 0) > 1 then where = L["Floor %d"]:format(b.floor) end
 		row.sub:SetText(where or "")
+		-- its level in the gold circle (difficulty colour), or a boss's skull when it has none
 		if b.level then
-			row.right:SetText(b.levelText or tostring(b.level))
-			row.right:SetTextColor(Colour(b.level))
+			row.badgeText:SetText(b.levelText or tostring(b.level))
+			row.badgeText:SetTextColor(Colour(b.level))
+			row.badgeText:Show()
+			row.badgeSkull:Hide()
+			row.badge:Show()
+		elseif b.kind == 3 then
+			row.badgeText:Hide()
+			row.badgeSkull:Show()
+			row.badge:Show()
 		else
-			row.right:SetText(b.kind == 3 and "|TInterface\\TargetingFrame\\UI-TargetingFrame-Skull:14|t" or "")
+			row.badge:Hide()
 		end
 		row:SetScript("OnClick", function()
 			selectedBoss = (selectedBoss ~= b.key) and b.key or nil
@@ -329,21 +371,21 @@ local function BossesPage()
 			P.Refresh()
 		end)
 		row:SetScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 			GameTooltip:SetText(b.name, 1, 0.82, 0)
 			if b.level then GameTooltip:AddLine((LEVEL or L["Level"]) .. " " .. (b.levelText or b.level), Colour(b.level)) end
 			GameTooltip:AddLine(b.floor and L["Click: its loot, and where it stands."] or L["Click: its loot."], 0.6, 0.6, 0.6)
 			GameTooltip:Show()
 		end)
 		row:SetScript("OnLeave", GameTooltip_Hide)
-		y = y + 42
+		y = y + BOSS_ROW
 		-- picked: its loot (DungeonJournal's list, when it's installed)
 		if picked then
 			local loot = module.BossLoot(inst, wing, b)
 			if loot == nil then
-				y = Line(L["Loot isn't in AzerothVeil's own data: with DungeonJournal installed, each boss's loot shows here."], y, 34, 0.7, 0.7, 0.7)
+				y = Line(L["Loot isn't in AzerothVeil's own data: with DungeonJournal installed, each boss's loot shows here."], y, 14, 0.7, 0.7, 0.7)
 			elseif loot == false or #loot == 0 then
-				y = Line(L["No loot known for this boss."], y, 34, 0.7, 0.7, 0.7)
+				y = Line(L["No loot known for this boss."], y, 14, 0.7, 0.7, 0.7)
 			else
 				for _, it in ipairs(loot) do y = LootRow(it, y) end
 			end
