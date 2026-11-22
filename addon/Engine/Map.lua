@@ -11,6 +11,9 @@ FM.Map = Map
 -- one step of the wheel; how much of the world is across the view when M opens it on you
 Map.ZOOM_STEP = 1.35
 Map.OPEN_ACROSS = 220
+-- (AzerothVeil: the zoom the quest log's quests show from (Quests.lua), and the flight masters with them
+-- (Pins.lua): one value for both, so they always come on together)
+Map.QUESTS_ZOOM = 1.7
 
 local S = FM.Style
 local Geo = FM.Geo

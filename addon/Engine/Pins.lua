@@ -17,9 +17,9 @@ local CELL = 24                 -- grid cell, world units
 local GRID_W = 1000
 
 -- minZoom: how far in a category shows from, counted in steps of the wheel from right out (so it's
--- the same whatever the window's size): dungeons and raids from the first, flight masters from the
--- second, every townsfolk kind and Questie's icons from where M opens the map; boats & zeppelins
--- right out already
+-- the same whatever the window's size): dungeons and raids from the first, flight masters with the
+-- quest log's quests (AzerothVeil: Map.QUESTS_ZOOM, before the townsfolk), every townsfolk kind and
+-- Questie's icons from where M opens the map; boats & zeppelins right out already
 -- group: which part of the menu lists it ("places", "townsfolk", "professions", "quests");
 -- data: built-in townsfolk (true: its own list in Data\Townsfolk.lua; a string: that list, filtered by tag)
 local STEP = FM.Map.ZOOM_STEP
@@ -47,7 +47,7 @@ local CAPITALS = {               -- uiMapID, its faction
 	{ 1454, "Horde" }, { 1456, "Horde" }, { 1458, "Horde" },
 }
 local CATS = {
-	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, layer = 5, group = "transport" },   -- (with the townsfolk: M's zoom) (AzerothVeil: the Transports module's)
+	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, minZoom = FM.Map.QUESTS_ZOOM, layer = 5, group = "transport" },   -- (with the townsfolk: M's zoom) (AzerothVeil: the Transports module's)
 	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
 	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "places" },
 	-- (the capitals: only right out (gone at the wheel's first step in), over every other icon: layer 8

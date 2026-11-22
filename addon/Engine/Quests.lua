@@ -21,7 +21,7 @@ Q.PLAYER_PIN_LEVEL = SELECTED_PIN_LEVEL + 2
 local Geo = FM.Geo
 local min, max = math.min, math.max
 -- (zooms: steps of the wheel from right out, the same whatever the window's size)
-local ZONE_ZOOM = 1.7       -- zoom from which every quest's button shows (else only the followed one)
+local ZONE_ZOOM = FM.Map.QUESTS_ZOOM   -- zoom from which every quest's button shows (else only the followed one) (AzerothVeil: Map.lua, 1.7 as PerfectMap's)
 local OFFER_ZOOM = 2.5      -- zoom from which the "!" show
 local PATH_ZOOM = FM.W / FM.Map.OPEN_ACROSS * 0.97   -- ... Questie's patrol paths and the quest areas (with the townsfolk: Pins.lua)
 

@@ -70,6 +70,8 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console
 6. En combat : `/av config` puis Échap ne bloque aucune touche du jeu.
 
 **Transports**
+6c. Zoom (v0.3.5) : en zoomant depuis la vue du monde, les maîtres de vol apparaissent au même cran
+    que les quêtes du journal (avant les PNJ des villes et les icônes de Questie).
 6b. Maîtres de vol : dans l'onglet Transports (« Afficher les maîtres de vol », sous-option « Maîtres de vol
     ennemis »), plus dans l'onglet Lieux ; vos choix d'avant sont repris ; module désactivé : plus aucun.
 7. Ports, tours des zeppelins, tram visibles. À Tanaris (ou tout quai à plusieurs trajets) : **un point
