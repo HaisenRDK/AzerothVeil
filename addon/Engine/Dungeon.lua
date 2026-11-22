@@ -276,6 +276,7 @@ local BOSS_SIZE, BOSS_SCALE = 34, 0.62 * 1.44      -- (MapUtils', a fifth bigger
 local RING = "Interface\\Minimap\\MiniMap-TrackingBorder"
 local MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 local FALLBACK = "Interface\\Icons\\INV_Misc_QuestionMark"
+local GLOW = "Interface\\AddOns\\AzerothVeil\\Media\\glow"
 local DRAGONS = "Interface\\AddOns\\AzerothVeil\\Media\\"   -- (MapUtils' dragons without their level ring: tools/dragons.js)
 local STYLES = {
 	[0] = { ring = { 0.55, 0.5, 0.4 } },
@@ -603,6 +604,10 @@ local function OtherPlace(inst, jb)
 	end
 end
 
+-- AzerothVeil: the boss followed ({ inst, name }), its light (two frames over the layer), lighting it
+-- again (D.FocusBoss, below)
+local focused, halo, Relight
+
 -- (AzerothVeil: collect: a table to note each boss in ({ boss, floor, x, y }; floor nil: on no map),
 -- nothing drawn: the Dungeons module's boss list)
 local function PlaceBosses(inst, index, floorName, collect)
@@ -737,6 +742,7 @@ local function PlaceBosses(inst, index, floorName, collect)
 	for i = n + 1, #bossPins do bossPins[i]:Hide() end
 	for i = ne + 1, #entrancePins do entrancePins[i]:Hide() end
 	List(unlisted)
+	Relight()                          -- AzerothVeil: the boss followed, lit again on its floor
 end
 
 local function DrawData()
@@ -1418,38 +1424,72 @@ function D.CollectBosses(inst)
 	return list
 end
 
--- a boss of the dungeon shown: its floor up, its pin lit for a moment
-local glow
+-- AzerothVeil: a boss of the dungeon shown, followed: its floor up, its pin lit (a soft glow behind it,
+-- a gold ring pulsing over it) until it's let go (FocusBoss(nil)), another is followed, or another
+-- dungeon is shown. On another floor, its light waits; back on its floor, lit again (Relight, after each
+-- placing of the pins). Nothing runs but the light's own animation, while it's shown.
+
+local function NewHalo()
+	local back = CreateFrame("Frame", nil, layer)
+	back.tex = back:CreateTexture(nil, "ARTWORK")
+	back.tex:SetTexture(GLOW)
+	back.tex:SetBlendMode("ADD")
+	back.tex:SetVertexColor(1, 0.75, 0.15, 1)
+	back.tex:SetAllPoints()
+	local front = CreateFrame("Frame", nil, layer)
+	front.tex = front:CreateTexture(nil, "OVERLAY")
+	front.tex:SetTexture(RING)
+	front.tex:SetTexCoord(0, 0.6, 0, 0.6)
+	front.tex:SetBlendMode("ADD")
+	front.tex:SetVertexColor(1, 0.85, 0.25, 1)
+	front.tex:SetAllPoints()
+	for _, f in ipairs({ back, front }) do
+		f.anim = f:CreateAnimationGroup()
+		local a = f.anim:CreateAnimation("Alpha")
+		a:SetFromAlpha(1) a:SetToAlpha(0.35) a:SetDuration(0.7)
+		f.anim:SetLooping("BOUNCE")
+	end
+	return { back = back, front = front }
+end
+
+function Relight()
+	local pin
+	if focused and view and view.inst == focused.inst then
+		for _, p in ipairs(bossPins) do
+			if p:IsShown() and p.boss and p.boss[1] == focused.name then pin = p break end
+		end
+	elseif focused then
+		focused = nil                  -- (another dungeon: let go)
+	end
+	if not pin then
+		if halo then
+			for _, f in pairs(halo) do f.anim:Stop() f:Hide() end
+		end
+		return
+	end
+	halo = halo or NewHalo()
+	local size = BOSS_SIZE * pin:GetScale()
+	local level = pin:GetFrameLevel()
+	for key, f in pairs(halo) do
+		local k = key == "back" and 3.4 or 2.2
+		f:ClearAllPoints()
+		f:SetPoint("CENTER", pin, "CENTER")
+		f:SetSize(size * k, size * k)
+		f:SetFrameLevel(key == "back" and math.max(0, level - 1) or level + 3)
+		f:Show()
+		if not f.anim:IsPlaying() then f.anim:Play() end
+	end
+end
+
+-- name nil: let go of the one followed
 function D.FocusBoss(name)
-	if not (view and view.inst and name) then return false end
+	if not name then focused = nil Relight() return true end
+	if not (view and view.inst) then return false end
 	for _, e in ipairs(D.CollectBosses(view.inst)) do
 		if e.boss[1] == name and e.floor then
+			focused = { inst = view.inst, name = name }
 			if e.floor ~= view.floor then D.SetFloor(e.floor) end
-			for _, p in ipairs(bossPins) do
-				if p:IsShown() and p.boss and p.boss[1] == name then
-					if not glow then
-						glow = layer:CreateTexture(nil, "OVERLAY", nil, 7)
-						glow:SetTexture(RING)
-						glow:SetTexCoord(0, 0.6, 0, 0.6)
-						glow:SetBlendMode("ADD")
-						glow:SetVertexColor(1, 0.82, 0.2, 1)
-						glow.anim = glow:CreateAnimationGroup()
-						local a = glow.anim:CreateAnimation("Alpha")
-						a:SetFromAlpha(1) a:SetToAlpha(0.25) a:SetDuration(0.5)
-						glow.anim:SetLooping("BOUNCE")
-					end
-					glow:ClearAllPoints()
-					glow:SetPoint("CENTER", p, "CENTER")
-					local size = BOSS_SIZE * p:GetScale() * 1.9
-					glow:SetSize(size, size)
-					glow:Show()
-					glow.anim:Play()
-					local token = {}
-					glow.token = token
-					C_Timer.After(3, function() if glow.token == token then glow.anim:Stop() glow:Hide() end end)
-					return true
-				end
-			end
+			Relight()
 			return true
 		end
 	end

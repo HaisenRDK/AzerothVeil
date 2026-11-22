@@ -374,8 +374,9 @@ local function BossesPage()
 			row.badge:Hide()
 		end
 		row:SetScript("OnClick", function()
+			-- picked: followed on the map (lit until it's clicked again: let go, its loot folded)
 			selectedBoss = (selectedBoss ~= b.key) and b.key or nil
-			if selectedBoss and b.floor then ns.Dungeon.FocusBoss(b.key) end
+			ns.Dungeon.FocusBoss(selectedBoss and b.floor and b.key or nil)
 			P.Refresh()
 		end)
 		row:SetScript("OnEnter", function(self)
@@ -493,7 +494,10 @@ end
 -- (Modules/Dungeons.lua) m: the module; i: the dungeon's instance
 function P.Show(m, i)
 	if not frame then Build() end
-	if i ~= inst then selectedBoss = nil wipe(expanded) scroll:SetVerticalScroll(0) end
+	if i ~= inst then
+		selectedBoss = nil wipe(expanded) scroll:SetVerticalScroll(0)
+		ns.Dungeon.FocusBoss(nil)
+	end
 	module, inst = m, i
 	frame:Show()
 	P.Refresh()
@@ -503,6 +507,7 @@ function P.Hide()
 	if frame then frame:Hide() end
 	inst = nil
 	selectedBoss = nil
+	if ns.Dungeon then ns.Dungeon.FocusBoss(nil) end
 	GameTooltip_Hide()
 end
 
