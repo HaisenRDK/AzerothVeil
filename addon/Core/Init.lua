@@ -40,3 +40,33 @@ function ns.IsAddOnLoaded(name)
 	local ok, result = pcall(loaded, name)
 	return ok and result and true or false
 end
+
+-- Escape closes a window of ours, heard as the map's window hears it (Engine/Map.lua): never through the
+-- game's UISpecialFrames (a name an addon puts there taints the game's Escape handling). Out of combat the
+-- key is kept from the game; in combat it closes the window and goes on to the game. Keyboard input is
+-- only ever taken out of combat (letting keys through can't be set in a fight): asked in one, it waits
+-- for its end, so the player's keys are never held.
+function ns.TakeEscape(f, onEscape)
+	local function Take()
+		f:EnableKeyboard(true)
+		f:SetPropagateKeyboardInput(true)
+		f:SetScript("OnKeyDown", function(self, key)
+			if InCombatLockdown() then
+				if key == "ESCAPE" then local close = onEscape or self.Hide close(self) end
+				return
+			end
+			if key == "ESCAPE" then
+				self:SetPropagateKeyboardInput(false)
+				local close = onEscape or self.Hide
+				close(self)
+				C_Timer.After(0, function() if not InCombatLockdown() then self:SetPropagateKeyboardInput(true) end end)
+			else
+				self:SetPropagateKeyboardInput(true)
+			end
+		end)
+	end
+	if not InCombatLockdown() then Take() return end
+	local wait = CreateFrame("Frame")
+	wait:RegisterEvent("PLAYER_REGEN_ENABLED")
+	wait:SetScript("OnEvent", function(self) self:UnregisterAllEvents() Take() end)
+end

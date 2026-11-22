@@ -45,7 +45,13 @@ L["Disabled: its settings are kept and come back when it's enabled."] =
 	"Désactivé : ses réglages sont conservés et reviennent à sa réactivation."
 L["Not running"] = "Inactif"
 L["Disabled: its settings are kept."] = "Désactivé : ses réglages sont conservés."
-L["The same settings are in the map's gear menu."] = "Les mêmes réglages sont dans le menu (roue dentée) de la carte."
+L["The same settings are in AzerothVeil's options window (/av config, the minimap button, the map's gear)."] =
+	"Les mêmes réglages sont dans la fenêtre d'options d'AzerothVeil (/av config, le bouton de la minicarte, la roue dentée de la carte)."
+L["Settings"] = "Réglages"
+L["Minimap button"] = "Bouton de la minicarte"
+L["Left-click: open or close the map"] = "Clic gauche : ouvrir ou fermer la carte"
+L["Right-click: options"] = "Clic droit : options"
+L["Drag: move this button"] = "Glisser : déplacer ce bouton"
 L["Enable this module"] = "Activer le module"
 L["Reload the interface"] = "Recharger l'interface"
 L["This module changed parts of the game that can only be put back by a reload."] =

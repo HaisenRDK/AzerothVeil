@@ -1,12 +1,9 @@
 -- AzerothVeil — UI/Options.lua
--- The modules' options outside the map, shown in two places, both drawn with Blizzard's own pieces:
---   * AzerothVeil's own window (/av config): the classic metal frame (PortraitFrameTemplate without its
---     portrait, as the map's window), moved by its title bar, kept on screen, its place remembered
---     (AzerothVeilDB.core.optionsWindow), closed by its button or Escape;
---   * the game's Options > AddOns > AzerothVeil page: the same view, editable there too.
--- (The main screen is the map's own gear menu, Engine/Menu.lua: one tab per module, built from the same
--- declarations. All three read and write only through the module manager, and are refreshed on its
--- messages: a change made in one shows at once in the others.)
+-- The modules' options in the game's Options > AddOns > AzerothVeil page, editable there, drawn with
+-- Blizzard's own pieces. (AzerothVeil's options screen is its own window, Engine/Menu.lua: the map's gear,
+-- /av config, the minimap button; one tab per module, built from the same declarations. Both read and
+-- write only through the module manager, and are refreshed on its messages: a change made in one shows
+-- at once in the other.)
 --
 -- A view: left, the modules, each in its state's colour; right, the module picked, with the header
 -- every module gets (its title, and on the same line its "Enable" check box), what it does, its state,
@@ -20,11 +17,9 @@ local Controls = ns.Controls
 local Options = {}
 ns.Options = Options
 
-local WIN_W, WIN_H = 780, 620
 local LIST_W = 200
 local ROW_H = 22
 local PAD = 14
-local EDGE = { l = 7, r = 7, t = 27, b = 7 }   -- (inside the classic frame: as the map's, Style.FRAME)
 
 local COLORS = {
 	active = { 0.25, 1, 0.25 },
@@ -33,7 +28,7 @@ local COLORS = {
 }
 
 local views = {}              -- every view built (the window's, the Settings page's)
-local win, category
+local category
 
 local function Inset(parent)
 	local ok, f = pcall(CreateFrame, "Frame", nil, parent, "InsetFrameTemplate")
@@ -139,7 +134,7 @@ local function NewView(host, top, bottom, left, right)
 	foot:SetPoint("BOTTOMLEFT", 10, 10)
 	foot:SetPoint("BOTTOMRIGHT", -10, 10)
 	foot:SetJustifyH("LEFT")
-	foot:SetText(L["The same settings are in the map's gear menu."])
+	foot:SetText(L["The same settings are in AzerothVeil's options window (/av config, the minimap button, the map's gear)."])
 
 	-- the module picked: one header for every module, its title and its switch on one line
 	local head = v.head
@@ -200,134 +195,13 @@ function Options.Refresh()
 end
 
 ---------------------------------------------------------------------------
--- The window
+-- /av config [module]: AzerothVeil's options window (Engine/Menu.lua), on that module's tab if named;
+-- toggled when none is
 ---------------------------------------------------------------------------
-local function SavePosition()
-	local left, top = win:GetLeft(), win:GetTop()
-	if not left then return end
-	Core().optionsWindow = { left = left, top = top }
-	win:ClearAllPoints()
-	win:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-end
-
-local function PlaceWindow()
-	local pos = Core().optionsWindow
-	win:ClearAllPoints()
-	if type(pos) == "table" and tonumber(pos.left) and tonumber(pos.top) then
-		win:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos.left, pos.top)
-	else
-		win:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
-	end
-end
-
--- Escape closes it, heard as the map's window hears it (Engine/Map.lua): never through the game's
--- UISpecialFrames (taint). Out of combat the key is kept from the game; in combat it closes and goes on.
-local function TakeEscape(f)
-	f:EnableKeyboard(true)
-	if not InCombatLockdown() then f:SetPropagateKeyboardInput(true) end
-	f:SetScript("OnKeyDown", function(self, key)
-		if InCombatLockdown() then
-			if key == "ESCAPE" then self:Hide() end
-			return
-		end
-		if key == "ESCAPE" then
-			self:SetPropagateKeyboardInput(false)
-			self:Hide()
-			C_Timer.After(0, function() if not InCombatLockdown() then self:SetPropagateKeyboardInput(true) end end)
-		else
-			self:SetPropagateKeyboardInput(true)
-		end
-	end)
-end
-
-local function BuildWindow()
-	local blizz = false
-	local ok, f = pcall(CreateFrame, "Frame", "AzerothVeilOptionsWindow", UIParent, "PortraitFrameTemplate")
-	if ok and f then
-		win, blizz = f, true
-	else
-		win = CreateFrame("Frame", "AzerothVeilOptionsWindow", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-		if win.SetBackdrop then
-			win:SetBackdrop({ bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-				edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true, tileSize = 32, edgeSize = 32,
-				insets = { left = 11, right = 12, top = 12, bottom = 11 } })
-		end
-	end
-	win:Hide()
-	win:SetSize(WIN_W, WIN_H)
-	win:SetFrameStrata("DIALOG")
-	win:SetToplevel(true)
-	win:SetClampedToScreen(true)
-	win:SetMovable(true)
-	win:EnableMouse(true)
-	local title = ns.TITLE .. "  |cff9a9a9a" .. (ns.VERSION or "") .. "|r"
-	if blizz then
-		-- (Blizzard's frame without its portrait, its corner closed as its own windows without one are)
-		if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, win) end
-		if win.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
-			pcall(NineSliceUtil.ApplyLayoutByName, win.NineSlice, "ButtonFrameTemplateNoPortrait")
-		end
-		local pc = win.PortraitContainer or win.portrait
-		if pc then pc:Hide() end
-		if win.SetTitle then win:SetTitle(title) elseif win.TitleText then win.TitleText:SetText(title) end
-	else
-		local t = win:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-		t:SetPoint("TOP", 0, -8)
-		t:SetText(title)
-	end
-	local close = win.CloseButton
-	if not close then
-		close = CreateFrame("Button", nil, win, "UIPanelCloseButton")
-		close:SetPoint("TOPRIGHT", 0, 0)
-	end
-	close:SetScript("OnClick", function() win:Hide() end)
-
-	-- the title bar: drag to move (clear of the close button, over the frame's own parts)
-	local bar = CreateFrame("Frame", nil, win)
-	bar:SetPoint("TOPLEFT", 8, 0)
-	bar:SetPoint("TOPRIGHT", -30, 0)
-	bar:SetHeight(22)
-	local level = win:GetFrameLevel()
-	for _, k in ipairs({ "NineSlice", "TitleContainer", "CloseButton" }) do
-		local part = win[k]
-		if part and part.GetFrameLevel then level = math.max(level, part:GetFrameLevel()) end
-	end
-	bar:SetFrameLevel(level + 2)
-	close:SetFrameLevel(level + 3)
-	bar:EnableMouse(true)
-	bar:RegisterForDrag("LeftButton")
-	bar:SetScript("OnDragStart", function() win:StartMoving() end)
-	bar:SetScript("OnDragStop", function() win:StopMovingOrSizing() SavePosition() end)
-
-	win.view = NewView(win, EDGE.t + 4, EDGE.b + 2, EDGE.l + 2, EDGE.r + 2)
-
-	-- (keyboard taken only out of combat: built in a fight, Escape waits for its end, keys never held)
-	if InCombatLockdown() then
-		ns.Events:Register("optionsKeys", "PLAYER_REGEN_ENABLED", function()
-			ns.Events:Unregister("optionsKeys", "PLAYER_REGEN_ENABLED")
-			TakeEscape(win)
-		end)
-	else
-		TakeEscape(win)
-	end
-	win:SetScript("OnShow", function() PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_OPEN or 839) win.view:Refresh() end)
-	win:SetScript("OnHide", function() PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_CLOSE or 840) end)
-	PlaceWindow()
-end
-
--- /av config [module]: the window (a module picked if named); toggled when none is named
 function Options.Open(moduleName)
-	if not win then BuildWindow() end
-	if moduleName and MM:Get(moduleName) then
-		win.view.selected = moduleName
-		Core().optionsModule = moduleName
-	elseif win:IsShown() then
-		win:Hide()
-		return
-	end
-	win:Show()
-	win:Raise()
-	win.view:Refresh()
+	local Menu = ns.Menu
+	if not Menu then return end
+	if moduleName and MM:Get(moduleName) then Menu.Open("module_" .. moduleName) else Menu.Toggle() end
 end
 
 ---------------------------------------------------------------------------

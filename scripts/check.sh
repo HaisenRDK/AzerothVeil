@@ -54,7 +54,7 @@ grep -q '^## SavedVariables: AzerothVeilDB' <(tr -d '\r' < "$TOC") || fail "the 
 echo "[3/6] globals written"
 # the globals the addon may write: its namespace, SavedVariables, slash command, key binding, the
 # Blizzard-required names; and the engine's (PerfectMap's) own ones, kept as they were
-ALLOWED='^(AzerothVeil|AzerothVeilDB|AzerothVeil_Toggle|SLASH_AZEROTHVEIL1|SLASH_AZEROTHVEIL2|SlashCmdList|BINDING_HEADER_AZEROTHVEIL|BINDING_NAME_AZEROTHVEIL_TOGGLE|QUESTIE_TOWNSFOLK_KEYS)$'
+ALLOWED='^(AzerothVeil|AzerothVeilDB|AzerothVeil_Toggle|SLASH_AZEROTHVEIL1|SLASH_AZEROTHVEIL2|SlashCmdList|BINDING_HEADER_AZEROTHVEIL|BINDING_NAME_AZEROTHVEIL_TOGGLE|QUESTIE_TOWNSFOLK_KEYS|AzerothVeil_OnAddonCompartmentClick)$'
 for f in "${LUA_FILES[@]}"; do
 	while read -r name; do
 		[[ -z "$name" ]] && continue

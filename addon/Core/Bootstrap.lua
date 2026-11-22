@@ -20,4 +20,5 @@ ns.Events:Register(CORE, "PLAYER_LOGIN", function()
 	end
 	ns.Modules:Start()
 	if ns.Options and ns.Options.Register then ns.SafeCall(ns.Options.Register) end
+	if ns.MinimapButton then ns.SafeCall(ns.MinimapButton.Init) end
 end)

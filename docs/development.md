@@ -56,18 +56,17 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc` modifié), `/console
 2. Client en français : menu ⚙ de la carte, infobulles des icônes, journal de quêtes, carte de donjon en
    français. Les noms de zones et villes sont ceux du jeu.
 
-**Écrans d'options (menu ⚙ de la carte = écran principal)**
-3. Menu ⚙ de la carte : onglets « Transports » et « Amis & guilde » avec « Activer le module », son état,
-   et toutes les options (bateaux, zeppelins, tram, tracés, suivi…) avec leurs icônes ; aucun bouton de
-   renvoi. Module désactivé : options grisées et non cliquables, valeurs conservées.
-3b. Changer une option dans le menu ⚙ : elle change aussitôt dans `/av config` et dans Options > AddOns >
-   AzerothVeil (et inversement, depuis chacun des trois écrans).
-3c. `/av config` ouvre la fenêtre (cadre Blizzard classique), `/av config` à nouveau la ferme ; croix et
-   Échap la ferment ; Options > AddOns > AzerothVeil affiche directement la liste des modules et leurs réglages.
-4. Déplacer la fenêtre par sa barre de titre ; impossible de la sortir de l'écran ; `/reload` : elle
-   rouvre au même endroit.
-5. Pour chaque module : titre et case « Activer le module » sur la même ligne. Décocher : réglages grisés
-   avec leurs valeurs ; recocher : valeurs inchangées.
+**Fenêtre d'options (écran principal) et bouton de minicarte**
+3. Bouton de minicarte : clic gauche ouvre/ferme la carte, clic droit ouvre/ferme les options, glisser le
+   déplace autour de la minicarte (position gardée après `/reload`) ; avec FlareUI, il est rangé dans son
+   tiroir. Onglet Carte : « Bouton de la minicarte » le masque/affiche. Compartiment d'addons du jeu : mêmes clics.
+4. Fenêtre d'options : s'ouvre carte fermée ; déplaçable par sa barre de titre, ne sort pas de l'écran ;
+   poignée en bas à droite : agrandit/réduit toute la fenêtre ; position et taille gardées après `/reload` ;
+   croix et Échap la ferment ; elle reste ouverte quand on ferme la carte.
+5. Onglets Transports et Amis & guilde : en-tête encadré (icône, titre, case d'activation à côté du titre,
+   description, état), puis boîtes « Affichage » / « Fonctionnalités » (ou « Réglages ») en deux colonnes.
+   Décocher le module : options grisées et non cliquables, valeurs conservées.
+5b. Un changement dans la fenêtre se voit aussitôt dans Options > AddOns > AzerothVeil, et inversement.
 6. En combat : `/av config` puis Échap ne bloque aucune touche du jeu.
 
 **Transports**

@@ -11,8 +11,8 @@ local ICON = "Interface\\Icons\\"
 local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local TRACK = "Interface\\Minimap\\tracking\\"
 
-local TAB_W = 128                 -- the tabs' column
-local COL_W = 214                 -- each of a page's two columns
+local TAB_W = 156                 -- the tabs' column (AzerothVeil: wider, as the whole window)
+local COL_W = 262                 -- each of a page's two columns
 local GAP = 12
 local ROW = 22
 local PAD = 10
@@ -119,61 +119,132 @@ local function Depth(m, spec)
 	return d
 end
 
-function Column:ModuleSetting(m, spec)
-	local d = Depth(m, spec)
-	local r = S.SwitchRow(self.page, spec.label or spec.key, IconOf(spec.icon),
-		function() return MM:GetSetting(m.name, spec.key) end,
-		function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, self.w - d * INDENT)
-	r:SetPoint("TOPLEFT", self.x + d * INDENT, self.y)
-	r.tip = { spec.label, spec.tooltip }
-	rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
-	self.y = self.y - ROW
+-- A module's page, as FlareUI lays its own out (drawn here with the game's pieces): a header box with
+-- the module's icon, its title and, right beside it, its on/off check box, what it does and its state;
+-- then a box for each section of its settings (each "header" of its declaration starts one), its
+-- options in two columns. Greyed out (and not clickable) while the module or the option they hang from
+-- is off, their saved values kept.
+local BOX_BG = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
+local BOX_EDGE = "Interface\\Tooltips\\UI-Tooltip-Border"
+local function Box(parent, alpha)
+	local f = CreateFrame("Frame", nil, parent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+	if f.SetBackdrop then
+		f:SetBackdrop({ bgFile = BOX_BG, edgeFile = BOX_EDGE, tile = true, tileSize = 16, edgeSize = 14,
+			insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		f:SetBackdropColor(1, 1, 1, alpha)
+		f:SetBackdropBorderColor(0.78, 0.62, 0.36, 0.9)
+	end
+	return f
 end
 
--- the switch every module has: on or off, and under it its state (why it doesn't run, if it doesn't)
-function Column:ModuleSwitch(m)
-	local r = S.SwitchRow(self.page, L["Enable this module"], IconOf(m.icon),
-		function() return MM:IsEnabled(m.name) end,
-		function(v) MM:SetEnabled(m.name, v) M.Refresh() end, self.w)
-	r:SetPoint("TOPLEFT", self.x, self.y)
-	r.tip = { m.title, m.description }
-	rows[#rows + 1] = r
-	self.y = self.y - ROW
-	local state = S.Text(self.page, 10, S.DIM)
-	state:SetPoint("TOPLEFT", self.x + 4, self.y - 2)
-	state:SetWidth(self.w - 8)
+local STATE_COLOR = { active = { 0.4, 0.9, 0.4 }, disabled = { 0.6, 0.6, 0.6 }, unavailable = { 1, 0.55, 0.3 } }
+
+local function ModuleHeader(page, m, y, width)
+	local hb = Box(page, 0.9)
+	hb:SetPoint("TOPLEFT", 0, y)
+	hb:SetWidth(width)
+	local icon = hb:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(36, 36)
+	icon:SetPoint("TOPLEFT", 12, -12)
+	S.SetIcon(icon, IconOf(m.icon) or "Interface\\Icons\\INV_Misc_Gear_01")
+	local title = hb:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+	title:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, -1)
+	title:SetText(m.title)
+	local check = CreateFrame("CheckButton", nil, hb, "UICheckButtonTemplate")
+	check:SetSize(28, 28)
+	check:SetPoint("LEFT", title, "RIGHT", 6, 0)
+	check:SetScript("OnClick", function(self) MM:SetEnabled(m.name, self:GetChecked()) M.Refresh() end)
+	check:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(L["Enable this module"], 1, 0.82, 0)
+		GameTooltip:Show()
+	end)
+	check:SetScript("OnLeave", GameTooltip_Hide)
+	local desc = hb:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+	desc:SetWidth(width - 12 - 36 - 10 - 14)
+	desc:SetJustifyH("LEFT")
+	desc:SetSpacing(2)
+	desc:SetTextColor(0.75, 0.75, 0.75)
+	desc:SetText(m.description or "")
+	local state = hb:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	state:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -6)
+	state:SetWidth(width - 12 - 36 - 10 - 14)
 	state:SetJustifyH("LEFT")
-	state:SetWordWrap(false)
+	local h = 12 + 1 + title:GetStringHeight() + 6 + desc:GetStringHeight() + 6 + 14 + 12
+	hb:SetHeight(math.max(64, h))
 	rows[#rows + 1] = { Refresh = function()
+		check:SetChecked(MM:IsEnabled(m.name))
 		local st, reason = MM:State(m.name)
-		if st == "active" then state:SetText(L["Active"]) state:SetTextColor(0.4, 0.9, 0.4)
-		elseif st == "disabled" then state:SetText(L["Disabled: its settings are kept."]) state:SetTextColor(0.6, 0.6, 0.6)
-		else state:SetText(L["Not running"] .. (reason and (": " .. reason) or "")) state:SetTextColor(1, 0.55, 0.3) end
+		local c = STATE_COLOR[st] or STATE_COLOR.disabled
+		state:SetText(st == "active" and L["Active"] or st == "disabled" and L["Disabled: its settings are kept."]
+			or (L["Not running"] .. (reason and (": " .. reason) or "")))
+		state:SetTextColor(c[1], c[2], c[3])
 	end }
-	self.y = self.y - 18
+	return y - hb:GetHeight() - 10
 end
 
--- a module's page: its title and switch, then its options; its second header (if any) starts the
--- right column
-local function ModulePage(page, m)
-	local a, b = NewColumn(page, 0), NewColumn(page, COL_W + GAP)
-	a:Section(m.title)
-	a:ModuleSwitch(m)
-	local col, headers = a, 0
-	for _, spec in ipairs(m.settings) do
-		if spec.type == "header" then
-			headers = headers + 1
-			if headers == 2 then col = b end
-			col:Section(spec.label or "")
-		elseif spec.type == "toggle" then
-			col:ModuleSetting(m, spec)
-		elseif spec.type == "range" then
-			col:Slider(spec.label or spec.key, IconOf(spec.icon), spec.min or 0, spec.max or 1, spec.step or 0.05,
+-- a section's box: its title, a rule, then its options two by two (a child option indented in its cell)
+local function ModuleSection(page, m, label, specs, y, width)
+	local sb = Box(page, 0.55)
+	sb:SetPoint("TOPLEFT", 0, y)
+	sb:SetWidth(width)
+	local t = sb:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	t:SetPoint("TOPLEFT", 12, -10)
+	t:SetText(label)
+	local rule = sb:CreateTexture(nil, "ARTWORK")
+	rule:SetColorTexture(0.78, 0.62, 0.36, 0.35)
+	rule:SetHeight(1)
+	rule:SetPoint("TOPLEFT", 10, -28)
+	rule:SetPoint("TOPRIGHT", -10, -28)
+	local cellW = (width - 20 - 12) / 2
+	local slot, top = 0, -34
+	for _, spec in ipairs(specs) do
+		if spec.type == "toggle" then
+			local col, row = slot % 2, math.floor(slot / 2)
+			local d = Depth(m, spec)
+			local r = S.SwitchRow(sb, spec.label or spec.key, IconOf(spec.icon),
 				function() return MM:GetSetting(m.name, spec.key) end,
-				function(v) MM:SetSetting(m.name, spec.key, v) end, spec.fmt)
+				function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, cellW - d * INDENT)
+			r:SetPoint("TOPLEFT", 10 + col * (cellW + 12) + d * INDENT, top - row * ROW)
+			r.tip = { spec.label, spec.tooltip }
+			rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
+			slot = slot + 1
+		elseif spec.type == "range" then
+			if slot % 2 == 1 then slot = slot + 1 end           -- (a slider: a line of its own)
+			local f = S.Slider(sb, spec.label or spec.key, spec.min or 0, spec.max or 1, spec.step or 0.05,
+				function() return MM:GetSetting(m.name, spec.key) end,
+				function(v) MM:SetSetting(m.name, spec.key, v) end, spec.fmt, cellW, IconOf(spec.icon))
+			f:SetPoint("TOPLEFT", 10, top - math.floor(slot / 2) * ROW - 2)
+			slot = slot + 4
 		end
 	end
-	return math.min(a.y, b.y)
+	local nRows = math.ceil(slot / 2)
+	sb:SetHeight(34 + nRows * ROW + 10)
+	return y - sb:GetHeight() - 8
+end
+
+local function ModulePage(page, m)
+	local width = COL_W * 2 + GAP
+	local y = ModuleHeader(page, m, 0, width)
+	-- (its settings cut into sections at each header; the first ones, before any, under "Settings")
+	local sections, current = {}, nil
+	for _, spec in ipairs(m.settings) do
+		if spec.type == "header" then
+			current = { label = spec.label or "", specs = {} }
+			sections[#sections + 1] = current
+		elseif spec.type == "toggle" or spec.type == "range" then
+			if not current then
+				current = { label = L["Settings"], specs = {} }
+				sections[#sections + 1] = current
+			end
+			current.specs[#current.specs + 1] = spec
+		end
+	end
+	for _, sec in ipairs(sections) do
+		if #sec.specs > 0 then y = ModuleSection(page, m, sec.label, sec.specs, y, width) end
+	end
+	return y
 end
 
 local function Cats(group)
@@ -217,6 +288,13 @@ function BUILD.map(page)
 		function() return FM.db.reopen == "player" end,
 		function(v) FM.db.reopen = v and "player" or "last" end,
 		{ L["Centre on me when opened"], L["Off: it opens where you left it."] })
+	-- (AzerothVeil: the minimap button, UI/MinimapButton.lua)
+	if FM.MinimapButton then
+		a:Switch(L["Minimap button"], FM.MEDIA .. "icon",
+			function() return FM.MinimapButton.IsShown() end,
+			function(v) FM.MinimapButton.SetShown(v) end,
+			{ L["Minimap button"], L["Left-click: open or close the map"] .. "\n" .. L["Right-click: options"] })
+	end
 	a:Option(L["Remember last zoom"], nil, "rememberZoom", { L["Remember last zoom"],
 		L["The map opens at the zoom you closed it at."], L["Off: it always opens at the same zoom."] })
 	a:Option(L["Highlight zone under cursor"], nil, "hoverHighlight", { L["Highlight zone under cursor"],
@@ -356,18 +434,25 @@ local function Build()
 	-- classic: the map's own frame (Blizzard's window without a portrait, its title and close button), the
 	-- pages in an inset as the map is; modern: a flat panel
 	local blizz = false
+	-- (AzerothVeil: a window of its own, AzerothVeil's options screen, no longer hung on the map: moved by
+	-- its title bar, resized by its corner grip, kept on screen, where and how big it was left remembered,
+	-- closed by its button or Escape; opened by the map's gear, /av config and the minimap button)
 	if S.classic then
-		local ok, f = pcall(CreateFrame, "Frame", nil, AzerothVeilFrame, "PortraitFrameTemplate")
+		local ok, f = pcall(CreateFrame, "Frame", "AzerothVeilOptions", UIParent, "PortraitFrameTemplate")
 		if ok and f then panel, blizz = f, true end
 	end
-	panel = panel or CreateFrame("Frame", nil, AzerothVeilFrame)
-	panel:SetFrameLevel(AzerothVeilFrame:GetFrameLevel() + 40)
+	panel = panel or CreateFrame("Frame", "AzerothVeilOptions", UIParent)
+	panel:SetFrameStrata("DIALOG")
+	panel:SetToplevel(true)
+	panel:SetClampedToScreen(true)
+	panel:SetMovable(true)
 	panel:EnableMouse(true)
 	panel:EnableMouseWheel(true)
 	panel:SetScript("OnMouseWheel", function() end)
 	if blizz then
-		if panel.SetTitle then panel:SetTitle(L["Options"])
-		elseif panel.TitleText then panel.TitleText:SetText(L["Options"]) end
+		local title = "AzerothVeil  |cff9a9a9a" .. L["Options"] .. "|r"
+		if panel.SetTitle then panel:SetTitle(title)
+		elseif panel.TitleText then panel.TitleText:SetText(title) end
 		if ButtonFrameTemplate_HidePortrait then pcall(ButtonFrameTemplate_HidePortrait, panel) end
 		if panel.NineSlice and NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
 			pcall(NineSliceUtil.ApplyLayoutByName, panel.NineSlice, "ButtonFrameTemplateNoPortrait")
@@ -445,18 +530,97 @@ local function Build()
 	foot:SetWordWrap(false)
 	foot:SetText(L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoint)   /av help"])
 
+	-- (AzerothVeil: moved by the title bar, over the frame's own parts, clear of the close button)
+	local bar = CreateFrame("Frame", nil, panel)
+	bar:SetPoint("TOPLEFT", 8, 0)
+	bar:SetPoint("TOPRIGHT", -30, 0)
+	bar:SetHeight(22)
+	bar:SetFrameLevel(top + 3)
+	if panel.CloseButton then panel.CloseButton:SetFrameLevel(top + 4) end
+	bar:EnableMouse(true)
+	bar:RegisterForDrag("LeftButton")
+	bar:SetScript("OnDragStart", function() panel:StartMoving() end)
+	bar:SetScript("OnDragStop", function() panel:StopMovingOrSizing() M.SavePlace() end)
+	-- (... and resized by the corner grip: the whole window and its contents, kept in proportion, its
+	-- top-left corner staying where it is)
+	local grip = CreateFrame("Button", nil, panel)
+	grip:SetSize(16, 16)
+	grip:SetPoint("BOTTOMRIGHT", -4, 4)
+	grip:SetFrameLevel(top + 5)
+	grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+	grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+	local sizing
+	grip:SetScript("OnMouseDown", function()
+		local x = GetCursorPosition()
+		local es = panel:GetEffectiveScale()
+		sizing = { x = x, scale = panel:GetScale(), width = panel:GetWidth() * es,
+			left = panel:GetLeft() * es, top = panel:GetTop() * es }
+		grip:SetScript("OnUpdate", function()
+			local cx = GetCursorPosition()
+			local k = (sizing.width + (cx - sizing.x)) / sizing.width
+			local scale = math.min(M.MAX_SCALE, math.max(M.MIN_SCALE, sizing.scale * k))
+			panel:SetScale(scale)
+			local e = panel:GetEffectiveScale()
+			panel:ClearAllPoints()
+			panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", sizing.left / e, sizing.top / e)
+		end)
+	end)
+	grip:SetScript("OnMouseUp", function()
+		grip:SetScript("OnUpdate", nil)
+		sizing = nil
+		FM.db.menuWindow = FM.db.menuWindow or {}
+		FM.db.menuWindow.scale = panel:GetScale()
+		M.SavePlace()
+	end)
+	panel:SetScale(FM.db.menuWindow and tonumber(FM.db.menuWindow.scale) or 1)
+	FM.TakeEscape(panel, function() M.Hide() end)
+
 	Select(pages[FM.db.menuTab or ""] and FM.db.menuTab or "map")
 end
 
-function M.Toggle()
-	if not panel then Build() end
-	if panel:IsShown() then M.Hide() return end
+M.MIN_SCALE, M.MAX_SCALE = 0.75, 1.6
+
+-- (where it was left: its top-left corner, kept with its size)
+function M.SavePlace()
+	if not (panel and panel:GetLeft()) then return end
+	local w = FM.db.menuWindow or {}
+	FM.db.menuWindow = w
+	w.left, w.top = panel:GetLeft(), panel:GetTop()
 	panel:ClearAllPoints()
-	panel:SetPoint("TOPRIGHT", AzerothVeilFrame, "TOPRIGHT", -6, -30)
+	panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", w.left, w.top)
+end
+
+local function Place()
+	local w = FM.db.menuWindow
+	panel:ClearAllPoints()
+	if w and tonumber(w.left) and tonumber(w.top) then
+		panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", w.left, w.top)
+	elseif FM.Map.IsShown() and AzerothVeilFrame then
+		-- (never moved yet: over the map's top-right corner, as PerfectMap showed it)
+		panel:SetPoint("TOPRIGHT", AzerothVeilFrame, "TOPRIGHT", -6, -30)
+	else
+		panel:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+	end
+end
+
+-- AzerothVeil's options: opened (on that tab, if given: "map", "places"... or "module_<name>")
+function M.Open(tab)
+	if not panel then Build() end
+	if tab and pages[tab] then Select(tab) end
+	if panel:IsShown() then panel:Raise() M.Refresh() return end
+	Place()
 	M.Refresh()
 	panel:Show()
 	for _, ic in ipairs(crisp) do Crisp(ic) end
 	if FM.Map.optionsButton then FM.Map.optionsButton:SetActive(true) end
+end
+
+function M.IsShown() return panel and panel:IsShown() or false end
+
+function M.Toggle()
+	if panel and panel:IsShown() then M.Hide() return end
+	M.Open()
 end
 
 function M.Hide()

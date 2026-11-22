@@ -1439,7 +1439,7 @@ local function Build()
 			if owner == frame then GameTooltip:Hide() break end
 			owner = owner.GetParent and owner:GetParent()
 		end
-		if FM.Menu then FM.Menu.Hide() end
+		-- (AzerothVeil: the options are a window of their own now: they stay open when the map closes)
 		FM.Pins.OnHide()
 		FM.Quests.OnHide()
 		FM.Dungeon.OnHide()

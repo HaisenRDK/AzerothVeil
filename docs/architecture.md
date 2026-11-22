@@ -173,23 +173,33 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 
 ### Interface de configuration
 
-Trois écrans, **les mêmes réglages**, tous lus et écrits uniquement via le ModuleManager :
+Deux écrans, **les mêmes réglages**, lus et écrits uniquement via le ModuleManager :
 
-1. **Menu ⚙ de la carte — l'écran principal** (`Engine/Menu.lua`). Onglets de la carte (Carte, Lieux,
-   PNJ, Métiers, Quêtes), puis **un onglet par module, généré** depuis sa déclaration : « Activer le
-   module » + son état, puis ses options (icône `icon` de la déclaration, sous-options en retrait, un 2ᵉ
-   `header` ouvre la colonne de droite). Grisées et non cliquables quand le module ou l'option parente
-   est off. Aucun bouton de renvoi vers un autre écran.
-2. **Fenêtre AzerothVeil** (`/av config`, `UI/Options.lua`) : cadre classique de Blizzard, déplaçable par
-   sa barre de titre, gardée à l'écran, position mémorisée (`AzerothVeilDB.core.optionsWindow`), fermée
-   par sa croix ou Échap (capture clavier à la manière de la carte, jamais `UISpecialFrames`, jamais
-   activée en combat). Liste des modules, puis **en-tête générique** (titre et « Activer le module » sur
-   une ligne), description, état, réglages générés (`UI/Controls.lua`).
-3. **Options > AddOns > AzerothVeil** (page du jeu) : la même vue que la fenêtre, modifiable là aussi.
+1. **La fenêtre d'options d'AzerothVeil — l'écran principal** (`Engine/Menu.lua`, issue du menu ⚙ de
+   PerfectMap) : fenêtre indépendante de la carte (`AzerothVeilOptions`, enfant d'`UIParent`, cadre
+   classique de Blizzard), ouverte par la ⚙ de la carte, `/av config`, le clic droit du bouton de
+   minicarte ou le compartiment d'addons. Déplaçable par sa barre de titre, gardée à l'écran,
+   **redimensionnable** par la poignée du coin (mise à l'échelle de toute la fenêtre, 0,75 à 1,6),
+   position et échelle mémorisées (`FM.db.menuWindow`), fermée par sa croix ou Échap (`ns.TakeEscape` :
+   jamais `UISpecialFrames`, clavier jamais pris en combat). Elle reste ouverte si la carte se ferme.
+   Onglets de la carte (Carte, Lieux, PNJ, Métiers, Quêtes), puis **un onglet par module, généré** depuis
+   sa déclaration, à la manière de FlareUI : un **en-tête** encadré (icône, titre, case d'activation juste
+   à côté, description, état), puis **une boîte par section** (chaque `header` de la déclaration ; avant le
+   premier : « Réglages ») avec ses options sur deux colonnes, sous-options en retrait. Grisées et non
+   cliquables quand le module ou l'option parente est off.
+2. **Options > AddOns > AzerothVeil** (page du jeu, `UI/Options.lua` + `UI/Controls.lua`) : liste des
+   modules, en-tête générique (titre et « Activer le module » sur une ligne), réglages générés ;
+   modifiable là aussi.
+
+Bouton de minicarte (`UI/MinimapButton.lua`) : natif (bordure et fond de la minicarte du jeu), sans
+bibliothèque, déplaçable autour de la minicarte (angle dans `AzerothVeilDB.core.minimap`), masquable
+dans l'onglet Carte ; nommé et enfant de `Minimap`, il est donc rangé par les collecteurs de boutons
+(tiroir de FlareUI). Le même double clic est offert dans le compartiment d'addons du jeu
+(`AddonCompartmentFunc`).
 
 Synchronisation : `SetSetting` émet `MODULE_SETTING_CHANGED`, `SetEnabled` émet `MODULE_ENABLED_CHANGED`
 (même si l'état effectif ne change pas), l'activation/désactivation effective `MODULE_STATE_CHANGED` ;
-les trois écrans (et le bouton des tracés de la carte) écoutent ces messages et se rafraîchissent.
+les écrans (et le bouton des tracés de la carte) écoutent ces messages et se rafraîchissent.
 Déclaration : `icon` (module et option) accepte un chemin, un `"atlas:..."` ou une fonction (art de la
 faction du joueur, lu au moment du dessin). Composants natifs : `InsetFrameTemplate`,
 `UICheckButtonTemplate`, `MinimalSliderWithSteppersTemplate`, `UIPanelButtonTemplate`, polices `GameFont*`.
