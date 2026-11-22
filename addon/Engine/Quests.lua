@@ -290,8 +290,64 @@ local function Dress(b, questID, waypoint, isSuper, gen, level)
 	end
 end
 
+-- AzerothVeil: the followed quest stands out: a soft glow in a colour of its own (not the game's gold) round its
+-- button, breathing slowly. And a quest ready to hand in, picked in the log: where it's handed in marked for a
+-- few seconds (TURN_IN_SECONDS), its "?" in that glow (Q.Focus finds the spot)
+local FOCUS_COLOUR = { 0.35, 0.8, 1 }
+local TURN_IN_SECONDS = 10
+local focusGlow, turnMark
+local turnIn                    -- { quest, u, v }, while it's marked
+local function Glow(parent, size)
+	local f = CreateFrame("Frame", nil, parent)
+	f:SetSize(size, size)
+	f:EnableMouse(false)
+	local t = f:CreateTexture(nil, "BACKGROUND")
+	t:SetAllPoints()
+	local atlas = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("UI-QuestPoi-OuterGlow")
+	if not (atlas and t:SetAtlas("UI-QuestPoi-OuterGlow") ~= false) then t:SetTexture("Interface\\Minimap\\UI-Minimap-Ping-Center") end
+	t:SetBlendMode("ADD")
+	t:SetVertexColor(FOCUS_COLOUR[1], FOCUS_COLOUR[2], FOCUS_COLOUR[3], 1)
+	local g = f:CreateAnimationGroup()
+	g:SetLooping("BOUNCE")
+	local a = g:CreateAnimation("Alpha")
+	a:SetFromAlpha(1)
+	a:SetToAlpha(0.45)
+	a:SetDuration(0.9)
+	g:Play()
+	f.glow, f.anim = t, g
+	f:Hide()
+	return f
+end
+local function FocusGlow(b)
+	if not b then if focusGlow then focusGlow:Hide() end return end
+	if not focusGlow then focusGlow = Glow(questLayer, 52) end
+	focusGlow:SetFrameLevel(max(0, b:GetFrameLevel() - 1))
+	focusGlow:ClearAllPoints()
+	focusGlow:SetPoint("CENTER", b, "CENTER")
+	if not focusGlow:IsShown() then focusGlow:Show() focusGlow.anim:Play() end
+end
+local function LayoutTurnIn()
+	if not (turnIn and InView(turnIn.u, turnIn.v)) then if turnMark then turnMark:Hide() end return end
+	if not turnMark then
+		turnMark = Glow(questLayer, 60)
+		turnMark.icon = turnMark:CreateTexture(nil, "ARTWORK")
+		turnMark.icon:SetSize(26, 26)
+		turnMark.icon:SetPoint("CENTER")
+		if not (C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("UI-QuestIcon-TurnIn-Normal")
+			and turnMark.icon:SetAtlas("UI-QuestIcon-TurnIn-Normal") ~= false) then
+			turnMark.icon:SetTexture("Interface\\GossipFrame\\ActiveQuestIcon")
+		end
+		turnMark:SetFrameLevel(questLayer:GetFrameLevel() + SELECTED_PIN_LEVEL + 1)
+	end
+	local x, y = ScreenXY(turnIn.u, turnIn.v)
+	turnMark:ClearAllPoints()
+	turnMark:SetPoint("CENTER", questLayer, "TOPLEFT", x, y)
+	if not turnMark:IsShown() then turnMark:Show() turnMark.anim:Play() end
+end
+
 local function LayoutPOIs()
 	local n = 0
+	local focusButton               -- (AzerothVeil: the followed quest's own button, for its glow)
 	local pingFor, px, py, pWay = pingQuest or pingWant, nil, nil, nil
 	if pingSpot and pingSpot.quest == pingFor and InView(pingSpot.u, pingSpot.v) then
 		px, py = ScreenXY(pingSpot.u, pingSpot.v)
@@ -311,10 +367,13 @@ local function LayoutPOIs()
 				-- (the quest's own button rather than its waypoint's)
 				if p.questID == pingFor and (not px or (pWay and not p.waypoint)) then px, py, pWay = x, y, p.waypoint end
 				Dress(b, p.questID, p.waypoint, isSuper, poiGen, questLayer:GetFrameLevel())
+				if isSuper and (not focusButton or (focusButton.fmWaypoint and not p.waypoint)) then focusButton = b end
 			end
 		end
 	end
 	for i = n + 1, #buttons do buttons[i]:Hide() end
+	FocusGlow(focusButton)          -- (AzerothVeil)
+	LayoutTurnIn()
 	LayoutPing(px, py)
 end
 
@@ -1074,6 +1133,30 @@ local function DungeonEntrance(questID)
 	return u, v
 end
 
+-- AzerothVeil: where a quest ready to hand in is handed in. The game's button for it can stay where its
+-- objectives were on this client: Questie's turn-in "?" for it first (its own data: the one nearest you), else
+-- the game's next waypoint for it; nil if neither knows
+local function TurnInSpot(questID)
+	local best, bu, bv
+	local pu, pv = Geo.UnitUnits("player")
+	for icon, data in pairs(hbd and _G.Questie and hbd.worldmapPins or {}) do
+		local d = icon.data
+		if d and d.Type == "complete" and d.Id == questID and data.instanceID then
+			local u, v = Geo.WorldToUnits(data.instanceID, data.y, data.x)
+			if u then
+				local dist = pu and ((u - pu) ^ 2 + (v - pv) ^ 2) or 0
+				if not best or dist < best then best, bu, bv = dist, u, v end
+			end
+		end
+	end
+	if bu then return bu, bv end
+	if C_QuestLog.GetNextWaypoint then
+		local ok, m, x, y = pcall(C_QuestLog.GetNextWaypoint, questID)
+		m, x, y = FM.Plain(m), FM.Plain(x), FM.Plain(y)
+		if ok and m and x and y then return Geo.MapToUnits(m, x, y) end
+	end
+end
+
 function Q.Focus(questID)
 	selected = questID
 	pingSpot = nil
@@ -1081,6 +1164,20 @@ function Q.Focus(questID)
 	local u, v
 	for _, p in ipairs(pois) do
 		if p.questID == questID and not p.waypoint then u, v = p.u, p.v break end
+	end
+	-- AzerothVeil: ready to hand in: framed where it's handed in, marked there a few seconds (and pinged there)
+	turnIn = nil
+	if FM.Plain(C_QuestLog.IsComplete(questID)) then
+		local tu, tv = TurnInSpot(questID)
+		if tu then
+			u, v = tu, tv
+			pingSpot = { quest = questID, u = tu, v = tv }
+			local mark = { quest = questID, u = tu, v = tv }
+			turnIn = mark
+			C_Timer.After(TURN_IN_SECONDS, function()
+				if turnIn == mark then turnIn = nil FM.Map.MarkDirty() end
+			end)
+		end
 	end
 	local m = GetQuestUiMapID and FM.Plain(GetQuestUiMapID(questID))
 	local dungeon = FM.Dungeon
