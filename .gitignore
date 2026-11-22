@@ -1,40 +1,47 @@
-# Compiled Lua sources
-luac.out
+# ---------------------------------------------------------------------------
+# AzerothVeil — fichiers jamais versionnés
+# ---------------------------------------------------------------------------
 
-# luarocks build files
-*.src.rock
+# Fichiers et configuration des agents IA (restent strictement locaux)
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+AGENT.md
+GEMINI.md
+.cursor/
+.cursorrules
+.aider*
+.continue/
+.codex/
+.windsurf*
+.copilot/
+.github/copilot-instructions.md
+.mcp.json
+
+# Sources de référence intactes (PerfectMap, OpenMap, FlareUI, DungeonJournal...)
+.reference/
+
+# Outils locaux (Lua 5.1 extrait des paquets apt, etc.)
+.tools/
+
+# Configuration locale du déploiement (chemin de WoW sur cette machine)
+scripts/deploy.local.conf
+
+# Documentation de travail personnelle / notes de session
+docs/work/
+
+# Sorties de build et archives
+build/
+dist/
 *.zip
 *.tar.gz
+luac.out
 
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# Éditeurs / OS
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

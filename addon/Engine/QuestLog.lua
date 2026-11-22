@@ -1,0 +1,1095 @@
+-- The quest log, docked on the right of the map window: the quests by zone with their objectives
+-- (tick to track), and a quest's details (objectives, description, rewards, track / navigate /
+-- share / abandon). Replaces Blizzard's quest log beside its map. Built the first time it shows;
+-- rebuilt only while shown, at most a few times a second.
+local _, FM = ...
+local QL = {}
+local MEDIA = "Interface\\AddOns\\PerfectMap\\Media\\"
+FM.QuestLog = QL
+
+local S = FM.Style
+local max, min, floor = math.max, math.min, math.floor
+local WIDTH = 300
+local BAR = 26                          -- (as tall as the map's header bar, and drawn the same)
+local PAD = 8
+
+local panel, scroll, child, thumb, topTitle, back, bottom, search
+local query = ""                          -- what's typed in the search box, lower case ("": all)
+local buttons = {}
+local mode, detailID = "list", nil
+local collapsed = {}
+local rows, pool = {}, {}
+local pending = false
+
+local function DiffColor(level)
+	local c = GetQuestDifficultyColor and level and GetQuestDifficultyColor(level)
+	if c then return c.r, c.g, c.b end
+	return 1, 0.82, 0
+end
+
+local function Watched(questID)
+	return C_QuestLog.GetQuestWatchType and C_QuestLog.GetQuestWatchType(questID) ~= nil
+end
+
+local function SetWatched(questID, on)
+	if on then C_QuestLog.AddQuestWatch(questID) else C_QuestLog.RemoveQuestWatch(questID) end
+end
+
+---------------------------------------------------------------------------
+-- Rows (pooled buttons in the scroll child)
+---------------------------------------------------------------------------
+-- (the classic look: Blizzard's quest log, its list on dark with gold zone headers and their +/- buttons, the
+-- quest's own page on parchment in dark ink)
+local INK = { 0.12, 0.07, 0.02 }          -- (titles and headings on the parchment)
+local INK_TEXT = { 0.18, 0.12, 0.05 }     -- (its text)
+
+local function RowEnter(self)
+	if self.questID or self.header then
+		if S.classic then self.hl:Show() else self.bg:SetVertexColor(1, 1, 1, (self.bgBase or 0) + 0.05) end
+	end
+	if self.questID then FM.Quests.Hint(self.questID) end
+end
+local function RowLeave(self)
+	if self.questID or self.header then
+		if S.classic then self.hl:Hide() else self.bg:SetVertexColor(1, 1, 1, self.bgBase or 0) end
+	end
+	if self.questID then FM.Quests.Hint(nil) end
+end
+
+local function RowClick(self)
+	if self.questID and IsModifiedClick and IsModifiedClick("CHATLINK") and GetQuestLink then
+		local link = GetQuestLink(self.questID)
+		if link and ChatEdit_InsertLink and ChatEdit_InsertLink(link) then return end
+	end
+	if self.header then
+		collapsed[self.header] = not collapsed[self.header] or nil
+		QL.Refresh()
+	elseif self.questID then
+		QL.ShowDetails(self.questID, false, true)      -- (picked in the log: its button flashes)
+	end
+end
+
+-- the track box as it is: on (filled, ticked) or off (outlined), lit under the mouse
+local function ShowCheck(c)
+	if S.classic then
+		c.tick:SetShown(c.on and true or false)
+		return
+	end
+	local a = S.ACCENT
+	c.fill:SetVertexColor(a[1], a[2], a[3], c.on and (c.hot and 1 or 0.92) or 0)
+	c.tick:SetShown(c.on and true or false)
+	if c.on then
+		c.box:SetVertexColor(a[1], a[2], a[3], c.hot and 1 or 0.9)
+	elseif c.hot then
+		c.box:SetVertexColor(a[1], a[2], a[3], 0.95)
+	else
+		c.box:SetVertexColor(0.7, 0.7, 0.72, 0.55)
+	end
+end
+
+local function NewRow()
+	local b = CreateFrame("Button", nil, child)
+	b.bg = b:CreateTexture(nil, "BACKGROUND")
+	b.bg:SetTexture(S.WHITE)
+	b.bg:SetAllPoints()
+	b.bg:SetVertexColor(1, 1, 1, 0)
+	b.title = S.Text(b, 12)
+	b.title:SetJustifyH("LEFT")
+	b.title:SetWordWrap(true)
+	b.body = S.Text(b, 11)
+	b.body:SetJustifyH("LEFT")
+	b.body:SetJustifyV("TOP")
+	b.body:SetWordWrap(true)
+	b.body:SetSpacing(2)
+	b.check = CreateFrame("Button", nil, b)
+	b.check:SetSize(14, 14)
+	b.check:SetPoint("TOPRIGHT", -8, -4)
+	b.sign = S.Text(b, 18, S.ACCENT)
+	b.sign:SetPoint("RIGHT", -10, 0)
+	b.shade = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+	b.shade:SetTexture(S.WHITE)
+	b.shade:SetAllPoints()
+	if b.shade.SetGradient and CreateColor then
+		b.shade:SetGradient("HORIZONTAL", CreateColor(1, 0.85, 0.5, 0.13), CreateColor(1, 1, 1, 0.02))
+	else
+		b.shade:SetVertexColor(1, 1, 1, 0.07)
+	end
+	b.edge = b:CreateTexture(nil, "ARTWORK")
+	b.edge:SetTexture(S.WHITE)
+	b.edge:SetVertexColor(S.ACCENT[1], S.ACCENT[2], S.ACCENT[3], 0.9)
+	b.edge:SetPoint("TOPLEFT")
+	b.edge:SetPoint("BOTTOMLEFT")
+	b.edge:SetWidth(2)
+	b.count = S.Text(b, 11, S.DIM)
+	b.count:SetPoint("RIGHT", b.sign, "LEFT", -8, 0)
+	b.shade:Hide()
+	b.edge:Hide()
+	b.count:Hide()
+	-- (the track box: a small rounded square, outlined while off, filled in the accent colour with a dark
+	-- tick while on; its outline lit under the mouse)
+	b.check.fill = b.check:CreateTexture(nil, "ARTWORK", nil, 1)
+	b.check.fill:SetTexture(MEDIA .. "boxfill")
+	b.check.fill:SetAllPoints()
+	b.check.box = b.check:CreateTexture(nil, "ARTWORK", nil, 2)
+	b.check.box:SetTexture(MEDIA .. "box")
+	b.check.box:SetAllPoints()
+	b.check.tick = b.check:CreateTexture(nil, "OVERLAY")
+	b.check.tick:SetTexture(MEDIA .. "tick")
+	b.check.tick:SetPoint("TOPLEFT", 2, -2)
+	b.check.tick:SetPoint("BOTTOMRIGHT", -2, 2)
+	b.check.tick:SetVertexColor(0.1, 0.08, 0.05, 1)
+	if S.classic then
+		-- (classic: the game's own check box; the titles lit as its quest log lights them; a zone's bar)
+		b.check:SetSize(20, 20)
+		b.check:SetPoint("TOPRIGHT", -5, -1)
+		b.check.fill:Hide()
+		b.check.box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+		b.check.tick:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+		b.check.tick:ClearAllPoints()
+		b.check.tick:SetAllPoints(b.check)
+		b.check.tick:SetVertexColor(1, 1, 1, 1)
+		b.check:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
+		b.hl = b:CreateTexture(nil, "BACKGROUND", nil, 2)
+		b.hl:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+		b.hl:SetBlendMode("ADD")
+		b.hl:SetAllPoints()
+		b.hl:Hide()
+		-- (a zone's bar: dark, in the tooltip's thin border; inside the row, a little in from its sides)
+		b.bar = CreateFrame("Frame", nil, b, BackdropTemplateMixin and "BackdropTemplate" or nil)
+		b.bar:SetPoint("TOPLEFT", 4, -1)
+		b.bar:SetPoint("BOTTOMRIGHT", -4, 1)
+		b.bar:SetFrameLevel(math.max(0, b:GetFrameLevel() - 1))   -- (under the row's own name and sign)
+		if b.bar.SetBackdrop then
+			b.bar:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+				tile = true, tileSize = 8, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+			b.bar:SetBackdropColor(0.13, 0.1, 0.07, 1)
+			b.bar:SetBackdropBorderColor(0.5, 0.42, 0.3, 1)
+		end
+		b.bar:Hide()
+		S.Font(b.sign, 20)
+	end
+	b.check:SetScript("OnClick", function(self)
+		local q = self:GetParent().questID
+		if q then SetWatched(q, not Watched(q)) QL.Refresh() end
+	end)
+	b.check:SetScript("OnEnter", function(self)
+		self.hot = true
+		ShowCheck(self)
+		S.ShowTip(self, { "Track", "Show it in the objective tracker." })
+	end)
+	b.check:SetScript("OnLeave", function(self)
+		self.hot = nil
+		ShowCheck(self)
+		S.HideTip()
+	end)
+	b:SetScript("OnEnter", RowEnter)
+	b:SetScript("OnLeave", RowLeave)
+	b:SetScript("OnClick", RowClick)
+	return b
+end
+
+local function Release()
+	for i = #rows, 1, -1 do
+		local b = rows[i]
+		b:Hide()
+		b:ClearAllPoints()
+		b.questID, b.header, b.bgBase = nil, nil, nil
+		if b.big then S.Font(b.title, 12) b.big = nil end
+		b.sign:Hide()
+		b.shade:Hide()
+		b.edge:Hide()
+		b.count:Hide()
+		if b.hl then b.hl:Hide() b.bar:Hide() end
+		b.title:SetJustifyH("LEFT")
+		b.title:SetWordWrap(true)
+		if b.kindMark then b.kindMark:Hide() end
+		pool[#pool + 1] = b
+		rows[i] = nil
+	end
+end
+
+local function Row()
+	local b = tremove(pool) or NewRow()
+	-- (classic: a quest's page is on parchment, its ink without the shadow the list's text has on the dark)
+	local shadow = (S.classic and mode == "details") and 0 or 0.8
+	if b.shadow ~= shadow then
+		b.shadow = shadow
+		b.title:SetShadowColor(0, 0, 0, shadow)
+		b.body:SetShadowColor(0, 0, 0, shadow)
+	end
+	b:Show()
+	b.bg:SetVertexColor(1, 1, 1, 0)
+	rows[#rows + 1] = b
+	return b
+end
+
+-- lay a row out at y; returns the y under it
+local function Place(b, y, indent, title, body, check, right)
+	local w = child:GetWidth()
+	b:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -y)
+	b:SetWidth(w)
+	b.check:SetShown(check ~= nil)
+	if check ~= nil then
+		b.check.on = check
+		ShowCheck(b.check)
+	end
+	b.title:ClearAllPoints()
+	b.title:SetPoint("TOPLEFT", indent, -4)
+	-- (the track box's column kept clear all the way down: the name and the objectives both stop short
+	-- of it, a long word broken rather than run under it)
+	local clear = (right or 0) + (check ~= nil and 4 or 0)
+	b.title:SetWidth(w - indent - PAD - clear)
+	if b.title.SetNonSpaceWrap then b.title:SetNonSpaceWrap(true) end
+	b.title:SetText(title or "")
+	local h = (title and b.title:GetStringHeight() or 0) + 8
+	b.body:ClearAllPoints()
+	if body and body ~= "" then
+		b.body:SetPoint("TOPLEFT", b.title, "BOTTOMLEFT", 0, -3)
+		b.body:SetWidth(w - indent - PAD - (check ~= nil and clear or 0))
+		if b.body.SetNonSpaceWrap then b.body:SetNonSpaceWrap(true) end
+		b.body:SetText(body)
+		b.body:Show()
+		h = h + b.body:GetStringHeight() + 3
+	else
+		b.body:SetText("")
+		b.body:Hide()
+	end
+	b:SetHeight(h)
+	return y + h
+end
+
+---------------------------------------------------------------------------
+-- Scrolling (our own thin bar)
+---------------------------------------------------------------------------
+local function UpdateThumb()
+	local view, total = scroll:GetHeight(), child:GetHeight()
+	if total <= view + 1 or view < 1 then thumb:Hide() return end
+	local h = min(view, max(20, view * view / total))     -- (never longer than the list's own height)
+	local f = min(1, scroll:GetVerticalScroll() / (total - view))
+	thumb:SetHeight(h)
+	thumb:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", 4, -f * (view - h))
+	thumb:Show()
+end
+
+-- The wheel glides the list: its place kept here, exactly (not read back from the frame, which may round
+-- it), eased toward where the wheel sends it by time (as smooth at any frame rate), and set on whole
+-- screen pixels, so the text, the highlights and the boxes all move together, never a pixel apart.
+-- A step of the wheel while it glides adds on to where it's going: spun, it runs on evenly.
+local GLIDE, STEP = 12, 48
+local scrollPos, scrollTo = 0, nil
+local function Snap(y)
+	local px = (PixelUtil and PixelUtil.GetPixelToUIUnitFactor and PixelUtil.GetPixelToUIUnitFactor() or 1) / scroll:GetEffectiveScale()
+	return floor(y / px + 0.5) * px
+end
+local function SetPos(y)
+	scrollPos = y
+	scroll:SetVerticalScroll(Snap(y))
+	UpdateThumb()
+end
+local function Glide(self, elapsed)
+	local k = 1 - math.exp(-elapsed * GLIDE)
+	local y = scrollPos + (scrollTo - scrollPos) * k
+	if math.abs(scrollTo - y) < 0.25 then
+		y, scrollTo = scrollTo, nil
+		self:SetScript("OnUpdate", nil)
+	end
+	SetPos(y)
+end
+
+local function MaxScroll() return max(0, child:GetHeight() - scroll:GetHeight()) end
+
+-- delta: the wheel's steps; 0 just keeps it within the list (laid out again, resized), at once
+local function ScrollBy(delta)
+	local maxScroll = MaxScroll()
+	if delta == 0 then
+		if scrollTo then scrollTo = min(max(scrollTo, 0), maxScroll) end
+		SetPos(min(max(scrollPos, 0), maxScroll))
+		return
+	end
+	local was = scrollTo
+	scrollTo = min(max((scrollTo or scrollPos) - delta * STEP, 0), maxScroll)
+	if not was then scroll:SetScript("OnUpdate", Glide) end
+end
+
+-- back to the top at once (a new list, a quest's page)
+local function ScrollTop()
+	if scrollTo then scrollTo = nil scroll:SetScript("OnUpdate", nil) end
+	SetPos(0)
+end
+
+---------------------------------------------------------------------------
+-- The list
+---------------------------------------------------------------------------
+local TICK = "|TInterface\\RaidFrame\\ReadyCheck-Ready:12:12|t "
+local function ObjectivesText(questID, complete, dashes)
+	local out = {}
+	if complete and dashes then
+		local index = C_QuestLog.GetLogIndexForQuestID(questID)
+		local done = index and GetQuestLogCompletionText and GetQuestLogCompletionText(index)
+		return "- " .. (done or QUEST_WATCH_QUEST_READY or "Ready to turn in")
+	end
+	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
+		if o.text and o.text ~= "" then
+			if dashes then
+				out[#out + 1] = o.finished and ("|cff8a8a8a- " .. o.text .. "|r") or ("- " .. o.text)
+			else
+				out[#out + 1] = o.finished and (TICK .. "|cff8a8a8a" .. o.text .. "|r") or o.text
+			end
+		end
+	end
+	if complete then out[#out + 1] = TICK .. "|cff40e040Ready to turn in|r" end
+	return table.concat(out, "\n")
+end
+
+-- a dungeon's or raid's quest: its icon, left of its name (as the game tags it: dungeon, heroic, raid)
+local KIND_TAGS = { [81] = "dungeon", [85] = "dungeon", [62] = "raid", [88] = "raid", [89] = "raid", [41] = "pvp" }
+local KIND_LABEL = { dungeon = "Dungeon", raid = "Raid", pvp = "PvP" }
+local pvpIcon
+-- (PvP: the game's crossed swords)
+local function PvPIcon()
+	if not pvpIcon then
+		local get = C_Texture and C_Texture.GetAtlasInfo
+		for _, a in ipairs({ "questlog-questtypeicon-pvp", "QuestPvP" }) do
+			if get and get(a) then pvpIcon = "atlas:" .. a break end
+		end
+		pvpIcon = pvpIcon or "Interface\\Icons\\Ability_DualWield"
+	end
+	return pvpIcon
+end
+-- a quest's kind, for its icon: dungeon, raid, pvp (as the game tags it), else nil
+local function Kind(questID)
+	local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(questID)
+	if type(tag) ~= "table" then return nil end
+	return KIND_TAGS[tag.tagID] or (type(tag.tagName) == "string" and tag.tagName:find("PvP") and "pvp") or nil
+end
+local function KindTexture(kind)
+	if kind == "pvp" then return PvPIcon() end
+	return kind == "raid" and FM.Pins.RAID_ICON or FM.Pins.DUNGEON_ICON
+end
+-- (in a line of text: the details' title)
+local function KindIcon(questID)
+	local kind = Kind(questID)
+	if not kind then return "" end
+	local icon = KindTexture(kind)
+	if type(icon) == "string" and icon:sub(1, 6) == "atlas:" then return "|A:" .. icon:sub(7) .. ":14:14|a " end
+	return "|T" .. tostring(icon) .. ":14:14|t "
+end
+
+-- Every quest's icon left of its name in the list, saying what kind of quest it is, and on mouse-over
+-- what that means and the first thing still to do. By what matters most: failed, ready to hand in, its
+-- kind as the game tags it (dungeon, raid, PvP, elite, group, class, world event, legendary), daily or
+-- repeatable, else what its next objective asks (kill, collect, use, explore, talk, reputation). The
+-- objectives' icons are Questie's (Media\Questie, so they show without it). A click on it is the row's.
+local QI = "Interface\\AddOns\\PerfectMap\\Media\\Questie\\"
+local OBJECTIVE_MARK = {
+	monster = { QI .. "slay", "Kill" },
+	player = { QI .. "slay", "Defeat players" },
+	item = { QI .. "loot", "Collect" },
+	object = { QI .. "object", "Use" },
+	event = { QI .. "event", "Explore" },
+	reputation = { QI .. "reputation", "Reputation" },
+	log = { QI .. "interact", "Do" },
+}
+local TAG_MARK = {
+	group = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", "Group quest" },
+	elite = { "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", "Elite" },
+	event = { QI .. "eventquest", "World event" },
+	legendary = { "Interface\\Icons\\INV_Misc_Orb_05", "Legendary" },
+}
+local function TagMark(questID)
+	local kind = Kind(questID)
+	if kind then return { KindTexture(kind), KIND_LABEL[kind] } end
+	local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(questID)
+	if type(tag) ~= "table" then return nil end
+	local name = type(tag.tagName) == "string" and tag.tagName or ""
+	if tag.tagID == 21 then
+		local _, class = UnitClass("player")
+		return { class and ("Interface\\Icons\\ClassIcon_" .. class:sub(1, 1) .. class:sub(2):lower()) or TAG_MARK.elite[1], "Class quest" }
+	end
+	if tag.tagID == 82 then return TAG_MARK.event end
+	if tag.tagID == 83 then return TAG_MARK.legendary end
+	if name:find("Elite") then return TAG_MARK.elite end
+	if tag.tagID == 1 then return TAG_MARK.group end
+end
+-- the quest's mark: { icon, what it is, the first thing still to do (or nil) }
+local function QuestMark(questID, info, complete, failed)
+	if failed then return { "Interface\\RaidFrame\\ReadyCheck-NotReady", "Failed" } end
+	if complete then return { QI .. "complete", "Ready to hand in" } end
+	local todo, otype
+	for _, o in ipairs(C_QuestLog.GetQuestObjectives(questID) or {}) do
+		if not o.finished and o.text and o.text ~= "" then todo, otype = o.text, o.type break end
+	end
+	local m = TagMark(questID)
+	if m then return { m[1], m[2], todo } end
+	local freq = info and info.frequency
+	if freq and freq ~= 0 then
+		return { QI .. "repeatable", (Enum and Enum.QuestFrequency and freq == Enum.QuestFrequency.Daily) and "Daily" or "Repeatable", todo }
+	end
+	local o = otype and OBJECTIVE_MARK[otype]
+	if o then return { o[1], o[2], todo } end
+	return { QI .. "incomplete", "Quest", todo }
+end
+
+local function MarkEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText(self.label or "", 1, 0.82, 0)
+	if self.todo then GameTooltip:AddLine(self.todo, 1, 1, 1, true) end
+	GameTooltip:Show()
+end
+local function KindMark(b, mark)
+	if not mark then
+		if b.kindMark then b.kindMark:Hide() end
+		return false
+	end
+	local m = b.kindMark
+	if not m then
+		m = CreateFrame("Frame", nil, b)
+		m:SetSize(14, 14)
+		m.tex = m:CreateTexture(nil, "ARTWORK")
+		m.tex:SetAllPoints()
+		m:EnableMouse(true)
+		FM.Style.PassClicks(m)
+		m:SetScript("OnEnter", MarkEnter)
+		m:SetScript("OnLeave", GameTooltip_Hide)
+		b.kindMark = m
+	end
+	m.label, m.todo = mark[2], mark[3]
+	S.SetIcon(m.tex, mark[1])
+	m:ClearAllPoints()
+	m:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -4)
+	m:Show()
+	return true
+end
+
+local function BuildList()
+	local y, count = 4, 0
+	local hidden = false
+	local n = C_QuestLog.GetNumQuestLogEntries() or 0
+	local zoneCounts, current = {}, nil
+	-- (searching: a quest shows if its name, or its zone's, has what's typed; its zone opens for it)
+	local function Matches(info, zone)
+		if query == "" then return true end
+		return (info.title or ""):lower():find(query, 1, true) or (zone or ""):lower():find(query, 1, true)
+	end
+	local zoneName
+	for i = 1, n do
+		local info = C_QuestLog.GetInfo(i)
+		if info and info.isHeader then current, zoneName = i, info.title zoneCounts[i] = 0
+		elseif info and current and not info.isHidden and info.questID and Matches(info, zoneName) then zoneCounts[current] = zoneCounts[current] + 1 end
+	end
+	local shownQuests = 0
+	for i = 1, n do
+		local info = C_QuestLog.GetInfo(i)
+		if info then
+			if info.isHeader and query ~= "" and (zoneCounts[i] or 0) == 0 then
+				hidden, zoneName = true, info.title           -- (searching: a zone with nothing found, left out)
+			elseif info.isHeader then
+				hidden = query == "" and collapsed[info.title] and true or false
+				zoneName = info.title
+				local b = Row()
+				b.header = info.title
+				b.bgBase = 0
+				b.title:SetTextColor(0.96, 0.94, 0.88)
+				S.Font(b.title, 13)
+				b.big = true
+				b.sign:SetText(hidden and "+" or "\226\128\147")
+				b.sign:Show()
+				b.shade:Show()
+				b.edge:Show()
+				local n = zoneCounts[i]
+				b.count:SetText(n and n > 0 and tostring(n) or "")
+				b.count:Show()
+				local tx = 8
+				if S.classic then
+					-- (classic: as the game's quest log draws a zone: a dark bar in a thin border, its name in
+					-- gold, a gold + or - on its right, no count)
+					b.title:SetTextColor(1, 0.82, 0)
+					b.shade:Hide()
+					b.edge:Hide()
+					b.count:Hide()
+					b.bar:Show()
+					tx = 10
+				end
+				-- (one line, in the middle of the bar's height)
+				y = Place(b, y + 4, tx, info.title or "", nil, nil, 48)
+				b:SetHeight(26)
+				b.title:ClearAllPoints()
+				b.title:SetPoint("LEFT", tx, 0)
+				b.title:SetWordWrap(false)
+				y = y - (b.title:GetStringHeight() + 8) + 26 + 2
+			elseif not info.isHidden and info.questID then
+				count = count + 1
+				if not hidden and Matches(info, zoneName) then
+					shownQuests = shownQuests + 1
+					local q = info.questID
+					local complete = C_QuestLog.IsComplete(q)
+					local failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q)
+					local b = Row()
+					b.questID = q
+					b.title:SetTextColor(DiffColor(info.level))
+					-- (no "(Dungeon)" / "(PvP)" tag on the right: the icon left of the name says it)
+					local right = 24
+					-- (Forever Quest Tint: its sign on a quest new in Forever, its colour on the objectives if it
+					-- recolours them, Tint.lua)
+					local title = FM.Tint.MarkTitle(q, ("(%d) %s"):format(info.level or 0, info.title or "?"))
+					if failed then title = title .. "  |cffff4040Failed|r" end
+					local or_, og, ob = FM.Tint.ObjectiveColour(q)
+					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(0.9, 0.9, 0.9) end
+					-- (its icon left of the name: what kind of quest it is)
+					local indent = KindMark(b, QuestMark(q, info, complete, failed)) and 22 or 8
+					y = Place(b, y + 2, indent, title, ObjectivesText(q, complete, true), Watched(q), right)
+				end
+			end
+		end
+	end
+	if count == 0 or (query ~= "" and shownQuests == 0) then
+		local b = Row()
+		b.title:SetTextColor(S.DIM[1], S.DIM[2], S.DIM[3])
+		y = Place(b, y + 6, 10, count == 0 and "No quests." or "No quest matches.", nil, nil)
+	end
+	local maxQ = Constants and Constants.QuestLogConsts and Constants.QuestLogConsts.MAXIMUM_NUM_QUESTS_LOG_CAN_ACCEPT or 25
+	topTitle:SetText(("Quests: |cffffffff%d/%d|r"):format(count, maxQ))
+	return y + 6
+end
+
+---------------------------------------------------------------------------
+-- A quest's details, as Blizzard's quest log gives them: its kind (elite, dungeon, group size), its
+-- time left, what it asks, its text, and what it gives (items to receive and to choose from, each
+-- with its tooltip and shift-click to link; money, experience, spells, honour)
+---------------------------------------------------------------------------
+local function Try(fn, ...)
+	if type(fn) ~= "function" then return nil end
+	local ok, a, b, c, d, e, f = pcall(fn, ...)
+	if ok then return a, b, c, d, e, f end
+end
+
+-- reward item buttons (pooled, like the rows)
+local items, itemPool = {}, {}
+local ITEM_H = 36
+
+local function ItemEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	local ok = false
+	if self.currency then
+		ok = GameTooltip.SetQuestLogCurrency and pcall(GameTooltip.SetQuestLogCurrency, GameTooltip, self.kind, self.index, detailID)
+	elseif self.kind == "reward" or self.kind == "choice" then
+		ok = GameTooltip.SetQuestLogItem and pcall(GameTooltip.SetQuestLogItem, GameTooltip, self.kind, self.index, detailID)
+	elseif self.kind == "spell" then
+		ok = GameTooltip.SetQuestLogRewardSpell and pcall(GameTooltip.SetQuestLogRewardSpell, GameTooltip, self.index, detailID)
+	end
+	if not ok then GameTooltip:SetText(self.label or "", 1, 1, 1) end
+	GameTooltip:Show()
+end
+
+local function ItemClick(self)
+	local link = Try(GetQuestLogItemLink, self.kind, self.index)
+	if link and HandleModifiedItemClick then HandleModifiedItemClick(link) end
+end
+
+local function NewItem()
+	local b = CreateFrame("Button", nil, child)
+	b:SetHeight(ITEM_H - 4)
+	b.bg = b:CreateTexture(nil, "BACKGROUND")
+	b.bg:SetTexture(S.WHITE)
+	b.bg:SetAllPoints()
+	b.bg:SetVertexColor(1, 1, 1, 0.04)
+	b.edge = b:CreateTexture(nil, "BORDER")
+	b.edge:SetTexture(S.WHITE)
+	b.edge:SetSize(30, 30)
+	b.edge:SetPoint("LEFT", 2, 0)
+	b.icon = b:CreateTexture(nil, "ARTWORK")
+	b.icon:SetSize(28, 28)
+	b.icon:SetPoint("CENTER", b.edge, "CENTER")
+	b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	b.count = b:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+	b.count:SetPoint("BOTTOMRIGHT", b.icon, "BOTTOMRIGHT", -1, 1)
+	b.name = S.Text(b, 11)
+	if S.classic then b.name:SetShadowColor(0, 0, 0, 0) end     -- (on the parchment: no shadow)
+	b.name:SetPoint("LEFT", b.icon, "RIGHT", 5, 0)
+	b.name:SetPoint("RIGHT", -3, 0)
+	b.name:SetJustifyH("LEFT")
+	b.name:SetWordWrap(true)
+	b.name:SetMaxLines(2)
+	b:SetScript("OnEnter", function(self) self.bg:SetVertexColor(1, 1, 1, 0.1) ItemEnter(self) end)
+	b:SetScript("OnLeave", function(self) self.bg:SetVertexColor(1, 1, 1, 0.04) GameTooltip_Hide() end)
+	b:SetScript("OnClick", ItemClick)
+	return b
+end
+
+local function ReleaseItems()
+	for i = #items, 1, -1 do
+		items[i]:Hide()
+		items[i]:ClearAllPoints()
+		itemPool[#itemPool + 1] = items[i]
+		items[i] = nil
+	end
+end
+
+-- items in two columns from y: { kind, index, name, texture, count, quality }
+local function ItemGrid(y, list)
+	local w = child:GetWidth() - PAD * 2
+	local colW = (w - 6) / 2
+	for i, it in ipairs(list) do
+		local b = tremove(itemPool) or NewItem()
+		items[#items + 1] = b
+		b.kind, b.index, b.label, b.currency = it[1], it[2], it[3], it[7]
+		b.icon:SetTexture(it[4] or 134400)
+		b.count:SetText(it[5] and it[5] > 1 and it[5] or "")
+		b.name:SetText(it[3] or "")
+		local c = it[6] and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[it[6]]
+		if S.classic and (not it[6] or it[6] <= 1) then b.name:SetTextColor(INK[1], INK[2], INK[3])
+		elseif c then b.name:SetTextColor(c.r, c.g, c.b) else b.name:SetTextColor(1, 1, 1) end
+		if c then b.edge:SetVertexColor(c.r, c.g, c.b, 1) else b.edge:SetVertexColor(0, 0, 0, 0.9) end
+		b:SetWidth(colW)
+		local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+		b:SetPoint("TOPLEFT", child, "TOPLEFT", PAD + col * (colW + 6), -(y + row * ITEM_H))
+		b:Show()
+	end
+	return y + math.ceil(#list / 2) * ITEM_H
+end
+
+-- (the classic icons for them: a glowing plus for experience, gold coins, a battle standard for honour)
+local XP_ICON = "Interface\\Icons\\Spell_ChargePositive"
+local MONEY_ICON = "Interface\\Icons\\INV_Misc_Coin_01"
+local HONOR_ICON = "Interface\\Icons\\INV_BannerPVP_02"
+local function Rewards(questID)
+	local receive, choose = {}, {}
+	if C_QuestLog.ShouldShowQuestRewards and Try(C_QuestLog.ShouldShowQuestRewards, questID) == false then return receive, choose end
+	local xp = Try(GetQuestLogRewardXP, questID) or Try(GetQuestLogRewardXP)
+	if xp and xp > 0 then
+		receive[#receive + 1] = { "xp", 0, (BreakUpLargeNumbers and BreakUpLargeNumbers(xp) or xp) .. " experience", XP_ICON }
+	end
+	local money = Try(GetQuestLogRewardMoney, questID) or Try(GetQuestLogRewardMoney)
+	if money and money > 0 then
+		receive[#receive + 1] = { "money", 0, GetMoneyString and GetMoneyString(money) or GetCoinTextureString(money), MONEY_ICON }
+	end
+	local honor = Try(GetQuestLogRewardHonor, questID)
+	if honor and honor > 0 then receive[#receive + 1] = { "honor", 0, honor .. " honor", HONOR_ICON } end
+	for i = 1, (Try(GetNumQuestLogRewardSpells, questID) or 0) do
+		local tex, name = Try(GetQuestLogRewardSpell, i, questID)
+		if name then receive[#receive + 1] = { "spell", i, name, tex } end
+	end
+	for i, cur in ipairs(C_QuestLog.GetQuestRewardCurrencies and Try(C_QuestLog.GetQuestRewardCurrencies, questID) or {}) do
+		receive[#receive + 1] = { "reward", i, cur.name, cur.texture, cur.totalRewardAmount, cur.quality, true }
+	end
+	for i = 1, (Try(GetNumQuestLogRewards, questID) or 0) do
+		local name, tex, num, quality = Try(GetQuestLogRewardInfo, i, questID)
+		if name then receive[#receive + 1] = { "reward", i, name, tex, num, quality } end
+	end
+	for i = 1, (Try(GetNumQuestLogChoices, questID, true) or Try(GetNumQuestLogChoices) or 0) do
+		local name, tex, num, quality = Try(GetQuestLogChoiceInfo, i, questID)
+		if name then choose[#choose + 1] = { "choice", i, name, tex, num, quality } end
+	end
+	return receive, choose
+end
+
+-- its kind and size, as the log's title line gives them; its time left
+local function Tags(questID, info)
+	local out = {}
+	local tag = C_QuestLog.GetQuestTagInfo and Try(C_QuestLog.GetQuestTagInfo, questID)
+	if type(tag) == "table" and tag.tagName then out[#out + 1] = tag.tagName end
+	if info.suggestedGroup and info.suggestedGroup > 1 then out[#out + 1] = ("Group: %d"):format(info.suggestedGroup) end
+	local left = Try(GetQuestLogTimeLeft)
+	if left and left > 0 then out[#out + 1] = "Time left: " .. (SecondsToTime and SecondsToTime(left) or (left .. " s")) end
+	local need = Try(GetQuestLogRequiredMoney)
+	if need and need > 0 and GetCoinTextureString then out[#out + 1] = "Requires " .. GetCoinTextureString(need) end
+	return table.concat(out, "   ")
+end
+
+local rewardBox
+local function RewardBox(y0, y1)
+	if not rewardBox then
+		rewardBox = CreateFrame("Frame", nil, child)
+		S.Panel(rewardBox, { 0, 0, 0, 0.32 }, { 1, 1, 1, 0.06 })
+		rewardBox:SetFrameLevel(child:GetFrameLevel())
+	end
+	rewardBox:ClearAllPoints()
+	rewardBox:SetPoint("TOPLEFT", child, "TOPLEFT", 2, -y0)
+	rewardBox:SetPoint("TOPRIGHT", child, "TOPRIGHT", -2, -y0)
+	rewardBox:SetHeight(y1 - y0)
+	rewardBox:Show()
+end
+
+local function BuildDetails()
+	local q = detailID
+	local index = q and C_QuestLog.GetLogIndexForQuestID(q)
+	if not index then mode, detailID = "list", nil return BuildList() end
+	C_QuestLog.SetSelectedQuest(q)
+	if SelectQuestLogEntry then pcall(SelectQuestLogEntry, index) end
+	local info = C_QuestLog.GetInfo(index) or {}
+	local complete = C_QuestLog.IsComplete(q)
+	local description, objectives = GetQuestLogQuestText()
+	local y = 6
+	-- its name, in gold, its kind's icon before it; level, kind, group, time under it
+	-- (classic: on the parchment, in dark ink, as Blizzard's quest log writes a quest's page)
+	local CL = S.classic
+	local function Head(fs) if CL then fs:SetTextColor(INK[1], INK[2], INK[3]) else fs:SetTextColor(1, 0.82, 0) end end
+	local b = Row()
+	Head(b.title)
+	S.Font(b.title, 16)
+	b.big = true
+	if CL then b.body:SetTextColor(0.32, 0.2, 0.08) else b.body:SetTextColor(DiffColor(info.level)) end
+	local meta = ("Level %d"):format(info.level or 0)
+	local tags = Tags(q, info)
+	if tags ~= "" then meta = meta .. (CL and "   " or "   |cffb8b8b8") .. tags .. (CL and "" or "|r") end
+	y = Place(b, y, PAD, KindIcon(q) .. FM.Tint.MarkTitle(q, info.title or "?"), meta, nil)
+	-- what it asks, and its objectives
+	local function Text(text, r, g, bb)
+		if not text or text == "" then return end
+		local t = Row()
+		if CL and not r then r, g, bb = INK_TEXT[1], INK_TEXT[2], INK_TEXT[3] end
+		t.title:SetTextColor(r or 0.92, g or 0.92, bb or 0.9)
+		S.Font(t.title, 12)
+		y = Place(t, y + 4, PAD, text, nil, nil)
+	end
+	Text(objectives)
+	Text(ObjectivesText(q, complete), FM.Tint.ObjectiveColour(q))
+	-- its story
+	if description and description ~= "" then
+		local h = Row()
+		Head(h.title)
+		S.Font(h.title, 15)
+		h.big = true
+		y = Place(h, y + 10, PAD, "Description", nil, nil)
+		Text(description)
+	end
+	-- what it gives, in a box of its own
+	local receive, choose = Rewards(q)
+	if rewardBox then rewardBox:Hide() end
+	if #receive > 0 or #choose > 0 then
+		local top = y + 12
+		local h = Row()
+		if CL then h.title:SetTextColor(INK[1], INK[2], INK[3]) else h.title:SetTextColor(0.93, 0.85, 0.7) end
+		S.Font(h.title, 15)
+		h.big = true
+		h.title:SetJustifyH("CENTER")
+		y = Place(h, top + 6, PAD, "Rewards", nil, nil)
+		if #choose > 0 then
+			local r = Row()
+			Head(r.title)
+			y = Place(r, y + 2, PAD, "You will be able to choose one of these rewards:", nil, nil)
+			y = ItemGrid(y + 2, choose) + 2
+		end
+		if #receive > 0 then
+			local r = Row()
+			Head(r.title)
+			y = Place(r, y + 4, PAD, #choose > 0 and "You will also receive:" or "You will receive:", nil, nil)
+			y = ItemGrid(y + 2, receive) + 2
+		end
+		y = y + 6
+		if not CL then RewardBox(top, y) end      -- (classic: the rewards on the page itself)
+	end
+	topTitle:SetText("")
+	return y + 6
+end
+
+---------------------------------------------------------------------------
+local function UpdateButtons()
+	local q = detailID
+	local details = mode == "details" and q
+	if panel.paper then panel.paper:SetShown(details and true or false) end
+	-- (classic: the count's own box goes with the list)
+	local countBox = topTitle:GetParent()
+	if countBox ~= panel then countBox:SetShown(not details) end
+	back:SetShown(details and true or false)
+	search:SetShown(not details)
+	bottom:SetShown(details and true or false)
+	scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, details and (BAR + 4) or 4)
+	if not details then return end
+	buttons.track.label:SetText(Watched(q) and "Untrack" or "Track")
+	local super = C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID and C_SuperTrack.GetSuperTrackedQuestID() == q
+	buttons.nav:SetActive(super)
+	local canShare = C_QuestLog.IsPushableQuest and C_QuestLog.IsPushableQuest(q) and IsInGroup()
+	buttons.share:SetAlpha(canShare and 1 or 0.4)
+	buttons.abandon.label:SetText(buttons.abandon.armed == q and "|cffff5050Sure?|r" or "Abandon")
+end
+
+function QL.Refresh()
+	pending = false
+	if not panel or not panel:IsShown() then return end
+	-- (a change of the log while the list glides: laid out once it's still, not under the wheel)
+	if scrollTo then QL.Changed() return end
+	Release()
+	ReleaseItems()
+	if rewardBox then rewardBox:Hide() end
+	local h = mode == "details" and BuildDetails() or BuildList()
+	child:SetHeight(max(1, h))
+	UpdateButtons()
+	ScrollBy(0)
+end
+
+-- the quest log changed (events come in bursts): refresh shortly, only if shown
+function QL.Changed()
+	if pending or not panel or not panel:IsVisible() then return end
+	pending = true
+	C_Timer.After(0.25, QL.Refresh)
+end
+
+function QL.ShowList()
+	mode, detailID = "list", nil
+	buttons.abandon.armed = nil
+	FM.Quests.ClearSelection()
+	ScrollTop()
+	QL.Refresh()
+end
+
+-- a quest's details; noMove: picked on the map itself, so the map stays where it is; ping: picked in the
+-- log or opened from a tracker, its button flashes (not from a click on the button itself)
+function QL.ShowDetails(questID, noMove, ping)
+	if not panel then return end
+	if not panel:IsShown() then QL.SetShown(true) end
+	mode, detailID = "details", questID
+	buttons.abandon.armed = nil
+	ScrollTop()
+	QL.Refresh()
+	if noMove then FM.Quests.Select(questID) else FM.Quests.Focus(questID) end
+	-- (as Blizzard's map does from its log; else any ping still going stopped)
+	FM.Quests.Ping(ping and questID or nil)
+end
+
+---------------------------------------------------------------------------
+-- Building, docking, showing
+---------------------------------------------------------------------------
+local function Build(parent, headerHeight)
+	panel = CreateFrame("Frame", nil, parent)
+	local E = FM.Map.Edges()          -- (where the window's insides begin: Map.lua)
+	panel:SetPoint("TOPRIGHT", -E.r, -E.t)
+	panel:SetPoint("BOTTOMRIGHT", -E.r, E.b)
+	panel:SetWidth(WIDTH)
+	panel:EnableMouse(true)
+	panel:Hide()
+	local bg = panel:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	if S.classic then
+		-- (classic, opaque: the list on the dialog boxes' dark background over black; a quest's page on
+		-- the quest frames' parchment, shown with it: UpdateButtons)
+		local under = panel:CreateTexture(nil, "BACKGROUND", nil, -8)
+		under:SetColorTexture(0, 0, 0, 1)
+		under:SetAllPoints()
+		-- (the game's own quest log background, else the dialogs' dark one)
+		if not (C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("QuestLog-main-background")
+			and bg:SetAtlas("QuestLog-main-background", false) ~= false) then
+			bg:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Background-Dark", "REPEAT", "REPEAT")
+			bg:SetHorizTile(true)
+			bg:SetVertTile(true)
+		end
+		bg:SetVertexColor(1, 1, 1, 1)
+		-- (and Blizzard's inset border round the whole log, as round the map)
+		local ok, inset = pcall(CreateFrame, "Frame", nil, panel, "InsetFrameTemplate")
+		if ok and inset then
+			inset:SetPoint("TOPLEFT", -3, 3)
+			inset:SetPoint("BOTTOMRIGHT", 3, -3)
+			inset:SetFrameLevel(math.max(0, panel:GetFrameLevel() - 1))
+		end
+		panel.paper = panel:CreateTexture(nil, "BACKGROUND", nil, 2)
+		panel.paper:SetTexture("Interface\\QuestFrame\\QuestBG")
+		panel.paper:SetTexCoord(0, 0.586, 0, 0.65)
+		panel.paper:SetPoint("TOPLEFT", 1, -BAR)
+		panel.paper:SetPoint("BOTTOMRIGHT", 0, BAR)      -- (its buttons on the dark below it)
+		panel.paper:Hide()
+	else
+		bg:SetTexture(S.WHITE)
+		bg:SetVertexColor(S.BG[1], S.BG[2], S.BG[3], S.BG[4])
+	end
+	local line = panel:CreateTexture(nil, "BORDER")
+	line:SetTexture(S.WHITE)
+	line:SetVertexColor(S.BORDER[1], S.BORDER[2], S.BORDER[3], S.BORDER[4])
+	line:SetPoint("TOPLEFT")
+	line:SetPoint("BOTTOMLEFT")
+	line:SetWidth(1)
+
+	-- its bar, a shade of its own under the map's header (the rule between them: the header's, Map.lua);
+	-- in the list, a search box on the left and how many quests there are on the right
+	local barBg = panel:CreateTexture(nil, "BACKGROUND", nil, 1)
+	barBg:SetTexture(S.WHITE)
+	barBg:SetVertexColor(1, 1, 1, 0.04)
+	barBg:SetPoint("TOPLEFT", 1, 0)
+	barBg:SetPoint("TOPRIGHT", 0, 0)
+	barBg:SetHeight(BAR)
+	if S.classic then barBg:SetVertexColor(0, 0, 0, 0.5) end
+	topTitle = S.Text(panel, 12, S.ACCENT)
+	topTitle:SetPoint("RIGHT", panel, "TOPRIGHT", -10, -BAR / 2 - 1)
+	-- (classic: the game's own search box, as its quest log has it; and the count in a box of its own)
+	local blizzSearch = false
+	if S.classic then
+		local ok, sb = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
+		if ok and sb then search, blizzSearch = sb, true end
+		if S.Backdrop then
+			local box = CreateFrame("Frame", nil, panel, BackdropTemplateMixin and "BackdropTemplate" or nil)
+			if box.SetBackdrop then
+				box:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+					tile = true, tileSize = 8, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+				box:SetBackdropColor(0, 0, 0, 1)
+				box:SetBackdropBorderColor(0.55, 0.45, 0.3, 1)
+				box:SetPoint("TOPLEFT", topTitle, "TOPLEFT", -7, 5)
+				box:SetPoint("BOTTOMRIGHT", topTitle, "BOTTOMRIGHT", 7, -5)
+				box:SetFrameLevel(panel:GetFrameLevel() + 1)
+				topTitle:SetParent(box)
+			end
+		end
+	end
+	search = search or CreateFrame("EditBox", nil, panel)
+	search:SetPoint("LEFT", panel, "TOPLEFT", blizzSearch and 12 or 8, -BAR / 2 - 1)
+	search:SetPoint("RIGHT", topTitle, "LEFT", blizzSearch and -16 or -10, 0)
+	search:SetHeight(blizzSearch and 20 or 18)
+	search:SetAutoFocus(false)
+	search:SetMaxLetters(60)
+	local hint, clear
+	if blizzSearch then
+		hint = search.Instructions or S.Text(search, 11, S.DIM)
+		hint:SetText("Search Quest Log")
+		clear = search.clearButton or CreateFrame("Button", nil, search)
+	else
+	S.Font(search, 11)
+	search:SetTextColor(S.TEXT[1], S.TEXT[2], S.TEXT[3])
+	search:SetTextInsets(20, 6, 0, 0)
+	local sbg = search:CreateTexture(nil, "BACKGROUND")
+	sbg:SetTexture(S.WHITE)
+	sbg:SetVertexColor(0, 0, 0, 0.45)
+	sbg:SetAllPoints()
+	local sline = search:CreateTexture(nil, "BORDER")
+	sline:SetTexture(S.WHITE)
+	sline:SetVertexColor(1, 1, 1, 0.12)
+	sline:SetPoint("BOTTOMLEFT")
+	sline:SetPoint("BOTTOMRIGHT")
+	sline:SetHeight(1)
+	local glass = search:CreateTexture(nil, "ARTWORK")
+	glass:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
+	glass:SetSize(12, 12)
+	glass:SetPoint("LEFT", 5, 0)
+	glass:SetVertexColor(0.7, 0.7, 0.72)
+	hint = S.Text(search, 11, S.DIM)
+	hint:SetPoint("LEFT", 20, 0)
+	hint:SetText("Search quests")
+	clear = CreateFrame("Button", nil, search)
+	clear:SetSize(14, 14)
+	clear:SetPoint("RIGHT", -3, 0)
+	local cx = clear:CreateTexture(nil, "ARTWORK")
+	cx:SetTexture(MEDIA .. "close")
+	cx:SetAllPoints()
+	cx:SetVertexColor(0.7, 0.7, 0.72)
+	clear:SetScript("OnClick", function() search:SetText("") search:ClearFocus() end)
+	clear:Hide()
+	end
+	search:SetScript("OnTextChanged", function(self)
+		local t = self:GetText() or ""
+		hint:SetShown(t == "" and not self:HasFocus())
+		clear:SetShown(t ~= "")
+		local q = t:lower():gsub("^%s+", ""):gsub("%s+$", "")
+		if q ~= query then
+			query = q
+			ScrollTop()
+			QL.Refresh()
+		end
+	end)
+	search:SetScript("OnEditFocusGained", function() hint:Hide() end)
+	search:SetScript("OnEditFocusLost", function(self) hint:SetShown((self:GetText() or "") == "") end)
+	search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+	search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+	back = S.Button(panel, "Back", 70, 20, function() QL.ShowList() end)
+	back:SetPoint("TOPLEFT", 4, -3)
+	back:Hide()
+	local sep = panel:CreateTexture(nil, "BORDER")
+	sep:SetTexture(S.WHITE)
+	sep:SetVertexColor(S.BORDER[1], S.BORDER[2], S.BORDER[3], S.BORDER[4])
+	sep:SetPoint("TOPLEFT", 1, -BAR)
+	sep:SetPoint("TOPRIGHT", 0, -BAR)
+	sep:SetHeight(1)
+
+	scroll = CreateFrame("ScrollFrame", nil, panel)
+	scroll:SetPoint("TOPLEFT", 2, -(BAR + 2))
+	scroll:SetPoint("BOTTOMRIGHT", -8, 4)
+	scroll:EnableMouseWheel(true)
+	scroll:SetScript("OnMouseWheel", function(_, d) ScrollBy(d) end)
+	-- (resized with the window: the bar fitted to the new height at once, the list laid out again shortly)
+	scroll:SetScript("OnSizeChanged", function(self, w)
+		if not (child and thumb) then return end
+		child:SetWidth(w)
+		ScrollBy(0)
+		QL.Changed()
+	end)
+	child = CreateFrame("Frame", nil, scroll)
+	child:SetSize(WIDTH - 10, 1)
+	scroll:SetScrollChild(child)
+	thumb = panel:CreateTexture(nil, "OVERLAY")
+	thumb:SetTexture(S.WHITE)
+	thumb:SetVertexColor(1, 1, 1, 0.18)
+	thumb:SetWidth(3)
+	if S.classic then thumb:SetVertexColor(0.75, 0.6, 0.3, 1) end      -- (classic: a gold bar, not a see-through one)
+	thumb:Hide()
+
+	-- the details' actions
+	bottom = CreateFrame("Frame", nil, panel)
+	bottom:SetPoint("BOTTOMLEFT", 1, 1)
+	bottom:SetPoint("BOTTOMRIGHT", 0, 1)
+	bottom:SetHeight(BAR)
+	bottom:Hide()
+	local bw = (WIDTH - 10 - 9) / 4
+	local function Act(key, label, tip, fn)
+		local b = S.Button(bottom, label, bw, 20, fn)
+		b.tip = tip
+		buttons[key] = b
+		return b
+	end
+	Act("track", "Track", { "Track", "Show it in the objective tracker." }, function()
+		if detailID then SetWatched(detailID, not Watched(detailID)) QL.Refresh() end
+	end):SetPoint("BOTTOMLEFT", 5, 3)
+	Act("nav", "Navigate", { "Navigate", "Follow it with the in-game waypoint arrow." }, function()
+		if not detailID or not C_SuperTrack then return end
+		local on = C_SuperTrack.GetSuperTrackedQuestID() == detailID
+		C_SuperTrack.SetSuperTrackedQuestID(on and 0 or detailID)
+		QL.Refresh()
+	end):SetPoint("LEFT", buttons.track, "RIGHT", 3, 0)
+	Act("share", "Share", { "Share", "Offer it to your group." }, function()
+		if not detailID or not IsInGroup() then return end
+		C_QuestLog.SetSelectedQuest(detailID)
+		QuestLogPushQuest()
+	end):SetPoint("LEFT", buttons.nav, "RIGHT", 3, 0)
+	Act("abandon", "Abandon", { "Abandon", "Click twice to abandon it." }, function(self)
+		if not detailID then return end
+		if self.armed == detailID then
+			self.armed = nil
+			C_QuestLog.SetSelectedQuest(detailID)
+			C_QuestLog.SetAbandonQuest()
+			C_QuestLog.AbandonQuest()
+			QL.ShowList()
+		else
+			self.armed = detailID
+			UpdateButtons()
+			C_Timer.After(4, function() if self.armed then self.armed = nil UpdateButtons() end end)
+		end
+	end):SetPoint("LEFT", buttons.share, "RIGHT", 3, 0)
+
+	panel:SetScript("OnShow", function() QL.Refresh() end)
+end
+
+-- docked in the map window (called when the window is built)
+function QL.Attach(parent, headerHeight)
+	Build(parent, headerHeight)
+	QL.SetShown(FM.db.questPanel)
+end
+
+function QL.SetShown(on)
+	FM.db.questPanel = on and true or false
+	if not panel then return end
+	panel:SetShown(on)
+	FM.Map.SetSideWidth(on and WIDTH or 0)
+	if FM.Map.questsButton then FM.Map.questsButton:SetActive(on) end
+end
+
+function QL.IsShown() return panel and panel:IsShown() end
+
+function QL.Toggle() QL.SetShown(not (panel and panel:IsShown())) end
+
+-- open the map and the log (on a quest's details when given one: from the objective tracker, Questie's,
+-- another addon's "show this quest"; its button flashes, as from the log)
+function QL.Open(questID)
+	FM.Map.Show()
+	QL.SetShown(true)
+	if questID then QL.ShowDetails(questID, false, true) else QL.ShowList() end
+end
+
+-- the quest log key: open the map on the log, or close it if that's what's showing
+function QL.ToggleKey()
+	if FM.Map.IsShown() and QL.IsShown() then FM.Map.Hide() else QL.Open() end
+end
