@@ -40,11 +40,10 @@ L["/av modules enable <name>  |  /av modules disable <name>  |  /av config"] =
 ---------------------------------------------------------------------------
 L["Modules"] = "Modules"
 L["This module has no settings."] = "Ce module n'a pas de réglages."
-L["Active"] = "Actif"
-L["Disabled: its settings are kept and come back when it's enabled."] =
-	"Désactivé : ses réglages sont conservés et reviennent à sa réactivation."
-L["Not running"] = "Inactif"
-L["Disabled: its settings are kept."] = "Désactivé : ses réglages sont conservés."
+L["Not running"] = "Ne fonctionne pas"
+L["Enabled: %s"] = "Activé : %s"
+L["Disabled: %s"] = "Désactivé : %s"
+L["Its settings are kept while it's disabled."] = "Ses réglages sont conservés tant qu'il est désactivé."
 L["The same settings are in AzerothVeil's options window (/av config, the minimap button, the map's gear)."] =
 	"Les mêmes réglages sont dans la fenêtre d'options d'AzerothVeil (/av config, le bouton de la minicarte, la roue dentée de la carte)."
 L["Settings"] = "Réglages"
@@ -63,8 +62,11 @@ L["This module changed parts of the game that can only be put back by a reload."
 -- Module: Friends & guild
 ---------------------------------------------------------------------------
 L["Friends & guild"] = "Amis & guilde"
-L["Friends and guild members who use AzerothVeil, PerfectMap or OpenMap and share where they are show on the map as a dot in their class colour. You can share your own place with them too.\n\nOff: nothing is sent or received, and nothing runs."] =
-	"Les amis et membres de guilde qui utilisent AzerothVeil, PerfectMap ou OpenMap et partagent leur position apparaissent sur la carte sous forme d'un point à la couleur de leur classe. Vous pouvez aussi partager la vôtre.\n\nDésactivé : rien n'est envoyé ni reçu, et rien ne tourne."
+L["Friends and guild members who use AzerothVeil, PerfectMap or OpenMap and share where they are show on the map as a dot in their class colour. You can share your own place with them too."] =
+	"Les amis et membres de guilde qui utilisent AzerothVeil, PerfectMap ou OpenMap et partagent leur position apparaissent sur la carte sous forme d'un point à la couleur de leur classe. Vous pouvez aussi partager la vôtre."
+L["the dots of those who share their place show on the map; yours is shared if that option is on."] =
+	"les points de ceux qui partagent leur position s'affichent sur la carte ; la vôtre est partagée si l'option est cochée."
+L["nothing is sent or received, and nothing runs."] = "rien n'est envoyé ni reçu, et rien ne tourne."
 L["Show friends & guild on the map"] = "Afficher amis et guilde sur la carte"
 L["A class-coloured dot where each friend or guild member who shares their place stands."] =
 	"Un point à la couleur de sa classe à l'endroit où se trouve chaque ami ou membre de guilde qui partage sa position."
@@ -86,8 +88,12 @@ L["Only your guild and friends, never from a dungeon, raid or battleground. /av 
 -- Module: Transports
 ---------------------------------------------------------------------------
 L["Transports"] = "Transports"
-L["Flight masters, harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes.\n\nOff: none of it is shown and nothing of it runs."] =
-	"Les maîtres de vol, les ports, les tours des zeppelins et le Tram des profondeurs sur la carte, le tracé de leurs itinéraires, et chaque bateau et zeppelin là où il se trouve. Un clic sur un quai emmène la carte à sa destination.\n\nDésactivé : rien de tout cela n'est affiché et rien ne tourne."
+L["Flight masters, harbors, zeppelin towers and the Deeprun Tram on the map, the lines of their routes, and each boat and zeppelin where it is now. A click on a dock takes the map to where it goes."] =
+	"Les maîtres de vol, les ports, les tours des zeppelins et le Tram des profondeurs sur la carte, le tracé de leurs itinéraires, et chaque bateau et zeppelin là où il se trouve. Un clic sur un quai emmène la carte à sa destination."
+L["the transports picked below show on the map; tracking and sharing run if their options are on."] =
+	"les transports choisis ci-dessous s'affichent sur la carte ; le suivi et le partage fonctionnent si leurs options sont cochées."
+L["none of it shows and nothing of it runs: no icon, no line, no tracking, no message sent or heard."] =
+	"rien ne s'affiche et rien ne tourne : aucune icône, aucun tracé, aucun suivi, aucun message envoyé ou reçu."
 L["Display"] = "Affichage"
 L["Show boats"] = "Afficher les bateaux"
 L["Show flight masters"] = "Afficher les maîtres de vol"

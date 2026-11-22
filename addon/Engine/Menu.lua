@@ -137,7 +137,6 @@ local function Box(parent, alpha)
 	return f
 end
 
-local STATE_COLOR = { active = { 0.4, 0.9, 0.4 }, disabled = { 0.6, 0.6, 0.6 }, unavailable = { 1, 0.55, 0.3 } }
 
 local function ModuleHeader(page, m, y, width)
 	local hb = Box(page, 0.9)
@@ -155,8 +154,10 @@ local function ModuleHeader(page, m, y, width)
 	check:SetPoint("LEFT", title, "RIGHT", 6, 0)
 	check:SetScript("OnClick", function(self) MM:SetEnabled(m.name, self:GetChecked()) M.Refresh() end)
 	check:SetScript("OnEnter", function(self)
+		local title, lines = MM:SwitchTooltip(m.name)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(L["Enable this module"], 1, 0.82, 0)
+		GameTooltip:SetText(title or L["Enable this module"], 1, 0.82, 0)
+		for _, l in ipairs(lines) do GameTooltip:AddLine(l[1], l[2], l[3], l[4], true) end
 		GameTooltip:Show()
 	end)
 	check:SetScript("OnLeave", GameTooltip_Hide)
@@ -171,15 +172,20 @@ local function ModuleHeader(page, m, y, width)
 	state:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -6)
 	state:SetWidth(width - 12 - 36 - 10 - 14)
 	state:SetJustifyH("LEFT")
-	local h = 12 + 1 + title:GetStringHeight() + 6 + desc:GetStringHeight() + 6 + 14 + 12
+	-- (no "active / disabled" line: the check box says it. Only why it doesn't run, for a module that may
+	-- not: an addon or a module it needs, an addon that takes its place)
+	local mayFail = MM:CanBeUnavailable(m.name)
+	local h = 12 + 1 + title:GetStringHeight() + 6 + desc:GetStringHeight() + (mayFail and (6 + 14) or 0) + 12
 	hb:SetHeight(math.max(64, h))
 	rows[#rows + 1] = { Refresh = function()
 		check:SetChecked(MM:IsEnabled(m.name))
 		local st, reason = MM:State(m.name)
-		local c = STATE_COLOR[st] or STATE_COLOR.disabled
-		state:SetText(st == "active" and L["Active"] or st == "disabled" and L["Disabled: its settings are kept."]
-			or (L["Not running"] .. (reason and (": " .. reason) or "")))
-		state:SetTextColor(c[1], c[2], c[3])
+		if mayFail and st == "unavailable" then
+			state:SetText(L["Not running"] .. (reason and (": " .. reason) or ""))
+			state:SetTextColor(1, 0.55, 0.3)
+		else
+			state:SetText("")
+		end
 	end }
 	return y - hb:GetHeight() - 10
 end

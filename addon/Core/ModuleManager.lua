@@ -5,6 +5,8 @@
 --
 --   name            unique id (lower case), the key of its settings in AzerothVeilDB.modules
 --   title, description, order        what the options window shows (order: its place in the list)
+--   onText, offText what happens with it on, and off (its on/off check box's tooltip)
+--   icon            its picture in the options (a path, "atlas:name", or a function returning one)
 --   defaultEnabled  on or off the first time (default true)
 --   dependencies    { "otherModule", ... }  AzerothVeil modules that must be active for it to run
 --   requiresAddOns  { "AddOn", ... }        other addons that must be loaded for it to run
@@ -198,6 +200,26 @@ function MM:Dependents(name)
 		end
 	end
 	return out
+end
+
+-- A module's on/off check box's tooltip, for every option screen: its title, then { text, r, g, b } lines
+-- (what happens with it on, and off; why it doesn't run, when it can't)
+function MM:SwitchTooltip(name)
+	local m = self.byName[name]
+	if not m then return nil, {} end
+	local lines = {}
+	if m.onText then lines[#lines + 1] = { L["Enabled: %s"]:format(m.onText), 0.45, 0.95, 0.45 } end
+	if m.offText then lines[#lines + 1] = { L["Disabled: %s"]:format(m.offText), 0.75, 0.75, 0.75 } end
+	lines[#lines + 1] = { L["Its settings are kept while it's disabled."], 0.6, 0.6, 0.6 }
+	local state, reason = self:State(name)
+	if state == "unavailable" and reason then lines[#lines + 1] = { L["Not running"] .. ": " .. reason, 1, 0.55, 0.3 } end
+	return m.title, lines
+end
+
+-- whether a module may be enabled yet not run (an addon or a module it needs, an addon that takes its place)
+function MM:CanBeUnavailable(name)
+	local m = self.byName[name]
+	return m and (#m.requiresAddOns + #m.conflictsWithAddOns + #m.dependencies) > 0 or false
 end
 
 function MM:SetEnabled(name, on)
