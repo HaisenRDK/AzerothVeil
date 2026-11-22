@@ -138,42 +138,31 @@ function D.SetFloor(i)
 	Draw()
 end
 
+-- AzerothVeil: the floors as Blizzard's own buttons, stacked down the map's left, the one shown held lit
+-- (a click, or the wheel over the map, goes to another; the passages drawn on a floor go too: FloorLinks)
 local function Floors(names, current)
-	if not floorPanel then
-		floorPanel = CreateFrame("Frame", nil, layer)
-		floorPanel:SetFrameLevel(layer:GetFrameLevel() + 20)
-		floorPanel:EnableMouse(true)
-		S.Panel(floorPanel, { 0.05, 0.055, 0.06, 0.9 })
-		floorHead = S.Text(floorPanel, 11, S.ACCENT)
-		floorHead:SetPoint("TOPLEFT", 10, -8)
-	end
 	for _, r in ipairs(floorRows) do r:Hide() end
-	if not names or #names < 2 then floorPanel:Hide() return end
-	floorHead:SetText((L["FLOORS  |cff9a9a9a%d / %d|r"]):format(current, #names))
-	local y = -26
+	if not names or #names < 2 then return end
+	local y = (instButton and instButton:IsShown()) and -38 or -8
 	for i, name in ipairs(names) do
 		local r = floorRows[i]
 		if not r then
-			r = S.Button(floorPanel, "", FLOOR_W - 12, ROW_H, function(self) D.SetFloor(self.index) end, "row")
-			r.label:ClearAllPoints()
-			r.label:SetPoint("LEFT", 8, 0)
-			r.label:SetPoint("RIGHT", -6, 0)
-			r.label:SetJustifyH("LEFT")
-			r.label:SetWordWrap(false)
+			r = CreateFrame("Button", nil, layer, "UIPanelButtonTemplate")
+			r:SetSize(FLOOR_W, 22)
+			r:SetScript("OnClick", function(self) D.SetFloor(self.index) end)
+			local fs = r:GetFontString()
+			if fs then fs:SetWordWrap(false) fs:SetPoint("LEFT", 8, 0) fs:SetPoint("RIGHT", -8, 0) end
 			floorRows[i] = r
 		end
 		r.index = i
-		r.label:SetText(("%d   %s"):format(i, name))
+		r:SetFrameLevel(layer:GetFrameLevel() + 20)
+		r:SetText(("%d.  %s"):format(i, name))
+		if i == current then r:LockHighlight() else r:UnlockHighlight() end
 		r:ClearAllPoints()
-		r:SetPoint("TOPLEFT", 6, y)
-		r:SetActive(i == current)
+		r:SetPoint("TOPLEFT", layer, "TOPLEFT", 8, y)
 		r:Show()
-		y = y - ROW_H - 2
+		y = y - 24
 	end
-	floorPanel:SetSize(FLOOR_W, -y + 6)
-	floorPanel:ClearAllPoints()
-	floorPanel:SetPoint("TOPLEFT", layer, "TOPLEFT", 8, (instButton and instButton:IsShown()) and -38 or -8)
-	floorPanel:Show()
 end
 
 -- the list of an entrance's dungeons, under anchor (else at the cursor): a click opens that one's map
@@ -417,6 +406,7 @@ local function Spot(inst, boss)
 end
 
 local entrancePins = {}
+local linkPins = {}             -- (AzerothVeil: the passages to other floors)
 local listPanel, listRows = nil, {}
 
 local function Entrance(i, x, y, raid)
@@ -456,7 +446,8 @@ local function List(bosses)
 		listPanel.head:SetText(L["ALSO HERE"])
 	end
 	for _, r in ipairs(listRows) do r:Hide() end
-	if #bosses == 0 then listPanel:Hide() return end
+	-- (AzerothVeil: while the Dungeons module's Bosses tab lists them, none over the map)
+	if #bosses == 0 or (D.BossListInPanel and D.BossListInPanel()) then listPanel:Hide() return end
 	local y = -26
 	for i, b in ipairs(bosses) do
 		local r = listRows[i]
@@ -638,7 +629,7 @@ local function PlaceBosses(inst, index, floorName, collect)
 			for _, jb in ipairs(dj) do
 				local info = BossNamed(jb[1])
 				for _, a in ipairs(jb[8] or {}) do info = info or BossNamed(a) end
-				local b = { jb[1], jb[2] or (info and info[2]) or false, jb[4] or (info and info[3]) or 0, jb[3], jb[9] }
+				local b = { jb[1], jb[2] or (info and info[2]) or false, jb[4] or (info and info[3]) or 0, jb[3], jb[9], jb[8] }
 				local f, x, y = jb[5], jb[6], jb[7]
 				if not f then f, x, y = OtherPlace(inst, jb) end
 				if f == index then Pin(x, y, b)
@@ -694,6 +685,44 @@ local function PlaceBosses(inst, index, floorName, collect)
 			ways[#ways + 1] = { x = geo.x + e[1] * geo.w, y = geo.y + e[2] * geo.h }
 		end
 	end
+	-- AzerothVeil: the passages to other floors (stairs, ladders, portals) where the Dungeons module knows
+	-- them (D.FloorLinks: DungeonJournal's, on the game's own maps): an arrow; a click, that floor
+	local nl = 0
+	local links = D.FloorLinks and inst and D.FloorLinks(inst) or nil
+	for _, lk in ipairs(links or {}) do
+		if lk.floor == index and lk.to then
+			nl = nl + 1
+			local b = linkPins[nl]
+			if not b then
+				b = CreateFrame("Button", nil, layer)
+				b:SetSize(28, 28)
+				b.tex = b:CreateTexture(nil, "ARTWORK")
+				b.tex:SetAllPoints()
+				b.tex:SetTexture("Interface\\Minimap\\MiniMap-QuestArrow")
+				b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight", "ADD")
+				b:SetScript("OnClick", function(self) D.SetFloor(self.to) end)
+				b:SetScript("OnEnter", function(self)
+					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+					GameTooltip:SetText(L["To floor %d"]:format(self.to), 1, 0.82, 0)
+					if self.toName then GameTooltip:AddLine(self.toName, 1, 1, 1) end
+					GameTooltip:AddLine(L["Click: go to that floor."], 0.6, 0.6, 0.6)
+					GameTooltip:Show()
+				end)
+				b:SetScript("OnLeave", GameTooltip_Hide)
+				linkPins[nl] = b
+			end
+			b.to = lk.to
+			local fl = (FloorsOf(inst) or {})[lk.to]
+			b.toName = fl and fl.name
+			b.tex:SetRotation(lk.dir == "down" and math.pi or 0)
+			b:SetFrameLevel(layer:GetFrameLevel() + 6)
+			b:ClearAllPoints()
+			b:SetPoint("CENTER", layer, "TOPLEFT", geo.x + lk.x * geo.w, -(geo.y + lk.y * geo.h))
+			b:Show()
+			ways[#ways + 1] = { x = geo.x + lk.x * geo.w, y = geo.y + lk.y * geo.h }
+		end
+	end
+	for i = nl + 1, #linkPins do linkPins[i]:Hide() end
 	ArrangeBosses(spots, ways)
 	for i, s in ipairs(spots) do
 		local p, k = s.p, BOSS_SCALE * s.size
@@ -1366,7 +1395,7 @@ end
 function D.Current()
 	if not (view and view.inst and D.Active()) then return nil end
 	local floors = FloorsOf(view.inst)
-	return view.inst, view.floor or 1, floors and #floors or 0, opened
+	return view.inst, view.floor or 1, floors and #floors or 0, opened, view.name
 end
 
 -- every boss of an instance as the map shows them, floor by floor: { { boss = { name, level, displayID,

@@ -105,7 +105,13 @@ la liste des AddOns), puis **avec**.
    remplacé par les onglets Quêtes / Boss.
 4. Monastère écarlate / Hache-Tripes / Pic Rochenoire : liste des ailes, chacune ouvre la bonne carte.
    Donjon à plusieurs étages (Rochenoire, Gnomeregan) : boutons d'étage.
-5. Onglet Boss : liste, clic → bon étage affiché, repère qui clignote ; boss non placés indiqués.
+4b. Étages : boutons Blizzard empilés à gauche de la carte, l'étage affiché en surbrillance. Avec
+   DungeonJournal installé (option « Utiliser DungeonJournal » décochée), donjons classiques (Ombrecroc,
+   Mortemines) : flèches sur les passages vers un autre étage, clic → cet étage.
+5. Onglet Boss : grands portraits ; plus de liste noire sur la carte (Repaire des Noiregueules : tous ses
+   boss dans l'onglet, « Non placé sur la carte ») ; clic → bon étage, repère qui clignote, et son butin
+   (avec DungeonJournal installé) : icônes, noms en français, couleur de qualité, infobulle du jeu,
+   Maj-clic → lien.
 6. Onglet Quêtes : avec une quête de ce donjon dans le journal (ex. Mortemines) : état, progression ;
    clic → récompenses avec infobulles du jeu ; Maj-clic → lien dans le chat ; sans quête : message.
 7. Bouton Monde ou clic droit : retour **exactement** à la vue d'avant (même endroit, même zoom), journal de

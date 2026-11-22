@@ -543,8 +543,12 @@ local function LoadDungeons(saved, dj)
 	ns.DungeonPanel = { Show = function(_, inst) st.panel = inst end, Hide = function() st.panel = false end, Refresh = function() end }
 	if dj then
 		stub.loadedAddOns.ForeverDungeonJournal = true
-		local FDJ = { DB = { ["The Deadmines"] = {}, ["Stratholme: Living"] = {}, ["Stratholme: Undead"] = {},
-			["Scarlet Monastery: Library"] = {} }, DUNGEON_MAPS = { ["The Deadmines"] = {} } }
+		local FDJ = { DB = { ["The Deadmines"] = { bosses = { { name = "Edwin VanCleef", loot = { { 5191, "Cruel Barb", "One-Hand, Sword", 3 } } },
+				{ name = "Mr. Smite", loot = {} } } },
+			["Stratholme: Living"] = {}, ["Stratholme: Undead"] = {}, ["Scarlet Monastery: Library"] = {} },
+			DUNGEON_MAPS = { ["The Deadmines"] = {
+				floors = { { tiles = "Interface\\WorldMap\\TheDeadmines\\TheDeadmines1_" }, { tiles = "Interface\\WorldMap\\TheDeadmines\\TheDeadmines3_" } },
+				transitions = { { floor = 1, to = 2, x = 0.4, y = 0.5, dir = "down" } } } } }
 		FDJ.IsDungeonMapLocked = function(name) return dj.locked and dj.locked[name] or false end
 		FDJ.OpenDungeonMap = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "map:" .. name end
 		FDJ.OpenBossPage = function(name) if dj.broken then error("broken") end st.journal[#st.journal + 1] = "bosses:" .. name end
@@ -692,6 +696,36 @@ test("bosses: as the map has them; none known: an empty list", function()
 	local list = mod.BossesFor(36)
 	eq(list[1].name, "Edwin VanCleef", "title left out") eq(list[1].floor, 2, "its floor") eq(list[2].floor, nil, "not placed")
 end)
+test("passages between floors: DungeonJournal's, in our floors, only on the game's own maps", function()
+	local ns = LoadDungeons(nil, {})
+	local links = ns.DungeonJournal.FloorLinks(36, true)
+	eq(#links, 1, "one passage") eq(links[1].floor, 1, "from our floor 1") eq(links[1].to, 3, "to our floor 3 (the game's map 3)")
+	eq(ns.DungeonJournal.FloorLinks(36, false), nil, "other pictures: none")
+	local ns2 = LoadDungeons(nil)
+	eq(ns2.DungeonJournal.FloorLinks(36, true), nil, "no DungeonJournal: none")
+	eq(type(ns.Dungeon.FloorLinks), "function", "given to the engine")
+	ns.Modules:SetSetting("dungeons", "ways", false)
+	eq(ns.Dungeon.FloorLinks, nil, "entrances and exits off: none")
+end)
+test("a boss's loot: DungeonJournal's list by its name or another; none without it", function()
+	local ns = LoadDungeons(nil, {})
+	local mod = ns.Modules:Get("dungeons")
+	local loot = mod.BossLoot(36, nil, { key = "Edwin VanCleef <Defias Kingpin>", name = "Edwin VanCleef" })
+	eq(#loot, 1, "its loot") eq(loot[1].itemID, 5191, "item ID") eq(loot[1].quality, 3, "quality")
+	eq(mod.BossLoot(36, nil, { key = "Someone", name = "Someone", aliases = { "Mr. Smite" } })[1], nil, "an alias: its (empty) list")
+	eq(mod.BossLoot(36, nil, { key = "Nobody", name = "Nobody" }), false, "a boss it doesn't have")
+	local ns2 = LoadDungeons(nil)
+	eq(ns2.Modules:Get("dungeons").BossLoot(36, nil, { key = "Edwin VanCleef", name = "Edwin VanCleef" }), nil, "no DungeonJournal: nil")
+end)
+test("unplaced bosses go to the Bosses tab, not over the map", function()
+	local ns = LoadDungeons(nil)
+	eq(ns.Dungeon.BossListInPanel(), true, "in the tab")
+	ns.Modules:SetSetting("dungeons", "bossesTab", false)
+	eq(ns.Dungeon.BossListInPanel(), false, "no tab: on the map, as before")
+	local ns2 = LoadDungeons(nil, {})
+	eq(ns2.Dungeon.BossListInPanel(), false, "DungeonJournal in charge: no tab of ours")
+end)
+
 test("migration 4: PerfectMap's dungeon switches become the module's", function()
 	local ns = LoadDungeons({ schema = 3, engine = { pins = { raid = false }, dungeonBosses = false } })
 	eq(ns.Modules:GetSetting("dungeons", "raidPins"), false, "raids") eq(ns.Modules:GetSetting("dungeons", "bosses"), false, "bosses")

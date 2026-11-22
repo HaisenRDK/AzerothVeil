@@ -243,7 +243,6 @@ L["Sailings: sharing sightings is off (Transports module): only your own sightin
 	"Traversées : le partage des observations est désactivé (module Transports) : seulement vos propres observations."
 
 -- dungeons
-L["FLOORS  |cff9a9a9a%d / %d|r"] = "NIVEAUX  |cff9a9a9a%d / %d|r"
 L["CHOOSE A DUNGEON"] = "CHOISIR UN DONJON"
 L["Dungeons here"] = "Donjons ici"
 L["This entrance leads to more than one: pick another."] = "Cette entrée mène à plusieurs donjons : choisissez-en un autre."
@@ -419,9 +418,6 @@ L["Click: its rewards.   Shift-click: link it in chat."] = "Clic : ses récompen
 L["No boss is known for this place."] = "Aucun boss connu pour ce lieu."
 L["Floor %d"] = "Niveau %d"
 L["Not placed on the map"] = "Non placé sur la carte"
-L["Click: show where it stands."] = "Clic : montrer où il se trouve."
-L["Loot isn't in AzerothVeil's data: DungeonJournal's boss pages have it."] =
-	"Le butin ne fait pas partie des données d'AzerothVeil : les pages des boss de DungeonJournal le donnent."
 L["Bosses"] = "Boss"
 L["Levels %s"] = "Niveaux %s"
 L["Scarlet Monastery - Graveyard"] = "Monastère Écarlate - Cimetière"
@@ -433,3 +429,11 @@ L["Dire Maul - West"] = "Hache-Tripes - Ouest"
 L["Dire Maul - North"] = "Hache-Tripes - Nord"
 L["Lower Blackrock Spire"] = "Pic Rochenoire inférieur"
 L["Upper Blackrock Spire"] = "Pic Rochenoire supérieur"
+L["Click: its loot, and where it stands."] = "Clic : son butin, et où il se trouve."
+L["Click: its loot."] = "Clic : son butin."
+L["Loot isn't in AzerothVeil's own data: with DungeonJournal installed, each boss's loot shows here."] =
+	"Le butin ne fait pas partie des données d'AzerothVeil : avec DungeonJournal installé, le butin de chaque boss s'affiche ici."
+L["No loot known for this boss."] = "Aucun butin connu pour ce boss."
+L["To floor %d"] = "Vers le niveau %d"
+L["Click: go to that floor."] = "Clic : aller à ce niveau."
+

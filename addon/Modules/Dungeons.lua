@@ -192,10 +192,24 @@ function Dungeons.BossesFor(inst)
 		local b = e.boss
 		if b and b[1] then
 			out[#out + 1] = { name = (b[1]:gsub("%s*<[^>]*>", "")), key = b[1], level = b[2] or nil,
-				levelText = b[5], displayID = b[3], kind = b[4], floor = e.floor }
+				levelText = b[5], displayID = b[3], kind = b[4], floor = e.floor, aliases = b[6] }
 		end
 	end
 	return out
+end
+
+-- A boss's loot: DungeonJournal's list (read only) when it's installed; nil when it isn't, false when it
+-- has nothing for that boss. AzerothVeil's own data has no loot: nothing is made up.
+function Dungeons.BossLoot(inst, wingName, boss)
+	if not DJ.NS() then return nil end
+	local names = { boss.key, boss.name }
+	for _, a in ipairs(boss.aliases or {}) do names[#names + 1] = a end
+	return DJ.BossLoot(inst, wingName, names) or false
+end
+
+-- whether this instance is shown on the game's own maps (DungeonJournal's passages fit them then)
+local function OnGameTiles(inst)
+	return ns.DUNGEON_MAPS and ns.DUNGEON_MAPS[inst] ~= nil and not (ns.DUNGEON_DRAWN and ns.DUNGEON_DRAWN[inst])
 end
 
 ---------------------------------------------------------------------------
@@ -216,6 +230,8 @@ function Dungeons:ShowPanel(inst)
 		ns.QuestLog.Suspend(true)
 		ns.Map.SetSideWidth(ns.QuestLog.WIDTH)
 		self:RegisterEvent("QUEST_LOG_UPDATE", function() panel.Refresh() end)
+		-- (an item's name and quality arriving from the server: the loot list drawn again)
+		self:RegisterEvent("GET_ITEM_INFO_RECEIVED", function() panel.Refresh() end)
 	end
 	panel.Show(self, inst)
 end
@@ -224,6 +240,7 @@ function Dungeons:HidePanel()
 	if not panelUp then return end
 	panelUp = false
 	self:UnregisterEvent("QUEST_LOG_UPDATE")
+	self:UnregisterEvent("GET_ITEM_INFO_RECEIVED")
 	if ns.DungeonPanel then ns.DungeonPanel.Hide() end
 	ns.QuestLog.Suspend(false)
 end
@@ -245,6 +262,10 @@ local function Apply(self, running)
 	db.dungeonMaps = On("auto")
 	ns.Pins.OnDungeonClick = running and function(wings, title) self:Click(wings, title) end or nil
 	ns.Dungeon.ReturnView = running and Dungeons.ReturnView or nil
+	-- (the passages between floors: DungeonJournal's, where it's installed and the maps are the game's)
+	ns.Dungeon.FloorLinks = On("ways") and function(inst) return DJ.FloorLinks(inst, OnGameTiles(inst)) end or nil
+	-- (the bosses no map places: in the Bosses tab, not over the map, while that tab is there)
+	ns.Dungeon.BossListInPanel = running and function() return self:TabsWanted() and self:IsOptionActive("bossesTab") end or nil
 	-- (the level ranges are written into the icons' tooltips: those built again)
 	if wasLevels ~= db.dungeonLevels then
 		if ns.Map.IsShown() then ns.Pins.RebuildPlaces() else ns.Pins.InvalidatePlaces() end

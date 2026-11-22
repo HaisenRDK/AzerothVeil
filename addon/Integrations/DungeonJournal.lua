@@ -111,3 +111,79 @@ function DJ.Open(key)
 	if hasMap and not locked then ok = pcall(f.OpenDungeonMap, key) else ok = pcall(f.OpenBossPage, key) end
 	return ok and true or false
 end
+
+---------------------------------------------------------------------------
+-- Its data, read only, for AzerothVeil's own dungeon maps when it's installed (as PerfectMap reused it):
+-- the passages between floors and the bosses' loot. Nothing of it is changed or copied.
+---------------------------------------------------------------------------
+-- its dungeons for an instance (any wing; a wing named: that one only)
+local function KeysOf(inst, wingName)
+	if wingName and DJ.WINGS[inst] then
+		local k = DJ.WINGS[inst][wingName]
+		if k then return { k } end
+	end
+	if DJ.WINGS[inst] then
+		local out = {}
+		for _, k in pairs(DJ.WINGS[inst]) do out[#out + 1] = k end
+		return out
+	end
+	return DJ.KEYS[inst] or {}
+end
+
+-- The passages to other floors on the game's own maps of a dungeon (4 x 3 tiles: its classic ones),
+-- as its maps mark them: { { floor, to, x, y, dir } } in AzerothVeil's floors. Its floor i is the game's
+-- map "<Name><n>_": AzerothVeil's floor n (the same pictures, in the game's order). ourTiles: whether
+-- AzerothVeil shows the game's tiles for this instance (else the pictures differ: none).
+function DJ.FloorLinks(inst, ourTiles)
+	local f = DJ.NS()
+	if not (f and ourTiles and type(f.DUNGEON_MAPS) == "table") then return nil end
+	local out = {}
+	for _, key in ipairs(KeysOf(inst)) do
+		local data = f.DUNGEON_MAPS[key]
+		if type(data) == "table" and type(data.transitions) == "table" and type(data.floors) == "table" then
+			local ours = {}
+			for i, fl in ipairs(data.floors) do
+				local n = type(fl) == "table" and type(fl.tiles) == "string" and tonumber(fl.tiles:match("(%d+)_$"))
+				ours[i] = n
+			end
+			for _, t in ipairs(data.transitions) do
+				local from, to = ours[t.floor], ours[t.to]
+				if from and to and tonumber(t.x) and tonumber(t.y) then
+					out[#out + 1] = { floor = from, to = to, x = t.x, y = t.y, dir = t.dir }
+				end
+			end
+		end
+	end
+	return out
+end
+
+local function Plain(name)
+	return type(name) == "string" and name:gsub("%s*<[^>]*>", ""):lower():gsub("^%s+", ""):gsub("%s+$", "") or nil
+end
+
+-- A boss's loot as it lists it: { { itemID, name, slot, quality } }, or nil when it doesn't have that boss.
+-- names: the boss's name and its other names (AzerothVeil's data, taken from its own originally).
+function DJ.BossLoot(inst, wingName, names)
+	local f = DJ.NS()
+	if not f then return nil end
+	local want = {}
+	for _, n in ipairs(names or {}) do
+		local p = Plain(n)
+		if p then want[p] = true end
+	end
+	for _, key in ipairs(KeysOf(inst, wingName)) do
+		local d = f.DB[key]
+		for _, b in ipairs(type(d) == "table" and type(d.bosses) == "table" and d.bosses or {}) do
+			if type(b) == "table" and want[Plain(b.name) or ""] and type(b.loot) == "table" then
+				local out = {}
+				for _, it in ipairs(b.loot) do
+					if type(it) == "table" and tonumber(it[1]) then
+						out[#out + 1] = { itemID = it[1], name = it[2], slot = it[3], quality = tonumber(it[4]) }
+					end
+				end
+				return out
+			end
+		end
+	end
+	return nil
+end

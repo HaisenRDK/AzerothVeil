@@ -57,6 +57,21 @@ dépendance à leurs locaux, noms fragiles.
 3. PerfectMap actif en même temps (déjà signalé au login).
 4. Fonctions de DungeonJournal absentes ou renommées dans une autre version → appels protégés et repli.
 
+## 4 bis. Licence de DungeonJournal et données réutilisées (v0.4.1)
+
+DungeonJournal ne déclare **aucune licence** (ni fichier, ni mention dans son README ou son .toc) : son
+code et ses données sont donc « tous droits réservés » par défaut. PerfectMap en a copié une partie
+**avec la permission de son auteur** (`Engine/Data/DungeonJournal.lua`). AzerothVeil **ne copie rien de
+plus** : quand DungeonJournal est installé, il **lit à l'exécution** ses données publiques, en lecture
+seule (`Integrations/DungeonJournal.lua`) :
+- passages entre étages (`DUNGEON_MAPS[nom].transitions`), sur les cartes du jeu uniquement (ses étages
+  pointent vers les dalles du jeu `<Nom><n>_` = notre étage n ; les donjons Forever dessinés ne
+  correspondent pas) ;
+- butin des boss (`DB[nom].bosses[i].loot` : itemID, nom, emplacement, qualité), affiché avec les noms,
+  icônes et infobulles natives du jeu.
+Repaire des Noiregueules : aucune source ne place ses boss (DungeonJournal : « Locations unverified; no
+fabricated boss markers ») ; ils sont listés dans l'onglet Boss, sans position inventée.
+
 ## 5. Décisions
 
 - **Module `dungeons`** pilotant le moteur existant (comme Transports) : interrupteurs effectifs écrits
