@@ -1,0 +1,7 @@
+# AzerothVeil — deploy settings. Copy to scripts/deploy.local.conf (not versioned) and adapt.
+
+# The WoW Forever client's AddOns folder, as seen from WSL
+WOW_ADDONS_DIR="/mnt/e/Blizzard/World of Warcraft/_forever_/Interface/AddOns"
+
+# The client folder's name the target must be in (a safety check: never another client)
+EXPECTED_FLAVOR="_forever_"
