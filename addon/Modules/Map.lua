@@ -78,6 +78,9 @@ local Map = ns.Modules:Register({
 		{ key = "terrainNames", type = "toggle", default = true, parent = "minimapTerrain",
 			label = L["Places' names up close"],
 			tooltip = L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes, and the capitals' districts."] .. "\n" .. L["With the fog of war, only the places you've explored."] },
+		{ key = "placeFactions", type = "toggle", default = true, parent = "terrainNames",
+			label = L["Villages' factions"],
+			tooltip = L["Before the name of a village of the Alliance or the Horde, its faction's emblem."] },
 		{ key = "playerCoords", type = "toggle", default = true,
 			label = L["Player's coordinates"],
 			tooltip = L["At the map's bottom: where you are on your zone's map."] },
@@ -114,6 +117,7 @@ local function Apply(self, running)
 	db.dungeonCaves = On("dungeonCaves")
 	db.mapNames = On("mapNames")
 	db.terrainNames = On("terrainNames")
+	db.placeFactions = On("placeFactions")
 	db.playerCoords = On("playerCoords")
 	db.cursorCoords = On("cursorCoords")
 	if ns.Map.RefreshCoords then ns.Map.RefreshCoords() end

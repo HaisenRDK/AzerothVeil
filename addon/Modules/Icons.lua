@@ -22,6 +22,7 @@ local SECTIONS = {
 }
 local TIPS = {
 	capital = L["Each capital's emblem, in its faction's colours, zoomed right out."],
+	exit = L["A signpost where a way leads into the next zone, \"To ...\" under it with the places' names up close. Left-click: that zone whole."],
 	classTrainer = L["Your class's only."],
 	portalTrainer = L["Your class's only."],
 }

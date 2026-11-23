@@ -227,3 +227,12 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
    icône, objectifs, couleur par difficulté, surbrillance.
 3. Carte : coordonnées joueur / curseur, noms des continents et des mers (sans lettres fantômes, dans la carte),
    minimap absente d'Ahn'Qiraj et de Zul'Gurub, zones de donjons non affichées de près sans l'option.
+
+## Checklist en jeu — version 1.1
+
+1. Pancartes : « Vers … » des deux côtés d'un passage, clic = région voisine entière ; Thunder Bluff (deux
+   ascenseurs), Mulgore–Désolace ; visibles aux Tarides vues entières.
+2. Emblème de faction devant Austrivage (Alliance), Moulin de Tarren (Horde)… ; l'option le retire.
+3. Liste des quêtes : survol = lueur derrière le titre + icône d'objectif allumée ; anneau autour des quêtes de
+   donjon, dragon autour des élites ; l'option « Cadres donjon et élite » les retire.
+4. Options : barres de défilement proportionnelles ; titre du survol sans sous-zone de loin ; pêche colorée.

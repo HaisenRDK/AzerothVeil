@@ -101,6 +101,19 @@
   couleur par difficulté, surbrillance (options).
 - Options : nouveau type « select » (liste de choix, Style.Select, sans les menus déroulants de Blizzard).
 
+## Version 1.1 (fait)
+
+- Passages entre régions : pancartes « Vers <région> » (icône de lieu, données Carbonite via OneForAll), un clic montre
+  la région voisine entière ; ascenseurs de Thunder Bluff, passage Mulgore–Désolace de Forever ; visibles au zoom
+  d'une grande région entière.
+- Noms : emblème de faction devant les villages de l'Alliance ou de la Horde (liste faite à la main,
+  Data/PlaceFactions.lua), option « Faction des villages ».
+- Quêtes : survol d'une ligne comme chez Blizzard (lueur derrière le titre, icône d'objectif allumée) ; anneau
+  turquoise autour de l'objectif des quêtes de donjon (violet pour un raid, Media/dungeon_ring.tga dessinée par
+  scripts/make_dungeon_ring.py), dragon élite pour les élites (option « Cadres donjon et élite »).
+- Options : barres de défilement proportionnelles (MinimalScrollBar) dans la fenêtre et dans Options > AddOns.
+- Titre du survol : pas de sous-zone tant que la région est surlignée ; compétence de pêche colorée selon la tienne.
+
 ## Questions ouvertes
 
 - Permissions de Santiago Reyes / Exehn si AzerothVeil devait être distribué (cf. audit §1).

@@ -569,6 +569,54 @@ function S.PassClicks(f)
 	end
 end
 
+-- AzerothVeil: a scroll frame with Blizzard's own scroll bar (MinimalScrollBar: its thumb as long as the share of
+-- the content in view), in a gutter right of it, shown only while there's something to scroll; the wheel scrolls
+-- it. Where the client has no such bar, the classic one (UIPanelScrollFrameTemplate)
+local SCROLL_STEP = 40
+function S.Scroll(parent)
+	local ok, bar = pcall(CreateFrame, "EventFrame", nil, parent, "MinimalScrollBar")
+	if not (ok and bar and bar.SetVisibleExtentPercentage) then
+		local sf = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
+		sf.scrollBarHideable = true
+		return sf
+	end
+	local sf = CreateFrame("ScrollFrame", nil, parent)
+	bar:SetPoint("TOPLEFT", sf, "TOPRIGHT", 6, 0)
+	bar:SetPoint("BOTTOMLEFT", sf, "BOTTOMRIGHT", 6, 0)
+	sf.bar = bar
+	local setting = false
+	local function Update()
+		local range = sf:GetVerticalScrollRange() or 0
+		local h = sf:GetHeight() or 0
+		if not sf:IsShown() or range <= 0.5 or h <= 0 then bar:Hide() return end
+		bar:Show()
+		setting = true
+		local visible = h / (h + range)
+		bar:SetVisibleExtentPercentage(visible)
+		if bar.SetPanExtentPercentage then bar:SetPanExtentPercentage(math.max(0.01, visible * 0.25)) end
+		bar:SetScrollPercentage(math.min(1, (sf:GetVerticalScroll() or 0) / range), true)
+		setting = false
+	end
+	if bar.RegisterCallback then
+		bar:RegisterCallback("OnScroll", function(_, position)
+			if setting then return end
+			sf:SetVerticalScroll(math.max(0, math.min(1, position or 0)) * (sf:GetVerticalScrollRange() or 0))
+		end, sf)
+	end
+	sf:EnableMouseWheel(true)
+	sf:SetScript("OnMouseWheel", function(self, delta)
+		local range = self:GetVerticalScrollRange() or 0
+		self:SetVerticalScroll(math.max(0, math.min(range, (self:GetVerticalScroll() or 0) - delta * SCROLL_STEP)))
+	end)
+	sf:HookScript("OnVerticalScroll", Update)
+	sf:HookScript("OnScrollRangeChanged", Update)
+	sf:HookScript("OnSizeChanged", Update)
+	sf:HookScript("OnShow", Update)
+	sf:HookScript("OnHide", function() bar:Hide() end)
+	bar:Hide()
+	return sf
+end
+
 function S.SetIcon(tex, icon)
 	if type(icon) == "string" and icon:sub(1, 6) == "atlas:" then
 		tex:SetAtlas(icon:sub(7))

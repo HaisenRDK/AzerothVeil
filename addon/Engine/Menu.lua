@@ -13,6 +13,8 @@ local COL_W = 262                 -- each of a page's two columns
 local GAP = 12
 local ROW = 22
 local PAD = 10
+local VIEW_H = 600                -- AzerothVeil: the pages' height at most; a taller page scrolls (Blizzard's bar)
+local BAR_W = 22                  -- (the scroll bar, right of the pages)
 
 local panel, body                 -- body: what's inside the panel's frame (classic: inside Blizzard's border)
 local rows = {}                   -- every switch, to refresh them all at once
@@ -356,20 +358,29 @@ local function Build()
 		sep:SetPoint("BOTTOMLEFT", TAB_W, 26)
 	end
 
-	-- the pages: as tall as the tallest
+	-- the pages: as tall as the tallest, up to VIEW_H; AzerothVeil: each in a scroll frame of its own (Style.Scroll,
+	-- Blizzard's bar), its bar shown only where the page is taller than the view
 	local lowest = tabsBottom
 	for _, spec in ipairs(TABS) do
-		local page = CreateFrame("Frame", nil, body)
-		page:SetFrameLevel(body:GetFrameLevel() + 2)
-		page:SetPoint("TOPLEFT", TAB_W + GAP, 0)
+		local sf = S.Scroll(body)
+		sf:SetFrameLevel(body:GetFrameLevel() + 2)
+		if sf.bar then sf.bar:SetFrameLevel(body:GetFrameLevel() + 3) end
+		sf:SetPoint("TOPLEFT", TAB_W + GAP, -1)
+		local page = CreateFrame("Frame", nil, sf)
 		page:SetSize(COL_W * 2 + GAP, 10)
-		pages[spec.key] = page
-		lowest = math.min(lowest, BUILD[spec.key](page))
-		page:Hide()
+		sf:SetScrollChild(page)
+		pages[spec.key] = sf
+		local bottom = BUILD[spec.key](page)
+		page:SetHeight(math.max(1, -bottom))
+		lowest = math.min(lowest, bottom)
+		sf:Hide()
 	end
-	local h = -lowest + PAD + 22
-	panel:SetSize(TAB_W + GAP + COL_W * 2 + GAP + PAD + E.l + E.r, h + E.t + E.b)
-	for _, page in pairs(pages) do page:SetHeight(h - 22) end
+	local viewH = math.min(-lowest, VIEW_H)
+	local h = viewH + PAD + 22
+	panel:SetSize(TAB_W + GAP + COL_W * 2 + GAP + BAR_W + PAD + E.l + E.r, h + E.t + E.b)
+	for _, sf in pairs(pages) do
+		sf:SetSize(COL_W * 2 + GAP, viewH)
+	end
 
 	local foot = S.Text(body, 10, S.DIM)
 	foot:SetPoint("BOTTOMLEFT", PAD, 8)

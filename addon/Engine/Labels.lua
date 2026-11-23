@@ -25,10 +25,20 @@ local CAPITAL_MAPS = { [1455] = true }      -- Ironforge
 local MOVED = { [496] = { 0.36, 0.31 }, [1637] = { 0.455, 0.115 } }
 local ART_W, ART_H = 1002, 668            -- (a zone's art, in its pixels: the pieces' units)
 local INK = { 1, 0.82, 0 }                -- (gold, outlined: Blizzard's own names over the land)
+local EXIT_SIZE = 14                      -- (AzerothVeil: "To <zone>" under a signpost into the next zone, Pins.lua)
+
+-- AzerothVeil: a village's faction (the Map module's "Villages' factions"): its faction's emblem before its name, the
+-- capitals' own (Data/PlaceFactions.lua: 1 the Alliance's, 2 the Horde's)
+local function Atlas(name, fallback)
+	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) and "atlas:" .. name or fallback
+end
+local EMBLEM = {}
+local EMBLEM_SIZE = 18
 
 local layer
 local zones                               -- { id, r, list = { { key, u, v, name } }, explored = { [key] = true } }
 local pool, used = {}, {}
+local iconPool, iconUsed = {}, {}
 
 local function Zones()
 	if zones then return zones end
@@ -99,7 +109,8 @@ local function Read(z)
 			local u, v = Geo.MapToUnits(z.id, at and at[1] or data[i + 2], at and at[2] or data[i + 3])
 			if u then
 				z.list[#z.list + 1] = { key = data[i], off = Offset(data[i]), u = u, v = v, name = name,
-					px = data[i + 2] * ART_W, py = data[i + 3] * ART_H, capital = CAPITALS[data[i + 1]] }
+					px = data[i + 2] * ART_W, py = data[i + 3] * ART_H, capital = CAPITALS[data[i + 1]],
+					faction = (FM.PLACE_FACTIONS or NONE)[data[i + 1]] }
 			end
 		end
 	end
@@ -187,7 +198,29 @@ local function Acquire(size)
 	return fs
 end
 
+local function Emblem(fs, faction)
+	local t = table.remove(iconPool)
+	if not t then
+		t = layer:CreateTexture(nil, "OVERLAY")
+		t:SetSize(EMBLEM_SIZE, EMBLEM_SIZE)
+	end
+	if not EMBLEM[1] then
+		EMBLEM[1] = Atlas("poi-alliance", "Interface\\Icons\\INV_BannerPVP_02")
+		EMBLEM[2] = Atlas("poi-horde", "Interface\\Icons\\INV_BannerPVP_01")
+	end
+	S.SetIcon(t, EMBLEM[faction])
+	t:ClearAllPoints()
+	t:SetPoint("RIGHT", fs, "LEFT", -1, 0)
+	t:Show()
+	iconUsed[#iconUsed + 1] = t
+end
+
 local function ReleaseAll()
+	for i = #iconUsed, 1, -1 do
+		iconUsed[i]:Hide()
+		iconPool[#iconPool + 1] = iconUsed[i]
+		iconUsed[i] = nil
+	end
 	for i = #used, 1, -1 do
 		used[i]:Hide()
 		pool[#pool + 1] = used[i]
@@ -221,7 +254,23 @@ function Lb.Layout(left, top, scale, vw, vh)
 					fs:ClearAllPoints()
 					fs:SetPoint("CENTER", layer, "TOPLEFT", (e.u - left) * scale, -(e.v - top) * scale)
 					fs:Show()
+					if e.faction and FM.db.placeFactions then Emblem(fs, e.faction) end
 				end
+			end
+		end
+	end
+	-- AzerothVeil: under each signpost into the next zone (the Icons module's, while it shows), where it leads, as
+	-- the places' names come and go (the terrain there, the option on); every signpost, as every icon, fog or not
+	local exits = FM.db.pins and FM.db.pins.exit and FM.Pins.PinsOf("exit")
+	if exits then
+		local below = 20 * (FM.Pins.BASE_SCALE or 1) * (FM.db.iconScale or 1) * 0.5
+		for _, pin in ipairs(exits) do
+			if pin.u > left and pin.u < x1 and pin.v > top and pin.v < y1 then
+				local fs = Acquire(EXIT_SIZE)
+				fs:SetText(pin.title)
+				fs:ClearAllPoints()
+				fs:SetPoint("TOP", layer, "TOPLEFT", (pin.u - left) * scale, -(pin.v - top) * scale - below)
+				fs:Show()
 			end
 		end
 	end

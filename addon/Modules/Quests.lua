@@ -54,13 +54,12 @@ local Quests = ns.Modules:Register({
 		{ key = "objIcons", icon = "Interface\\AddOns\\AzerothVeil\\Media\\Questie\\loot", type = "toggle", default = true, parent = "log",
 			label = L["Quest objective icons"],
 			tooltip = L["In the list, after a quest's name: the icon of what it asks next (kill, collect, use...), or of the item it's done with."] },
+		{ key = "kindFrame", icon = "Interface\\AddOns\\AzerothVeil\\Media\\dragon_elite", type = "toggle", default = true, parent = "log",
+			label = L["Dungeon and elite frames"],
+			tooltip = L["Round the icon left of a quest: the dungeon's or raid's symbol behind it for a dungeon's or a raid's quest, the elite bosses' dragon for an elite quest."] },
 		{ key = "diffColors", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true, parent = "log",
 			label = L["Quest colour by difficulty"],
 			tooltip = L["In the list, each quest's name in its difficulty's colour (red, orange, yellow, green, grey). Off: all in yellow."] },
-		{ key = "hover", icon = "Interface\\QuestFrame\\UI-QuestTitleHighlight", type = "select", default = "text", parent = "log",
-			values = { { "text", L["Its name lit (Blizzard)"] }, { "bar", L["A bar across the row"] } },
-			label = L["Highlight"],
-			tooltip = L["In the list, how the quest under the mouse is lit."] },
 		{ key = "titleFont", icon = "Interface\\Icons\\INV_Misc_Book_11", type = "select", default = "ours", parent = "log",
 			values = { { "ours", L["AzerothVeil (Friz Quadrata)"] }, { "blizzard", L["Blizzard"] } },
 			label = L["Titles' font"],
@@ -100,8 +99,8 @@ local function Apply(self, running)
 	db.questTipLevel = On("tipLevel")
 	db.questKindStyle = running and self:Get("kindStyle") or "text"
 	db.questObjIcons = On("objIcons")
+	db.questKindFrame = On("kindFrame")
 	db.questDiffColors = On("diffColors")
-	db.questHover = running and self:Get("hover") or "text"
 	db.questTitleFont = running and self:Get("titleFont") or "ours"
 	db.questTextFont = running and self:Get("textFont") or "ours"
 	db.questRewardColors = On("rewardColors")

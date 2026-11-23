@@ -743,10 +743,13 @@ end
 
 -- the named area under the cursor (Blizzard's explored areas there), a few times a second at most
 local vec
+-- AzerothVeil: only once the zone's highlight is gone (zoomed in past it, Map.PlaceHighlight): while the zones light
+-- up, the card names the zone alone
+local function HighlightGone() return 1 - Smooth(zoom, 5, 9) <= 0.01 end
 local function UpdateArea(mapID, u, v)
 	if not card:IsShown() then return end
 	local text
-	local cr = mapID and not atWorld and Geo.Rect(mapID)
+	local cr = mapID and not atWorld and HighlightGone() and Geo.Rect(mapID)
 	if cr and C_MapExplorationInfo and C_MapExplorationInfo.GetExploredAreaIDsAtPosition and CreateVector2D then
 		vec = vec or CreateVector2D(0, 0)
 		vec:SetXY((u - cr[1]) / (cr[2] - cr[1]), (v - cr[3]) / (cr[4] - cr[3]))
@@ -800,6 +803,36 @@ function Map.PlaceHighlight()
 	highlight:Show()
 end
 
+-- AzerothVeil: the zone's fishing skill in the colour of how it suits yours, as the game colours what you gather:
+-- red under it (its fish get away), then orange, yellow, green, grey the farther above it you are; plain if you
+-- don't fish. Your skill read as the Icons module reads it (C_SkillInfo by skill line, else GetProfessions)
+local FISHING_LINE = 356
+local function FishingSkill()
+	local byID = C_SkillInfo and C_SkillInfo.GetSkillLineInfoByID
+	if byID then
+		local ok, info = pcall(byID, FISHING_LINE)
+		local rank = ok and type(info) == "table" and tonumber(FM.Plain(info.rank))
+		if rank and rank > 0 then return rank end
+	end
+	if GetProfessions and GetProfessionInfo then
+		local ok, _, _, _, fishing = pcall(GetProfessions)
+		if ok and fishing then
+			local ok2, _, _, rank, _, _, _, line = pcall(GetProfessionInfo, fishing)
+			rank = ok2 and tonumber(FM.Plain(rank))
+			if rank and rank > 0 and (not line or tonumber(FM.Plain(line)) == FISHING_LINE) then return rank end
+		end
+	end
+end
+local function FishingText(want)
+	local need = tonumber(tostring(want):match("%d+"))
+	local mine = need and FishingSkill()
+	local text = (L["Fishing: %s"]):format(want)
+	if not mine then return text end
+	local c = mine < need and "ff1a1a" or mine < need + 25 and "ff8040" or mine < need + 50 and "ffff00"
+		or mine < need + 100 and "40bf40" or "808080"
+	return "|cff" .. c .. text .. "|r"
+end
+
 local function SetZone(mapID, name, cont, u, v)
 	if mapID == hoverZone then return end
 	hoverZone = mapID
@@ -821,7 +854,7 @@ local function SetZone(mapID, name, cont, u, v)
 			cardPill:Hide()
 		end
 		local fish = FM.db.zoneFishing and FM.ZONE_FISHING and FM.ZONE_FISHING[mapID]
-		if fish then zoneLines[#zoneLines + 1] = (L["Fishing: %s"]):format(fish) end
+		if fish then zoneLines[#zoneLines + 1] = FishingText(fish) end
 		ShowZoneText()
 		card:Show()
 		areaAt = 0
@@ -1751,6 +1784,26 @@ function Map.ShowMapID(mapID, zoomOut)
 		scale = Limits()
 		zoomTarget = nil
 	end
+	dirty = true
+end
+
+-- AzerothVeil: several zones whole, together (a signpost into several zones, Pins.lua); one: Map.ShowMapID
+function Map.ShowMaps(ids)
+	if not built or not ids or not ids[1] then return end
+	if not ids[2] then Map.ShowMapID(ids[1]) return end
+	local l, r, t, b
+	for _, id in ipairs(ids) do
+		local rc = Geo.Rect(id)
+		if rc then
+			l, r = min(l or rc[1], rc[1]), max(r or rc[2], rc[2])
+			t, b = min(t or rc[3], rc[3]), max(b or rc[4], rc[4])
+		end
+	end
+	if not l then return end
+	if awayMap then Map.SetAway(nil) end
+	zoomTarget = nil
+	cx, cy = (l + r) / 2, (t + b) / 2
+	scale = min(vw / ((r - l) * 1.08), vh / ((b - t) * 1.08))
 	dirty = true
 end
 

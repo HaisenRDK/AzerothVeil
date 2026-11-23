@@ -131,3 +131,8 @@ OpenMap's MIT License:
   copied from OpenMap's `Data/Forever/Labels.lua` (MIT); **Names.lua** letters them as its `Map/Stitch.lua` does.
   **Media/MapArt/947_*.tga** (the world map's art, hand-cleaned of its continents' and seas' names) are copied from
   OpenMap's `Media/Textures/Forever/MapArt` (MIT); the art itself is Blizzard's.
+- **Data/ZoneExits.lua** (where a walking way leads from one zone into the next) holds the zone crossings of Carbonite
+  v12.1.0-00021 (`Data/classic/ZoneConnections.lua`; Copyright 2007-2012 Carbon Based Creations, LLC, and the Carbonite
+  community maintainers; https://github.com/IrcDirk/Carbonite-Classic; GNU GPL v3 or later), as OneForAll 6.2.13 by
+  Smoergi (`Data/ZoneTransitions.lua`, GNU GPL v3 or later) extracted them. **Media/signpost.tga** (the signpost on
+  them) is OneForAll's `Assets/landmark_transition.tga` (GNU GPL v3 or later), copied unchanged.

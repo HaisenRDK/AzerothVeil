@@ -2,7 +2,7 @@
 ## Title: |cffe0b050Azeroth|rVeil
 ## Notes: A seamless world map for WoW Forever, modular, based on PerfectMap. /av
 ## Notes-frFR: Une carte du monde d'un seul tenant pour WoW Forever, modulaire, basée sur PerfectMap. /av
-## Version: 1.0.0
+## Version: 1.1.0
 ## Author: Haisen (based on PerfectMap by sokenn_)
 ## SavedVariables: AzerothVeilDB
 ## OptionalDeps: Questie, ForeverQuestTint, ForeverDungeonJournal
@@ -51,6 +51,8 @@ Engine\Caves.lua
 Engine\Fog.lua
 Engine\Labels.lua
 Engine\Data\MapNames.lua
+Engine\Data\ZoneExits.lua
+Engine\Data\PlaceFactions.lua
 Engine\Names.lua
 Engine\Routes.lua
 Engine\Vessels.lua

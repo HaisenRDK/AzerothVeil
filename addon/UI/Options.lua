@@ -62,8 +62,8 @@ function View:RefreshRight()
 	local page = self.pages[m.name]
 	if not page then
 		page = CreateFrame("Frame", nil, head.settings)
-		page:SetPoint("TOPLEFT")
-		page:SetPoint("TOPRIGHT")
+		local w = head.settings:GetWidth()
+		page:SetWidth(w and w > 10 and w or 400)
 		local height
 		page.rows, height = Controls.BuildSettings(page, m)
 		page:SetHeight(math.max(1, height))
@@ -75,6 +75,11 @@ function View:RefreshRight()
 		self.pages[m.name] = page
 	end
 	for name, p in pairs(self.pages) do p:SetShown(name == m.name) end
+	local sf = head.settings
+	if sf:GetScrollChild() ~= page then
+		sf:SetScrollChild(page)
+		sf:SetVerticalScroll(0)
+	end
 	for _, row in ipairs(page.rows) do row.Refresh() end
 end
 
@@ -184,9 +189,10 @@ local function NewView(host, top, bottom, left, right)
 	head.reload:SetScript("OnEnter", function(self) Controls.Tooltip(self, L["Reload the interface"], L["This module changed parts of the game that can only be put back by a reload."]) end)
 	head.reload:SetScript("OnLeave", GameTooltip_Hide)
 	head.reload:Hide()
-	head.settings = CreateFrame("Frame", nil, box)
+	-- (AzerothVeil: the settings in a scroll frame, Blizzard's, its bar shown only when they're taller than the box)
+	head.settings = ns.Style.Scroll(box)
 	head.settings:SetPoint("TOPLEFT", head.state, "BOTTOMLEFT", 0, -32)
-	head.settings:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -PAD, PAD)
+	head.settings:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -PAD - 22, PAD)
 
 	local last = Core().optionsModule
 	local first = MM:Sorted()[1]

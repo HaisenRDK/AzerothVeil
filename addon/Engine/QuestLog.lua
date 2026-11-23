@@ -133,23 +133,58 @@ local INK = { 0, 0, 0 }                   -- (titles and headings on the parchme
 local INK_TEXT = { 0, 0, 0 }              -- (its text)
 local INK_SMALL = { 0.3, 0.18, 0 }        -- (its small lines: the level under the name)
 
--- AzerothVeil: under the mouse, a row lit as the Quests module's "Highlight" says: its name brightened, as
--- Blizzard's quest log does ("text"), or the bar across the row ("bar", PerfectMap's)
+-- under the mouse: a zone's bar lit. AzerothVeil: a quest, as Blizzard's own quest list lights it (read from its
+-- buttons in game): its name in its difficulty's highlight colour (GetDifficultyColor's second; the standard yellow's
+-- (1, 1, 0.1) else), the list's glow behind its name (the atlas QuestLog-quest-glow-yellow), its objectives in white
+local GLOW_ATLAS = "QuestLog-quest-glow-yellow"
+local function TitleLit(self, r, g, b)
+	local get, diff = GetDifficultyColor, C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer
+	if FM.db.questDiffColors ~= false and get and diff then
+		local ok, _, hc = pcall(function() return get(diff(self.questID)) end)
+		if ok and type(hc) == "table" and hc.r then return hc.r, hc.g, hc.b end
+	end
+	if FM.db.questDiffColors == false then return 1, 1, 0.1 end
+	return math.min(1, r + 0.18), math.min(1, g + 0.18), math.min(1, b + 0.18)
+end
 local function RowEnter(self)
-	if self.questID or self.header then
-		if FM.db.questHover ~= "bar" and self.questID then
-			self.hoverColor = { self.title:GetTextColor() }
-			self.title:SetTextColor(1, 1, 1)
-		elseif S.classic then self.hl:Show() else self.bg:SetVertexColor(1, 1, 1, (self.bgBase or 0) + 0.05) end
+	if self.questID then
+		local r, g, b = self.title:GetTextColor()
+		self.litTitle = { r, g, b }
+		self.title:SetTextColor(TitleLit(self, r, g, b))
+		self.litBody = { self.body:GetTextColor() }
+		self.body:SetTextColor(1, 1, 1)
+		if self.poi and self.poi:IsShown() then self.poi:LockHighlight() end   -- (its round button lit, as under the mouse)
+		if self.glow == nil then
+			local ok = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(GLOW_ATLAS)
+			self.glow = false
+			if ok then
+				self.glow = self:CreateTexture(nil, "BORDER")
+				self.glow:SetAtlas(GLOW_ATLAS)
+			end
+		end
+		if self.glow then
+			local top, bottom = self:GetTop(), self.title:GetBottom()
+			local h = top and bottom and (top - bottom) or 16
+			self.glow:ClearAllPoints()
+			self.glow:SetPoint("TOPLEFT", 0, 1)
+			self.glow:SetPoint("TOPRIGHT", 0, 1)
+			self.glow:SetHeight(math.max(20, h + 4))
+			self.glow:Show()
+		end
+	elseif self.header then
+		if S.classic then self.hl:Show() else self.bg:SetVertexColor(1, 1, 1, (self.bgBase or 0) + 0.05) end
 	end
 	if self.questID then FM.Quests.Hint(self.questID) end
 end
+local function Unlit(self)
+	if self.litTitle then self.title:SetTextColor(self.litTitle[1], self.litTitle[2], self.litTitle[3]) self.litTitle = nil end
+	if self.litBody then self.body:SetTextColor(self.litBody[1], self.litBody[2], self.litBody[3]) self.litBody = nil end
+	if self.glow then self.glow:Hide() end
+	if self.poi then self.poi:UnlockHighlight() end
+end
 local function RowLeave(self)
-	if self.questID or self.header then
-		if self.hoverColor then
-			self.title:SetTextColor(self.hoverColor[1], self.hoverColor[2], self.hoverColor[3])
-			self.hoverColor = nil
-		end
+	Unlit(self)
+	if self.header then
 		if S.classic then self.hl:Hide() else self.bg:SetVertexColor(1, 1, 1, self.bgBase or 0) end
 	end
 	if self.questID then FM.Quests.Hint(nil) end
@@ -305,7 +340,7 @@ local function Release()
 		local b = rows[i]
 		b:Hide()
 		b:ClearAllPoints()
-		b.questID, b.header, b.bgBase, b.hoverColor = nil, nil, nil, nil
+		b.questID, b.header, b.bgBase = nil, nil, nil
 		if b.kind then b.kind:Hide() end
 		-- (AzerothVeil: a quest page's row, in the game's quest fonts: back to the list's, its shadow set again)
 		if b.big then S.Font(b.title, 12) S.Font(b.body, 11) b.big, b.shadow = nil, nil end
@@ -333,6 +368,9 @@ local function Row()
 	end
 	b:Show()
 	b.bg:SetVertexColor(1, 1, 1, 0)
+	b.litTitle, b.litBody = nil, nil                 -- (AzerothVeil: a row used again starts unlit)
+	if b.glow then b.glow:Hide() end
+	if b.poi then b.poi:UnlockHighlight() end
 	rows[#rows + 1] = b
 	return b
 end
@@ -655,6 +693,47 @@ local function POIClick(self, button)
 	SetFocus(focused and 0 or q)
 end
 
+-- AzerothVeil: round the icon of a dungeon's or a raid's quest, a blue ring (the dungeon icon's swirl);
+-- round an elite quest's, the dragon the map's elite bosses have (Dungeon.lua's, MapUtils'): the Quests module's
+-- "Dungeon and elite frames"
+local DRAGON = "Interface\\AddOns\\AzerothVeil\\Media\\dragon_elite"
+local RING = "Interface\\AddOns\\AzerothVeil\\Media\\dungeon_ring"
+local function KindFrame(p, questID)
+	local kind, elite = nil, false
+	if FM.db.questKindFrame then
+		kind = Kind(questID)
+		if kind == "pvp" then kind = nil end
+		if not kind then
+			local tag = C_QuestLog.GetQuestTagInfo and C_QuestLog.GetQuestTagInfo(questID)
+			local name = type(tag) == "table" and type(tag.tagName) == "string" and tag.tagName or ""
+			elite = name:find(L["Elite"], 1, true) and true or false
+		end
+	end
+	if kind then
+		-- (a ring round it, over it as the dragon is, the icon in its hole: Media\dungeon_ring, the dungeon icon's
+		-- blue swirl alone; a raid's tinted violet)
+		if not p.under then
+			p.under = p:CreateTexture(nil, "ARTWORK", nil, 1)
+			p.under:SetTexture(RING)
+			p.under:SetPoint("CENTER")
+			p.under:SetSize(POI_SIZE * 1.5, POI_SIZE * 1.5)   -- (30 px)
+		end
+		if kind == "raid" then p.under:SetVertexColor(1, 0.6, 1) else p.under:SetVertexColor(1, 1, 1) end
+	end
+	if p.under then p.under:SetShown(kind and true or false) end
+	if elite and not p.dragon then
+		-- (as round a boss's portrait in its ring, Dungeon.lua NewBossPin: the ring here the icon's own)
+		-- (mirrored: its wings to the right, away from the list's edge; a little smaller than round a boss)
+		local k = POI_SIZE * 0.85 / 64
+		p.dragon = p:CreateTexture(nil, "ARTWORK", nil, 2)
+		p.dragon:SetTexture(DRAGON)
+		p.dragon:SetTexCoord(1, 0, 0, 1)
+		p.dragon:SetSize(256 * k, 128 * k)
+		p.dragon:SetPoint("CENTER", p, "CENTER", 54 * k, -20 * k)
+	end
+	if p.dragon then p.dragon:SetShown(elite) end
+end
+
 local function QuestButton(b, questID, done)
 	local p = b.poi
 	if not p then
@@ -688,6 +767,7 @@ local function QuestButton(b, questID, done)
 		p.done, p.focus, p.painted = done, focus, true
 		PaintPOI(p, false)
 	end
+	KindFrame(p, questID)
 	p:ClearAllPoints()
 	p:SetPoint("TOPLEFT", b, "TOPLEFT", 5, -4)
 	p:Show()
@@ -793,7 +873,7 @@ local function BuildList()
 					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(OBJ_INK[1], OBJ_INK[2], OBJ_INK[3]) end
 					-- (left of the name: Blizzard's round button, to focus it)
 					QuestButton(b, q, complete)
-					local indent = 28        -- (AzerothVeil: clear of the game-sized round button)
+					local indent = 30        -- (AzerothVeil: clear of the game-sized round button and the dungeon's symbol behind it)
 					y = Place(b, y + 2, indent, title, ObjectivesText(q, complete, true), Watched(q), right)
 				end
 			end

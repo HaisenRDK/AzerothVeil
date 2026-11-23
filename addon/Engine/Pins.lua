@@ -58,6 +58,11 @@ local CATS = {
 	-- sorts them first, drawn in the OVERLAY layer)
 	{ key = "capital", label = L["Capital cities"], icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = Steps(1),
 		layer = 8, drawLayer = "OVERLAY", group = "places" },
+	-- AzerothVeil: the ways into the next zone (Data/ZoneExits.lua): a signpost "To <zone>" on each side of a crossing,
+	-- a click shows that zone whole (its "To ..." under it: Labels.lua, with the places' names)
+	-- (from the flight masters' zoom: a big zone shown whole, the Barrens', has its signposts too)
+	{ key = "exit", label = L["Ways to other zones"], icon = MEDIA .. "signpost", size = 20, layer = 3, group = "places",
+		minZoom = FM.Map.QUESTS_ZOOM, noJoin = true },
 	-- (boats, zeppelins and the tram: on top of the rest, the routes end on them)
 	{ key = "boat", label = L["Harbor"], icon = MEDIA .. "harbor_alliance", size = 22, minZoom = 0, layer = 7, group = "transport", noJoin = true },
 	{ key = "zeppelin", label = L["Zeppelin towers"], icon = ZEPPELIN_ICON, size = 24, minZoom = 0, layer = 7, group = "transport", noJoin = true },
@@ -957,7 +962,7 @@ function P.Hover(clear)
 		local first = hovered[1]
 		local picked = waypointPin and (waypointPin == first or waypointPin.leader == first)
 		local right = L["Right-click: "] .. (picked and L["remove waypoint"] or L["set waypoint"])
-		tipLines[#tipLines + 1] = { (first.insts or first.away) and (L["Left-click: its map   "] .. right) or right, 0.5, 0.5, 0.52, 10 }
+		tipLines[#tipLines + 1] = { first.exits and (L["Left-click: show that zone   "] .. right) or (first.insts or first.away) and (L["Left-click: its map   "] .. right) or right, 0.5, 0.5, 0.52, 10 }
 	end
 	-- (on the pin itself, not the cursor: it never trails behind)
 	S.ShowTip(nil, tipLines, at.dx + (at.size or 16) * 0.5, -at.dy + 4, pinLayer)
@@ -1049,6 +1054,8 @@ function P.Click()
 		end
 		-- (a dock to a land off the world map, Zephras Isle: that land's own map, as a dungeon's)
 		if pin.away then FM.Isles.Open(pin.away) return end
+		-- (AzerothVeil: a signpost into the next zone: that zone whole; into several, all of them)
+		if pin.exits then FM.Map.ShowMaps(pin.exits) Sound("IG_MAINMENU_OPTION_CHECKBOX_ON") return end
 		-- (AzerothVeil: a dock or a tram station, its click the Transports module's while it's on)
 		if pin.travel and P.OnTravelClick then P.OnTravelClick(pin) return end
 	elseif IsControlKeyDown() then
@@ -1169,6 +1176,41 @@ local function BuildCapitals()
 			})
 		end
 	end
+end
+
+-- AzerothVeil: the signposts on the ways into the next zone: one at each spot (a way into several zones, the Timbermaw
+-- Hold's: one signpost for all of them), its zones' names the game's
+local function ZoneName(id)
+	local info = C_Map.GetMapInfo(id)
+	local name = info and FM.Plain(info.name)
+	return type(name) == "string" and name ~= "" and name or nil
+end
+local function BuildExits()
+	local cat = byKey.exit
+	if cat.pins then ClearCat(cat) end
+	cat.built = true
+	local data, at = FM.ZONE_EXITS or {}, {}
+	for i = 1, #data, 4 do
+		local map, to = data[i], data[i + 3]
+		local name = ZoneName(to)
+		local u, v = Geo.MapToUnits(map, data[i + 1] / 100, data[i + 2] / 100)
+		if u and name and Geo.Rect(to) then
+			local key = map .. ":" .. data[i + 1] .. ":" .. data[i + 2]
+			local pin = at[key]
+			if not pin then
+				pin = { exits = {}, names = {}, lines = {} }
+				at[key] = pin
+				AddPin(cat, u, v, pin)
+			end
+			pin.exits[#pin.exits + 1] = to
+			pin.names[#pin.names + 1] = L["To %s"]:format(name)
+			pin.title = table.concat(pin.names, "\n")
+		end
+	end
+end
+function P.PinsOf(key)
+	local cat = byKey[key]
+	return cat and cat.pins
 end
 
 local function LevelLine(name, lo, hi)
@@ -1498,6 +1540,7 @@ function P.Ensure()
 	local pins = FM.db.pins
 	if pins.flight and not byKey.flight.built then BuildFlights() end
 	if pins.capital and not byKey.capital.built then BuildCapitals() end
+	if pins.exit and not byKey.exit.built then BuildExits() end
 	if (pins.dungeon or pins.raid or pins.boat or pins.zeppelin or pins.airship or pins.tram) and not byKey.dungeon.built then BuildPlaces() end
 	local todo
 	for _, cat in ipairs(CATS) do
