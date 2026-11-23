@@ -1,8 +1,9 @@
 -- Up close, the terrain as the minimap draws it: the game's own minimap tiles (Data/Minimap.lua, by
 -- file ID: nothing shipped but the list) taking over from the painted map well past where it runs
--- out of detail. One clean change at one zoom (AzerothVeil: between the 4th and 5th step of the wheel past where M
--- opens the map): on one side the painted map, on the other the minimap, never a zoom showing both;
--- crossing it, one dissolves into the other over FADE seconds. Drawn through each continent's land
+-- out of detail. One clean change at one zoom (AzerothVeil: the map's step 12, Map.lua):
+-- on one side the painted map, on the other the minimap; AzerothVeil: over the wheel's step between the two,
+-- one dissolves into the other as the zoom goes (the step animates: the fade runs with it; a step lands on one
+-- or the other, never between). Drawn through each continent's land
 -- (Media/MiniLand, OpenMap's), so the sea stays the painted map's. AzerothVeil: and only through the zones' land:
 -- the land no zone covers (the raids' grounds, Ahn'Qiraj's and Zul'Gurub's, and the ridges between zones: OpenMap's
 -- MapGapMask) taken out of those masks, so the minimap never shows what the painted map leaves out. Only the tiles in view are loaded.
@@ -25,13 +26,8 @@ local tiles, pools = {}, {}                 -- key -> texture; instance -> free 
 local masks = {}                            -- instance -> its land's mask
 local axes = {}                             -- instance -> tile (tx, ty) to world units: u = u0 + tx*a + ty*b ...
 local wanted = {}
-local FADE = 0.3                            -- seconds the change takes
-local mix, goal = 0, 0                      -- how much it shows now (0..1, eased when drawn); where it's going
+local mix, goal = 0, 0                      -- how much it shows now (0..1, eased when drawn) (AzerothVeil: goal, the same: the zoom's)
 
-local function Smooth(x, a, b)
-	local t = max(0, min(1, (x - a) / (b - a)))
-	return t * t * (3 - 2 * t)
-end
 
 -- (the game's world <-> its map is linear: three points give it, once)
 local function Axes(inst)
@@ -130,21 +126,12 @@ local function DropAll()
 	for _, m in pairs(masks) do if m then m:Hide() end end
 end
 
--- the zoom it changes at: halfway between two steps past M's opening zoom (so a step of the wheel always
--- lands clear of it), but always before the deepest zoom there is (a big window, or a sharp screen, goes
--- less deep). AzerothVeil: the terrain two steps sooner than PerfectMap's (between the 4th and 5th step,
--- not the 6th and 7th) and the caves two steps later (CAVES: between the 8th and 9th, or just before the
--- deepest zoom): the land explored in the minimap's look before its caves
-local SWITCH, CAVES = 4.5, 8.5        -- (AzerothVeil: the terrain between the 4th and 5th step)
-local function At(deepest, steps)
-	local step = FM.Map.ZOOM_STEP
-	return min(FM.W / FM.Map.OPEN_ACROSS * step ^ (steps or SWITCH), deepest / math.sqrt(step))
-end
+-- AzerothVeil: the zooms it goes with, in the map's steps (Map.lua): the painted map into it over step 12, it
+-- from 13 (the caves over it: Caves.lua)
+local FROM, TO = 11, 13
 
--- (the zoom the caves come in at, over the minimap's terrain: Caves.lua)
-function T.SwitchZoom(deepest) return At(deepest, CAVES) end
 
-local function Shown() return Smooth(mix, 0, 1) end
+local function Shown() return mix end      -- (AzerothVeil: eased already, Map.Between)
 -- AzerothVeil: what goes with the terrain, told how much of it shows: the cities in the open and the fog of war
 -- fade under it (Cities.lua, Fog.lua), the places' names come over it (Labels.lua)
 local function Under(k)
@@ -154,17 +141,18 @@ local function Under(k)
 end
 -- (whether it's there or coming: Labels.lua lays its names out then)
 function T.Active() return goal > 0 or mix > 0 end
-local function SetAll(a)
-	for _, t in pairs(tiles) do
-		if t.mix ~= a then t.mix = a t:SetAlpha(a) end
-	end
-	Under(Shown())   -- (AzerothVeil: the cities under it and the places' names over it)
-end
+-- (AzerothVeil: there whole, its fade done: Labels.lua's names then)
+function T.Whole() return mix >= 0.999 end
 
 -- every pan / zoom
 function T.Layout(left, top, scale, vw, vh, zoom, deepest)
 	if not layer then return end
-	goal = (FM.db.minimapTerrain ~= false and zoom >= At(deepest)) and 1 or 0
+	-- AzerothVeil: from the last step of the painted map to the first of the terrain, with the zoom
+	local p = 0
+	if FM.db.minimapTerrain ~= false then
+		p = FM.Map.Between(zoom, FROM, TO)
+	end
+	goal, mix = p, p
 	if goal == 0 and mix <= 0 then
 		if next(tiles) then DropAll() end
 		Under(0)
@@ -233,17 +221,7 @@ function T.Layout(left, top, scale, vw, vh, zoom, deepest)
 	end
 end
 
--- every frame while the map is open: the change under way (nothing to do otherwise)
-function T.Tick(elapsed)
-	if mix == goal then return end
-	if goal > mix then mix = min(goal, mix + elapsed / FADE) else mix = max(goal, mix - elapsed / FADE) end
-	if mix <= 0 then
-		DropAll()
-		Under(0)
-		return
-	end
-	SetAll(MIX * Shown())
-end
+
 
 function T.Init(parent)
 	layer = parent

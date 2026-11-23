@@ -57,7 +57,7 @@ local Markers = ns.Modules:Register({
 	defaultEnabled = true,
 	settings = {
 		{ type = "header", label = L["On the map"] },
-		{ key = "show", icon = RAID .. "1", type = "toggle", default = true,
+		{ key = "show", iconMenu = true, icon = RAID .. "1", type = "toggle", default = true,
 			label = L["Show the markers"],
 			tooltip = L["Your markers on the map, those of the categories you show."] },
 		{ key = "ctrlClick", icon = "atlas:Waypoint-MapPin-Untracked", type = "toggle", default = true,

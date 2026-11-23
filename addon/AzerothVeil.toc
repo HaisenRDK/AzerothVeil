@@ -66,6 +66,8 @@ Engine\QuestLog.lua
 Engine\Takeover.lua
 Engine\Dungeon.lua
 Engine\Menu.lua
+Engine\IconMenu.lua
+Engine\Find.lua
 
 # Optional integrations with other addons (used only if they're there)
 Integrations\DungeonJournal.lua

@@ -32,14 +32,24 @@ local function DiffColor(level)
 	if c then return c.r, c.g, c.b end
 	return 1, 0.82, 0
 end
-
--- AzerothVeil: the list's colours, calmer than the game's pure ones on the dark: a quest's difficulty colour
--- drawn a third of the way to the text's parchment grey (still red, orange, yellow, green, grey), the zones'
--- names in a softer gold, the objectives in that grey, what's done dimmer, "ready" a quiet green
-local SOFT = { 0.8, 0.77, 0.7 }
-local function SoftColor(r, g, b)
-	return r + (SOFT[1] - r) * 0.35, g + (SOFT[2] - g) * 0.35, b + (SOFT[3] - b) * 0.35
+-- AzerothVeil: a quest's colours as WoW Forever's own quest log gives them (FlareUI's ObjectiveTracker reads it so):
+-- GetDifficultyColor of C_PlayerInfo.GetContentDifficultyQuestForPlayer, its colour then its colour under the mouse;
+-- else (no such API, the quest's data not there yet) its level's, GetQuestDifficultyColor, a little brighter lit
+local function QuestColors(questID, level)
+	local get, diff = GetDifficultyColor, C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer
+	if questID and get and diff and (not HaveQuestData or HaveQuestData(questID)) then
+		local ok, c, hc = pcall(function() return get(diff(questID)) end)
+		if ok and type(c) == "table" and c.r then
+			if type(hc) ~= "table" or not hc.r then hc = c end
+			return c.r, c.g, c.b, hc.r, hc.g, hc.b
+		end
+	end
+	local r, g, bb = DiffColor(level)
+	return r, g, bb, math.min(1, r + 0.1), math.min(1, g + 0.1), math.min(1, bb + 0.1)
 end
+
+-- AzerothVeil: the list's colours: a quest's difficulty colour Blizzard's own (QuestColors), the zones' names in a
+-- softer gold, the objectives in the parchment grey, what's done dimmer, "ready" a quiet green
 local ZONE_INK = { 0.96, 0.8, 0.38 }
 local OBJ_INK = { 0.8, 0.78, 0.72 }
 local READY = "|cff86c873"
@@ -134,16 +144,12 @@ local INK_TEXT = { 0, 0, 0 }              -- (its text)
 local INK_SMALL = { 0.3, 0.18, 0 }        -- (its small lines: the level under the name)
 
 -- under the mouse: a zone's bar lit. AzerothVeil: a quest, as Blizzard's own quest list lights it (read from its
--- buttons in game): its name in its difficulty's highlight colour (GetDifficultyColor's second; the standard yellow's
+-- buttons in game): its name in its difficulty's colour under the mouse (QuestColors; the standard yellow's
 -- (1, 1, 0.1) else), the list's glow behind its name (the atlas QuestLog-quest-glow-yellow), its objectives in white
 local GLOW_ATLAS = "QuestLog-quest-glow-yellow"
 local function TitleLit(self, r, g, b)
-	local get, diff = GetDifficultyColor, C_PlayerInfo and C_PlayerInfo.GetContentDifficultyQuestForPlayer
-	if FM.db.questDiffColors ~= false and get and diff then
-		local ok, _, hc = pcall(function() return get(diff(self.questID)) end)
-		if ok and type(hc) == "table" and hc.r then return hc.r, hc.g, hc.b end
-	end
 	if FM.db.questDiffColors == false then return 1, 1, 0.1 end
+	if self.lit then return self.lit[1], self.lit[2], self.lit[3] end   -- (QuestColors' second, kept by the row)
 	return math.min(1, r + 0.18), math.min(1, g + 0.18), math.min(1, b + 0.18)
 end
 local function RowEnter(self)
@@ -773,6 +779,42 @@ local function QuestButton(b, questID, done)
 	p:Show()
 end
 
+-- AzerothVeil: the search on the map. The quests found (BuildList fills it) stand out on the map (Quests.lua); a moment
+-- after the typing stops, the map frames them together. (Places and zones: the map's own search box, Find.lua)
+local found = {}
+local mapNames = {}
+local function MapName(m)
+	local n = mapNames[m]
+	if not n then
+		local info = C_Map.GetMapInfo and C_Map.GetMapInfo(m)
+		n = FM.Fold(info and FM.Plain(info.name))
+		mapNames[m] = n
+	end
+	return n
+end
+local SEARCH_REST = 0.6
+local searchAt = 0
+local function SearchOnMap()
+	if query == "" then FM.Quests.SetSearch(nil) return end
+	local set = {}
+	for q in pairs(found) do set[q] = true end
+	FM.Quests.SetSearch(next(set) and set or nil)
+	if not FM.Map.IsShown() then return end
+	if next(set) then
+		local l, r, t, b = FM.Quests.SearchBounds(set)
+		if l then
+			if FM.Dungeon then FM.Dungeon.ToWorld() end
+			FM.Map.ShowUnits(l, r, t, b, 50)
+		end
+	end
+end
+local function SearchSoon()
+	local at = GetTime()
+	searchAt = at
+	if query == "" then SearchOnMap() return end
+	C_Timer.After(SEARCH_REST, function() if searchAt == at then SearchOnMap() end end)
+end
+
 local function BuildList()
 	local y, count = 4, 0
 	local hidden = false
@@ -780,10 +822,14 @@ local function BuildList()
 	local zoneCounts, current = {}, nil
 	local zoneTotal, zoneWatched = {}, {}         -- (AzerothVeil: each zone's quests in the log, and in the tracker)
 	wipe(headers)
-	-- (searching: a quest shows if its name, or its zone's, has what's typed; its zone opens for it)
+	-- (searching: a quest shows if its name, or its zone's, has what's typed; its zone opens for it. AzerothVeil:
+	-- accents or not (FM.Fold), and its zone the one of its log's heading or the one its objectives are in)
+	wipe(found)
 	local function Matches(info, zone)
 		if query == "" then return true end
-		return (info.title or ""):lower():find(query, 1, true) or (zone or ""):lower():find(query, 1, true)
+		if FM.Fold(info.title):find(query, 1, true) or FM.Fold(zone):find(query, 1, true) then return true end
+		local m = info.questID and GetQuestUiMapID and FM.Plain(GetQuestUiMapID(info.questID))
+		return m and m > 0 and MapName(m):find(query, 1, true) and true or false
 	end
 	local zoneName
 	for i = 1, n do
@@ -795,7 +841,10 @@ local function BuildList()
 		elseif info and current and not info.isHidden and info.questID then
 			zoneTotal[current] = zoneTotal[current] + 1
 			if Watched(info.questID) then zoneWatched[current] = zoneWatched[current] + 1 end
-			if Matches(info, zoneName) then zoneCounts[current] = zoneCounts[current] + 1 end
+			if Matches(info, zoneName) then
+				zoneCounts[current] = zoneCounts[current] + 1
+				if query ~= "" then found[info.questID] = true end
+			end
 		end
 	end
 	local shownQuests = 0
@@ -850,9 +899,17 @@ local function BuildList()
 					local failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q)
 					local b = Row()
 					b.questID = q
-					-- (AzerothVeil: its difficulty's colour, or gold for all, the Quests module's "Colour by difficulty")
-					if FM.db.questDiffColors ~= false then b.title:SetTextColor(SoftColor(DiffColor(info.level)))
-					else b.title:SetTextColor(1, 0.82, 0) end      -- (the yellow of Blizzard's quest titles)
+					-- (AzerothVeil: its difficulty's colour as Blizzard's own list has it, QuestColors, and lit under the
+					-- mouse in its own (TitleLit); or gold for all, the Quests module's "Colour by difficulty")
+					if FM.db.questDiffColors ~= false then
+						local r, g, bb, hr, hg, hb = QuestColors(q, info.level)
+						b.title:SetTextColor(r, g, bb)
+						b.lit = b.lit or {}
+						b.lit[1], b.lit[2], b.lit[3] = hr, hg, hb
+					else
+						b.title:SetTextColor(1, 0.82, 0)           -- (the yellow of Blizzard's quest titles)
+						b.lit = nil
+					end
 					-- (no "(Dungeon)" / "(PvP)" tag on the right: the icon left of the name says it)
 					local right = 24
 					-- (AzerothVeil: its kind as text at the end of the line, else its icon after the name)
@@ -1570,7 +1627,7 @@ local function Build(parent, headerHeight)
 	-- AzerothVeil: the line under the search box: the count on the left, Collapse all / Expand all at its end
 	countBar = CreateFrame("Frame", nil, panel)
 	countBar:SetHeight(BAR)
-	topTitle = S.Text(countBar, 12, S.ACCENT)
+	topTitle = S.Text(countBar, 15, S.ACCENT)   -- (AzerothVeil: bigger than the zones' names, 13)
 	if S.classic then topTitle:SetTextColor(ZONE_INK[1], ZONE_INK[2], ZONE_INK[3]) end
 	topTitle:SetPoint("LEFT", countBar, "LEFT", 10, -1)
 	foldAll = S.Button(countBar, L["Collapse all"], 100, 20, function()
@@ -1635,11 +1692,12 @@ local function Build(parent, headerHeight)
 		local t = self:GetText() or ""
 		hint:SetShown(t == "" and not self:HasFocus())
 		clear:SetShown(t ~= "")
-		local q = t:lower():gsub("^%s+", ""):gsub("%s+$", "")
+		local q = FM.Fold(t):gsub("^%s+", ""):gsub("%s+$", "")
 		if q ~= query then
 			query = q
 			ScrollTop()
 			QL.Refresh()
+			SearchSoon()        -- (AzerothVeil: and on the map)
 		end
 	end)
 	search:SetScript("OnEditFocusGained", function() hint:Hide() end)

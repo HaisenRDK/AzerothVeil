@@ -2,7 +2,7 @@
 --  * the quest buttons: Blizzard's POIButtonTemplate, set up as its map's quest pins are (the same
 --    icons for in progress / ready to turn in / super-tracked, the same click: track and follow),
 --    from C_QuestLog.GetQuestsOnMap for the zones the log's quests are in; on the continents' zoom
---    only the followed one, as Blizzard's continent map does;
+--    only the followed one, as Blizzard's continent map does (AzerothVeil: or every one, FM.db.questPOIFar);
 --  * the "!" of quests to pick up: C_QuestLine for the zones in view, with Blizzard's atlases;
 --  * the quest areas: Blizzard's QuestPOIFrame blobs (its fill and border textures), for the followed
 --    quest, the one hovered and the one picked in the log, laid on that quest's zone.
@@ -393,8 +393,45 @@ local function LayoutTurnIn()
 	if not turnMark:IsShown() then turnMark:Show() turnMark.anim:Play() end
 end
 
+-- AzerothVeil: the quests the log's search found (QuestLog.lua): their buttons shown at every zoom, each in a gold glow,
+-- the others dimmed; nil while nothing is searched
+local SEARCH_COLOUR = { 1, 0.78, 0.2 }
+local SEARCH_DIM = 0.35
+local searchSet
+local searchGlows = {}
+Q.SEARCH_COLOUR = SEARCH_COLOUR
+Q.Glow = function(parent, size) return Glow(parent, size) end      -- (AzerothVeil: the map's search's too, Find.lua)
+local function SearchGlow(i, b)
+	local g = searchGlows[i]
+	if not g then
+		g = Glow(questLayer, 46)
+		g.glow:SetVertexColor(SEARCH_COLOUR[1], SEARCH_COLOUR[2], SEARCH_COLOUR[3], 1)
+		searchGlows[i] = g
+	end
+	g:SetFrameLevel(max(0, b:GetFrameLevel() - 1))
+	g:ClearAllPoints()
+	g:SetPoint("CENTER", b, "CENTER")
+	if not g:IsShown() then g:Show() g.anim:Play() end
+end
+function Q.SetSearch(set)
+	searchSet = set
+	FM.Map.MarkDirty()
+end
+-- where the quests of set have their buttons (not their waypoints): l, r, t, b in the world's units, nil if none
+function Q.SearchBounds(set)
+	if poiDirty then GatherPOIs() end
+	local l, r, t, b
+	for _, p in ipairs(pois) do
+		if set[p.questID] and not p.waypoint and p.u <= FM.W then
+			l, r = min(l or p.u, p.u), max(r or p.u, p.u)
+			t, b = min(t or p.v, p.v), max(b or p.v, p.v)
+		end
+	end
+	return l, r, t, b
+end
+
 local function LayoutPOIs()
-	local n = 0
+	local n, lit = 0, 0
 	local focusButton               -- (AzerothVeil: the followed quest's own button, for its glow)
 	local pingFor, px, py, pWay = pingQuest or pingWant, nil, nil, nil
 	if pingSpot and pingSpot.quest == pingFor and InView(pingSpot.u, pingSpot.v) then
@@ -403,9 +440,10 @@ local function LayoutPOIs()
 	end
 	if FM.db.questPOI then
 		local super = Super()
-		local all = view.zoom >= ZONE_ZOOM
+		local all = view.zoom >= ZONE_ZOOM or FM.db.questPOIFar     -- (AzerothVeil: at every zoom, the Quests module's option)
 		for _, p in ipairs(pois) do
-			if (all or p.questID == super) and InView(p.u, p.v) then
+			local found = searchSet and searchSet[p.questID]
+			if (all or found or p.questID == super) and InView(p.u, p.v) then
 				n = n + 1
 				local b = buttons[n]
 				if not b then b = NewButton() buttons[n] = b end
@@ -416,10 +454,14 @@ local function LayoutPOIs()
 				if p.questID == pingFor and (not px or (pWay and not p.waypoint)) then px, py, pWay = x, y, p.waypoint end
 				Dress(b, p.questID, p.waypoint, isSuper, poiGen, questLayer:GetFrameLevel())
 				if isSuper and (not focusButton or (focusButton.fmWaypoint and not p.waypoint)) then focusButton = b end
+				-- (AzerothVeil: searching: the quests found lit, the others dimmed)
+				b:SetAlpha((searchSet and not found) and SEARCH_DIM or 1)
+				if found then lit = lit + 1 SearchGlow(lit, b) end
 			end
 		end
 	end
 	for i = n + 1, #buttons do buttons[i]:Hide() end
+	for i = lit + 1, #searchGlows do if searchGlows[i]:IsShown() then searchGlows[i].anim:Stop() searchGlows[i]:Hide() end end
 	FocusGlow(focusButton)          -- (AzerothVeil)
 	LayoutTurnIn()
 	LayoutPing(px, py)

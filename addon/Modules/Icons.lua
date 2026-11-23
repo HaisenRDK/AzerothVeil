@@ -43,6 +43,12 @@ local function Settings()
 	local out, defaults = {}, ns.defaults and ns.defaults.pins or {}
 	for _, sec in ipairs(SECTIONS) do
 		out[#out + 1] = { type = "header", label = sec.label, all = sec.all }
+		if sec.group == "townsfolk" then
+			-- (AzerothVeil: hovered, each one's name, not only its kind)
+			out[#out + 1] = { key = "townsfolkNames", type = "toggle", default = false, noAll = true,
+				icon = "Interface\\Icons\\INV_Misc_Note_01", label = L["Townsfolk's names"],
+				tooltip = L["Hovering a townsfolk's or a trainer's icon: each one's name and title. Off: only what they are (\"Priest trainer x3\")."] }
+		end
 		if sec.group == "professions" then
 			out[#out + 1] = { key = "myProfessions", type = "toggle", default = false, noAll = true,
 				icon = "Interface\\GossipFrame\\TrainerGossipIcon", label = L["My professions"],
@@ -63,11 +69,15 @@ local function Settings()
 		end
 		for _, cat in ipairs(cats) do
 			do
-				out[#out + 1] = { key = cat.key, type = "toggle", default = defaults[cat.key] == true,
+				out[#out + 1] = { key = cat.key, type = "toggle", default = defaults[cat.key] == true, iconMenu = true,
 					icon = cat.icon, label = cat.label, tooltip = TIPS[cat.key] }
 				if cat.tag then TAG_OF[cat.key] = cat.tag KEY_OF[cat.tag] = cat.key end
 				if cat.key == "classTrainer" then
-					out[#out + 1] = { key = "allClassTrainers", type = "toggle", default = false, parent = "classTrainer",
+					-- (AzerothVeil: hovered, each trainer's kind in its class's colour)
+					out[#out + 1] = { key = "classColours", type = "toggle", default = true, parent = "classTrainer",
+						noAll = true, icon = cat.icon, label = L["Class colours"],
+						tooltip = L["Hovering a class trainer's icon: what it is in its class's colour (\"Mage trainer\" in light blue)."] }
+					out[#out + 1] = { key = "allClassTrainers", type = "toggle", default = false, parent = "classTrainer", iconMenu = true,
 						noAll = true, icon = cat.icon, label = L["Every class"],
 						tooltip = L["Every class's trainers, not only yours."] }
 				end
@@ -136,11 +146,13 @@ local function Apply(self, running, opening)
 	local pins, db = ns.db.pins, ns.db
 	local changed = false
 	for key in pairs(self.settingByKey) do
-		if key ~= "myProfessions" and key ~= "allClassTrainers" then
+		if key ~= "myProfessions" and key ~= "allClassTrainers" and key ~= "townsfolkNames" and key ~= "classColours" then
 			local on = running and self:IsOptionActive(key) or false
 			if pins[key] ~= on then pins[key] = on changed = true end
 		end
 	end
+	db.townsfolkNames = running and self:IsOptionActive("townsfolkNames") or false     -- (AzerothVeil)
+	db.trainerClassColours = running and self:IsOptionActive("classColours") or false
 	local every = running and self:IsOptionActive("allClassTrainers") or false
 	if db.allClassTrainers ~= every then
 		db.allClassTrainers = every

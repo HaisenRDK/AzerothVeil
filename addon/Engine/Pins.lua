@@ -17,13 +17,11 @@ local CELL = 24                 -- grid cell, world units
 local GRID_W = 1000
 
 -- minZoom: how far in a category shows from, counted in steps of the wheel from right out (so it's
--- the same whatever the window's size): dungeons and raids from the first, flight masters with the
--- quest log's quests (AzerothVeil: Map.QUESTS_ZOOM, before the townsfolk), every townsfolk kind and
--- Questie's icons from where M opens the map; boats & zeppelins right out already
+-- the same whatever the window's size; AzerothVeil: the map's steps, Map.lua): dungeons, raids, flight masters and the
+-- ways into the next zone with the quest log's quests (step 4, Map.QUESTS_ZOOM), Questie's icons from where M
+-- opens the map (step 6), every townsfolk kind with the cities (step 9, Map.TOWNSFOLK_ZOOM); boats & zeppelins right out already
 -- group: which part of the menu lists it ("places", "townsfolk", "professions", "quests");
 -- data: built-in townsfolk (true: its own list in Data\Townsfolk.lua; a string: that list, filtered by tag)
-local STEP = FM.Map.ZOOM_STEP
-local function Steps(n) return STEP ^ n * 0.97 end      -- (a little under: the wheel's step lands on it)
 local OPEN_ZOOM = FM.W / FM.Map.OPEN_ACROSS * 0.97
 local ICONS = "Interface\\Icons\\"
 
@@ -51,12 +49,12 @@ local CAPITALS = {               -- uiMapID, its faction
 	{ 1454, "Horde" }, { 1456, "Horde" }, { 1458, "Horde" },
 }
 local CATS = {
-	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, minZoom = FM.Map.QUESTS_ZOOM, layer = 5, group = "transport" },   -- (with the townsfolk: M's zoom) (AzerothVeil: the Transports module's)
-	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "dungeons" },
-	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = Steps(1), layer = 6, group = "dungeons" },
+	{ key = "flight", label = L["Flight masters"], icon = TRACK .. "flightmaster", size = 18, minZoom = FM.Map.QUESTS_ZOOM, layer = 5, group = "transport" },   -- (AzerothVeil: step 4, Map.lua) (AzerothVeil: the Transports module's)
+	{ key = "dungeon", label = L["Dungeons"], icon = DUNGEON_ICON, size = 20, minZoom = FM.Map.From(4), layer = 6, group = "dungeons" },
+	{ key = "raid", label = L["Raids"], icon = RAID_ICON, size = 20, minZoom = FM.Map.From(4), layer = 6, group = "dungeons" },
 	-- (the capitals: only right out (gone at the wheel's first step in), over every other icon: layer 8
 	-- sorts them first, drawn in the OVERLAY layer)
-	{ key = "capital", label = L["Capital cities"], icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = Steps(1),
+	{ key = "capital", label = L["Capital cities"], icon = CAPITAL_ICON.Alliance, size = 24 * 0.8, minZoom = 0, maxZoom = FM.Map.From(3),
 		layer = 8, drawLayer = "OVERLAY", group = "places" },
 	-- AzerothVeil: the ways into the next zone (Data/ZoneExits.lua): a signpost "To <zone>" on each side of a crossing,
 	-- a click shows that zone whole (its "To ..." under it: Labels.lua, with the places' names)
@@ -116,6 +114,16 @@ local CATS = {
 	{ key = "prof_RIDING", label = L["Riding"], icon = ICONS .. "spell_nature_swiftness", data = "profTrainer", tag = "RIDING" },
 }
 P.CATS = CATS
+-- AzerothVeil: (here, before the tooltips use it)
+local CLASSES = { WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true, SHAMAN = true, MAGE = true,
+	WARLOCK = true, DRUID = true }
+-- (a class trainer's kind in its class's colour: the Icons module's "Class colours"; else nil)
+local function ClassColour(class)
+	if not (class and FM.db.trainerClassColours) then return end
+	return (C_ClassColor and C_ClassColor.GetClassColor and C_ClassColor.GetClassColor(class))
+		or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
+end
+
 P.ENEMY_TINT = { 1, 0.45, 0.4 }      -- (the other faction's flight masters: their icon in red)
 local byKey = {}
 for i, c in ipairs(CATS) do
@@ -124,6 +132,7 @@ for i, c in ipairs(CATS) do
 	c.order = i
 	c.minZoom = c.minZoom or OPEN_ZOOM
 	if c.data then
+		c.minZoom = FM.Map.TOWNSFOLK_ZOOM   -- (AzerothVeil: Map.lua)
 		c.group = c.tag and "professions" or "townsfolk"
 		c.size = c.size or 18
 	end
@@ -950,13 +959,38 @@ function P.Hover(clear)
 		tipLines[#tipLines + 1] = L["Waypoint"]
 		tipLines[#tipLines + 1] = { L["Right-click to remove it"], 0.6, 0.6, 0.62 }
 	end
+	-- AzerothVeil: the townsfolk by their kind only (each kind once, "x3" for three of them), unless the Icons module's
+	-- "Townsfolk's names" asks for each one's name
+	local kinds, kindAt = not FM.db.townsfolkNames and {} or nil, {}
+	local gap = hoverWaypoint
 	for i = 1, n do
 		local pin = hovered[i]
-		if i > 1 or hoverWaypoint then tipLines[#tipLines + 1] = " " end
-		tipLines[#tipLines + 1] = { pin.title or pin.cat.label, 1, 0.86, 0.45, 12 }
-		if pin.lines then
-			for _, l in ipairs(pin.lines) do tipLines[#tipLines + 1] = l end
+		if kinds and pin.kind then
+			local at = kindAt[pin.kind]
+			if at then
+				kinds[at] = kinds[at] + 1
+				local line = tipLines[at]
+				line[1] = pin.kind .. " x" .. kinds[at]
+			else
+				if gap then tipLines[#tipLines + 1] = " " end
+				local c = ClassColour(pin.class)
+				tipLines[#tipLines + 1] = { pin.kind, c and c.r or 1, c and c.g or 0.86, c and c.b or 0.45, 12 }
+				kindAt[pin.kind] = #tipLines
+				kinds[#tipLines] = 1
+			end
+		else
+			if gap then tipLines[#tipLines + 1] = " " end
+			tipLines[#tipLines + 1] = { pin.title or pin.cat.label, 1, 0.86, 0.45, 12 }
+			if pin.kind then
+				-- (AzerothVeil: a townsfolk named: under its name what it is, in the player's language, not the data's
+				-- English title; a class trainer's in its class's colour if asked)
+				local c = ClassColour(pin.class)
+				tipLines[#tipLines + 1] = { "<" .. pin.kind .. ">", c and c.r or 0.8, c and c.g or 0.8, c and c.b or 0.8, 11 }
+			elseif pin.lines then
+				for _, l in ipairs(pin.lines) do tipLines[#tipLines + 1] = l end
+			end
 		end
+		gap = true
 	end
 	if n > 0 then
 		local first = hovered[1]
@@ -1503,6 +1537,18 @@ local function Found(map, x, y)
 end
 
 -- the built-in townsfolk (Data\Townsfolk.lua): read into tables only while building, then let go
+-- AzerothVeil: what a townsfolk's icon says it is, hovered (the Icons module's "Townsfolk's names" off): its kind, a
+-- trainer by its class or profession (the data's tag), in the player's language (Locales)
+local TRAINER = {
+	WARRIOR = L["Warrior trainer"], PALADIN = L["Paladin trainer"], HUNTER = L["Hunter trainer"], ROGUE = L["Rogue trainer"],
+	PRIEST = L["Priest trainer"], SHAMAN = L["Shaman trainer"], MAGE = L["Mage trainer"], WARLOCK = L["Warlock trainer"],
+	DRUID = L["Druid trainer"], ALCHEMY = L["Alchemy trainer"], BLACKSMITHING = L["Blacksmithing trainer"],
+	COOKING = L["Cooking trainer"], ENCHANTING = L["Enchanting trainer"], ENGINEERING = L["Engineering trainer"],
+	FIRST_AID = L["First Aid trainer"], FISHING = L["Fishing trainer"], HERBALISM = L["Herbalism trainer"],
+	LEATHERWORKING = L["Leatherworking trainer"], MINING = L["Mining trainer"], RIDING = L["Riding trainer"],
+	SKINNING = L["Skinning trainer"], TAILORING = L["Tailoring trainer"],
+}
+
 local function BuildTownsfolk(todo)
 	if not FM.LoadTownsfolk then return end
 	local data, strings, tags = FM.LoadTownsfolk()
@@ -1527,6 +1573,8 @@ local function BuildTownsfolk(todo)
 					AddPin(cat, u, v, {
 						title = strings[name] or cat.label,
 						lines = s and { { "<" .. s .. ">", 0.8, 0.8, 0.8, 11 } } or nil,
+						kind = (cat.key ~= "portalTrainer" and TRAINER[tags[tag]]) or cat.label,   -- (AzerothVeil)
+						class = cat.key == "classTrainer" and CLASSES[tags[tag]] and tags[tag] or nil,
 					})
 				end
 			end
@@ -1552,6 +1600,34 @@ function P.Ensure()
 	if todo then BuildTownsfolk(todo) end
 	WarmAll()
 	FM.Map.MarkDirty()
+end
+
+-- AzerothVeil: the n icons of a kind nearest to u, v on its continent (the map's search, Find.lua), nearest first:
+-- { pin, ... } (each pin.u, pin.v, pin.title). The kind is built if it isn't yet, even hidden (it then shows only
+-- once turned on: Layout shows what's on)
+function P.Nearest(key, u, v, n)
+	local cat = byKey[key]
+	if not cat or not u then return {} end
+	if not cat.built then
+		if cat.data then BuildTownsfolk({ cat })
+		elseif key == "flight" then BuildFlights()
+		elseif key == "exit" then BuildExits()
+		elseif key == "capital" then BuildCapitals()
+		else BuildPlaces() end
+		WarmAll()
+	end
+	local cont = Geo.ContinentAt(u, v)
+	local list = {}
+	for _, pin in ipairs(cat.pins or {}) do
+		if not cont or Geo.ContinentAt(pin.u, pin.v) == cont then
+			local du, dv = pin.u - u, pin.v - v
+			list[#list + 1] = { pin = pin, d = du * du + dv * dv }
+		end
+	end
+	table.sort(list, function(a, b) return a.d < b.d end)
+	local out = {}
+	for i = 1, math.min(n or 3, #list) do out[i] = list[i].pin end
+	return out
 end
 
 function P.SetShown(key, on)

@@ -25,16 +25,19 @@ local Quests = ns.Modules:Register({
 	defaultEnabled = true,
 	settings = {
 		{ type = "header", label = L["On the map"] },
-		{ key = "poi", icon = "Interface\\GossipFrame\\ActiveQuestIcon", type = "toggle", default = true,
+		{ key = "poi", iconMenu = true, icon = "Interface\\GossipFrame\\ActiveQuestIcon", type = "toggle", default = true,
 			label = L["Objectives & turn-ins"],
 			tooltip = L["The quest log's quests, as Blizzard's map shows them."] },
-		{ key = "offers", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true,
+		{ key = "poiFar", icon = "Interface\\Icons\\INV_Misc_Map_01", type = "toggle", default = true, parent = "poi",
+			label = L["At every zoom"],
+			tooltip = L["Every quest of the log shows on the map even zoomed right out, over the continents. Off: there, only the followed one, as Blizzard's continent map does."] },
+		{ key = "offers", iconMenu = true, icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true,
 			label = L["Quests to pick up"],
 			tooltip = L["The quests you can take, as Blizzard's map shows them."] },
 		{ key = "areas", icon = "Interface\\Icons\\INV_Misc_Map_01", type = "toggle", default = true,
 			label = L["Quest areas"],
 			tooltip = L["The blue area of the followed quest, and of the one under the mouse."] },
-		{ key = "questie", icon = QUESTIE_ICON, type = "toggle", default = true,
+		{ key = "questie", iconMenu = true, icon = QUESTIE_ICON, type = "toggle", default = true,
 			label = L["Questie icons"],
 			tooltip = L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] },
 		{ key = "tipLevel", icon = "Interface\\Icons\\INV_Misc_Note_02", type = "toggle", default = true,
@@ -61,11 +64,11 @@ local Quests = ns.Modules:Register({
 			label = L["Quest colour by difficulty"],
 			tooltip = L["In the list, each quest's name in its difficulty's colour (red, orange, yellow, green, grey). Off: all in yellow."] },
 		{ key = "titleFont", icon = "Interface\\Icons\\INV_Misc_Book_11", type = "select", default = "ours", parent = "log",
-			values = { { "ours", L["AzerothVeil (Friz Quadrata)"] }, { "blizzard", L["Blizzard"] } },
+			values = { { "ours", L["Friz Quadrata"] }, { "blizzard", L["Blizzard"] } },
 			label = L["Titles' font"],
 			tooltip = L["On a quest's page, the font of its titles (its name, Description, Rewards): the addon's, or Blizzard's decorative one."] },
 		{ key = "textFont", icon = "Interface\\Icons\\INV_Misc_Note_01", type = "select", default = "ours", parent = "log",
-			values = { { "ours", L["AzerothVeil (Friz Quadrata)"] }, { "blizzard", L["Blizzard"] } },
+			values = { { "ours", L["Friz Quadrata"] }, { "blizzard", L["Blizzard"] } },
 			label = L["Text's font"],
 			tooltip = L["On a quest's page, the font of its text: the addon's, or the game's."] },
 		{ key = "rewardColors", icon = "Interface\\Icons\\INV_Misc_Gem_Emerald_02", type = "toggle", default = true, parent = "log",
@@ -91,6 +94,7 @@ local function Apply(self, running)
 	local function On(key) return running and self:IsOptionActive(key) or false end
 	local db = ns.db
 	db.questPOI = On("poi")
+	db.questPOIFar = On("poiFar")
 	db.questOffers = On("offers")
 	db.questAreas = On("areas")
 	db.pins.questie = On("questie")

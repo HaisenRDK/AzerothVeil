@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # Draws addon/Media/dungeon_ring.tga (the ring round a dungeon quest's objective icon, Engine/QuestLog.lua KindFrame):
-# the game's dungeon icon's three teal waves, pixelled, the outline round the hole only, fading out outside.
+# the game's dungeon icon's three teal waves, pixelled (24 cells across), the outline round the hole only, fading out outside.
 # Usage: scripts/make_dungeon_ring.py addon/Media/dungeon_ring.tga
 import math, struct, sys
-G = 32                      # cells across: the pixels it shows (the game's icon is 29)
+G = 24                      # cells across: the pixels it shows (the game's icon is 29)
 N = 128                     # the texture, each cell 4 x 4
 R_OUT, R_IN = 0.98, 0.50    # the black outline included
 OUT_W, IN_W = 0.10, 0.06    # outline widths (of the half size)

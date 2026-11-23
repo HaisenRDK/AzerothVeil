@@ -27,6 +27,7 @@ FM.defaults = {
 	iconScale = 1,
 	-- quests as Blizzard's map shows them: their buttons, the "!" of quests to pick up, their areas
 	questPOI = true, questOffers = true, questAreas = true,
+	questPOIFar = true,              -- AzerothVeil: every quest's button at every zoom (else only the followed one, zoomed out)
 	pins = {
 		flight = true, dungeon = true, raid = true, capital = true, exit = true, boat = true, zeppelin = true, tram = true,
 		airship = false,               -- (Zephras Isle's airships: off until picked)
@@ -76,14 +77,14 @@ FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
 -- (AzerothVeil: and the Dungeons module's)
 FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
 -- (AzerothVeil: and the Quests module's switches)
-FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog",
+FM.QUEST_KEYS = { "questPOI", "questPOIFar", "questOffers", "questAreas", "questLog", "replaceQuestLog",
 	"questSearch", "questCount", "questFoldAll", "questZoneCount", "questTipLevel", "questRewardColors", "questKindFrame" }
 -- (AzerothVeil: and the Map module's switches, as they are while it's off: Modules/Map.lua)
 FM.MAP_OFF = {
 	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
 	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
 	npcUnexplored = true, terrainNames = false, playerCoords = false, cursorCoords = false, zoneLevels = true, dungeonCaves = false, mapNames = false,
-	placeFactions = false,
+	placeFactions = false, iconMenu = false, cityTerrain = false, mapSearch = false,
 }
 -- (AzerothVeil: and the Icons module's kinds of icon: those of these groups of Pins.CATS, Modules/Icons.lua)
 FM.ICON_GROUPS = { places = true, townsfolk = true, professions = true }
@@ -109,6 +110,21 @@ local issecret = _G.issecretvalue
 function FM.Plain(v)
 	if v == nil or (issecret and issecret(v)) then return nil end
 	return v
+end
+
+-- AzerothVeil: a text to compare in a search: lower case, its accents taken off (the UTF-8 Latin letters of the
+-- clients' languages: "Désolace" is "desolace"), its apostrophes all one
+local FOLD = {
+	["à"] = "a", ["á"] = "a", ["â"] = "a", ["ä"] = "a", ["ã"] = "a", ["å"] = "a", ["À"] = "a", ["Á"] = "a", ["Â"] = "a", ["Ä"] = "a",
+	["ç"] = "c", ["Ç"] = "c", ["è"] = "e", ["é"] = "e", ["ê"] = "e", ["ë"] = "e", ["È"] = "e", ["É"] = "e", ["Ê"] = "e", ["Ë"] = "e",
+	["ì"] = "i", ["í"] = "i", ["î"] = "i", ["ï"] = "i", ["Î"] = "i", ["Ï"] = "i", ["ñ"] = "n", ["Ñ"] = "n",
+	["ò"] = "o", ["ó"] = "o", ["ô"] = "o", ["ö"] = "o", ["õ"] = "o", ["Ô"] = "o", ["Ö"] = "o", ["œ"] = "oe", ["Œ"] = "oe",
+	["ù"] = "u", ["ú"] = "u", ["û"] = "u", ["ü"] = "u", ["Ù"] = "u", ["Û"] = "u", ["Ü"] = "u", ["ß"] = "ss", ["ÿ"] = "y",
+	["’"] = "'", ["‘"] = "'",
+}
+function FM.Fold(s)
+	if type(s) ~= "string" or s == "" then return "" end
+	return (s:gsub("[\192-\244][\128-\191]+", FOLD):lower())
 end
 
 ---------------------------------------------------------------------------

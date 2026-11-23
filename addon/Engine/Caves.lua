@@ -196,11 +196,12 @@ function C.Layout(left, top, scale, vw, vh, zoom, deepest)
 	if not layer then return end
 	wipe(shown)
 	local focus = false
-	-- (with the minimap's terrain; laid out unseen from the step before it)
-	local switch = FM.Terrain.SwitchZoom(deepest)
+	-- (over the minimap's terrain; laid out unseen from the step before it. AzerothVeil: fading in over the map's step
+	-- 15 as the zoom goes, whole on 16, Map.lua)
 	zoom = zoom or 0
-	local on = FM.db.underground ~= false and zoom >= switch
-	local near = FM.db.underground ~= false and zoom >= switch / FM.Map.ZOOM_STEP
+	local p = FM.Map.Between(zoom, 14, 16)
+	local on = FM.db.underground ~= false and p > 0
+	local near = FM.db.underground ~= false and zoom >= FM.Map.From(13)
 	if near then
 		local hu, hv = vw / scale / 2, vh / scale / 2
 		local u, v = left + hu, top + hv
@@ -211,7 +212,7 @@ function C.Layout(left, top, scale, vw, vh, zoom, deepest)
 				and r[3] > u - hu and r[1] < u + hu and r[4] > v - hv and r[2] < v + hv then
 				local fill = min((2 * hu) / (r[3] - r[1]), (2 * hv) / (r[4] - r[2]))   -- view / cave, its longer way
 				if on and fill <= UNDER then
-					shown[key] = 1
+					shown[key] = math.max(0.01, p)
 					local off = max(math.abs((r[1] + r[3]) / 2 - u) / hu, math.abs((r[2] + r[4]) / 2 - v) / hv)
 					if off < FOCUS then focus = true end
 				elseif fill <= UNDER * WARM then
@@ -236,5 +237,5 @@ function C.Layout(left, top, scale, vw, vh, zoom, deepest)
 		end
 	end
 	-- (the surface round the cave you're centred on, dimmed)
-	if focus then dim:SetAlpha(0.45) dim:Show() else dim:Hide() end
+	if focus then dim:SetAlpha(0.45 * p) dim:Show() else dim:Hide() end
 end

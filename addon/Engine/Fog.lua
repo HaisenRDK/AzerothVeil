@@ -71,6 +71,7 @@ local function Near(z)
 	if not (f and a) or z.near then return end
 	local data = FM.FOG_PIECES and FM.FOG_PIECES[C_Map.GetMapArtID and FM.Plain(C_Map.GetMapArtID(z.id))]
 	local near = CreateFrame("Frame", nil, f)
+	near:SetFrameLevel(f:GetFrameLevel())  -- (AzerothVeil: as far, below)
 	near:SetAllPoints(f)
 	near:SetAlpha(terrain)
 	f.near = near
@@ -146,6 +147,7 @@ local function Build(z, pieces)
 	f:Hide()
 	-- (AzerothVeil: the zone as the map draws it, away from the terrain; Near's cut-outs over the terrain)
 	local far = CreateFrame("Frame", nil, f)
+	far:SetFrameLevel(f:GetFrameLevel())   -- (AzerothVeil: on its zone's level, under the cities' layer, Map.lua)
 	far:SetAllPoints(f)
 	far:SetAlpha(1 - terrain)
 	f.far = far

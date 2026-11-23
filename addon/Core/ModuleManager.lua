@@ -19,6 +19,7 @@
 --                   parent = "key": the option only counts (and is only editable) while that toggle is on.
 --                   A header with all = true: "Show all" / "Hide all" buttons for its section's toggles (down to
 --                   the next header), but those declared noAll = true (MM:SectionToggles / MM:SetSection).
+--                   AzerothVeil: a toggle declared iconMenu = true is also in the map's icon menu (Engine/IconMenu.lua).
 --   Initialize(self)            once, just before its first Enable (never for a module that never runs)
 --   Enable(self)                it starts: its events, frames, hooks...
 --   Disable(self)               it stops and lets go of what it holds

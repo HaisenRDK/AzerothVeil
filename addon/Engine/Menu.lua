@@ -214,7 +214,7 @@ local function ModulePage(page, m)
 		if spec.type == "header" then
 			current = { label = spec.label or "", specs = {}, header = spec }
 			sections[#sections + 1] = current
-		elseif spec.type == "toggle" or spec.type == "range" then
+		elseif spec.type == "toggle" or spec.type == "range" or spec.type == "select" then   -- (AzerothVeil: and the choices)
 			if not current then
 				current = { label = L["Settings"], specs = {} }
 				sections[#sections + 1] = current

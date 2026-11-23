@@ -63,6 +63,12 @@ local Map = ns.Modules:Register({
 		{ key = "addonPins", type = "toggle", default = true,
 			label = L["Other addons' icons"],
 			tooltip = L["Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and others) show on this one, exactly where they put them, with their own tooltips and clicks."] .. "\n" .. L["They show two steps of the wheel closer than the townsfolk."] },
+		{ key = "mapSearch", icon = "Interface\\Common\\UI-Searchbox-Icon", type = "toggle", default = true,
+			label = L["Search on the map"],
+			tooltip = L["In the map's top left corner, a search box: a place, a zone or a kind of icon (innkeeper, bank...), and the map goes there, what's found in a gold glow."] .. "\n" .. L["Empty, it offers the nearest innkeeper, bank, flight master..."] },
+		{ key = "iconMenu", icon = "Interface\\Minimap\\tracking\\innkeeper", type = "toggle", default = true,
+			label = L["Icon menu on the map"],
+			tooltip = L["Under the options' button, in the map's top left corner: a button opening the list of the kinds of icon, to show or hide each of them."] },
 		{ key = "iconScale", type = "range", default = 1, min = 0.6, max = 1.6, step = 0.05, fmt = "%.2f",
 			label = L["Icon size"] },
 		{ type = "header", label = L["Detail"] },
@@ -75,6 +81,9 @@ local Map = ns.Modules:Register({
 		{ key = "minimapTerrain", type = "toggle", default = true,
 			label = L["Minimap terrain up close"],
 			tooltip = L["Zoomed right in, the ground turns into the minimap's own: trees, rocks, roads and buildings."] .. "\n" .. L["The sea stays the map's."] },
+		{ key = "cityTerrain", type = "toggle", default = true, parent = "minimapTerrain",
+			label = L["Minimap terrain in the capitals"],
+			tooltip = L["Zoomed right in on a capital, the minimap's terrain there too."] .. "\n" .. L["Off: the capital's own paper map stays, its names with it."] },
 		{ key = "terrainNames", type = "toggle", default = true, parent = "minimapTerrain",
 			label = L["Places' names up close"],
 			tooltip = L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes, and the capitals' districts."] .. "\n" .. L["With the fog of war, only the places you've explored."] },
@@ -108,10 +117,15 @@ local function Apply(self, running)
 	db.fadeMoving = On("fadeMoving")
 	db.hoverHighlight = On("hoverHighlight")
 	db.joinIcons = On("joinIcons")
+	db.iconMenu = On("iconMenu")
+	db.mapSearch = On("mapSearch")
+	if ns.Find then ns.Find.Apply() end
+	if ns.IconMenu then ns.IconMenu.Apply() end
 	db.addonPins = On("addonPins")
 	db.iconScale = running and tonumber(self:Get("iconScale")) or 1
 	db.underground = On("underground")
 	db.minimapTerrain = On("minimapTerrain")
+	db.cityTerrain = On("cityTerrain")
 	db.zoneFishing = On("zoneFishing")
 	db.zoneLevels = On("zoneLevels")
 	db.dungeonCaves = On("dungeonCaves")

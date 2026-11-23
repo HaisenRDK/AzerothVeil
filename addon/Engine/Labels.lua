@@ -21,8 +21,17 @@ local CAPITALS = { [1637] = true, [1638] = true, [1497] = true, [1519] = true, [
 -- (a capital the places' data has no name for: its own map's name, the game's, in the middle of its map)
 local CAPITAL_MAPS = { [1455] = true }      -- Ironforge
 -- (a place whose name is better elsewhere than its ground's middle: x, y on its zone's map. Brackenwall Village: on
--- the village, among its townsfolk, not in the middle of its marsh; Orgrimmar: at its gate)
-local MOVED = { [496] = { 0.36, 0.31 }, [1637] = { 0.455, 0.115 } }
+-- the village, among its townsfolk, not in the middle of its marsh)
+local MOVED = { [496] = { 0.36, 0.31 } }
+-- (AzerothVeil: a capital whose own map (its paper map, Cities.lua) has its name banner painted on it: its name up close
+-- where that banner is: { the city's uiMapID, x, y } on the city's map, read off where its banner shows on its
+-- paper map; else where its zone's banner for it was (Cities.lua's BANNERS, OpenMap's), on the zone's map)
+local AT_BANNER = {
+	[1637] = { 1454, 0.43, 0.22 },                             -- Orgrimmar, its own map's banner
+	[1638] = { 1456, 0.48, 0.14 },                             -- Thunder Bluff, its own map's banner
+	[1497] = { 1420, (484 + 256) / 1002, (484 + 32) / 668 },   -- Undercity, on Tirisfal Glades'
+	[1657] = { 1438, (113 + 256) / 1002, (427 + 32) / 668 },   -- Darnassus, on Teldrassil's
+}
 local ART_W, ART_H = 1002, 668            -- (a zone's art, in its pixels: the pieces' units)
 local INK = { 1, 0.82, 0 }                -- (gold, outlined: Blizzard's own names over the land)
 local EXIT_SIZE = 14                      -- (AzerothVeil: "To <zone>" under a signpost into the next zone, Pins.lua)
@@ -105,8 +114,10 @@ local function Read(z)
 		local name = FM.Plain(info)
 		if type(name) == "string" and name ~= "" and not seen[name] then
 			seen[name] = true
-			local at = MOVED[data[i + 1]]
-			local u, v = Geo.MapToUnits(z.id, at and at[1] or data[i + 2], at and at[2] or data[i + 3])
+			local at, b = MOVED[data[i + 1]], AT_BANNER[data[i + 1]]
+			local u, v
+			if b then u, v = Geo.MapToUnits(b[1], b[2], b[3]) end
+			if not u then u, v = Geo.MapToUnits(z.id, at and at[1] or data[i + 2], at and at[2] or data[i + 3]) end
 			if u then
 				z.list[#z.list + 1] = { key = data[i], off = Offset(data[i]), u = u, v = v, name = name,
 					px = data[i + 2] * ART_W, py = data[i + 3] * ART_H, capital = CAPITALS[data[i + 1]],
@@ -237,7 +248,7 @@ end
 function Lb.Layout(left, top, scale, vw, vh)
 	if not layer then return end
 	ReleaseAll()
-	if not (FM.db.terrainNames and FM.Terrain.Active()) then return end
+	if not (FM.db.terrainNames and FM.Terrain.Whole()) then return end      -- (AzerothVeil: after its fade)
 	local x1, y1 = left + vw / scale, top + vh / scale
 	local fog = FM.Fog and FM.Fog.IsEnabled()
 	for _, z in ipairs(Zones()) do
@@ -248,7 +259,9 @@ function Lb.Layout(left, top, scale, vw, vh)
 			if not z.city and not z.found then Discover(z) end
 			for i = 1, #z.list + #(z.found or NONE) do
 				local e = z.list[i] or z.found[i - #z.list]
-				if e.u > left and e.u < x1 and e.v > top and e.v < y1 and (not fog or IsExplored(z, e)) then
+				-- (AzerothVeil: the capitals' own paper maps kept over the terrain (Cities.lua): their names theirs)
+				local paper = FM.db.cityTerrain == false and (z.city or e.capital)
+				if not paper and e.u > left and e.u < x1 and e.v > top and e.v < y1 and (not fog or IsExplored(z, e)) then
 					local fs = Acquire(e.capital and CAPITAL_SIZE or e.district and DISTRICT_SIZE or SIZE)
 					fs:SetText(e.name)
 					fs:ClearAllPoints()
@@ -277,12 +290,49 @@ function Lb.Layout(left, top, scale, vw, vh)
 end
 
 -- (the terrain fading in or out: Terrain.lua, as it goes)
+-- (AzerothVeil: only once the terrain is there whole: after its fade, not during it)
 function Lb.SetTerrain(k)
-	if layer then layer:SetAlpha(k) end
+	if layer then layer:SetAlpha(k >= 0.999 and 1 or 0) end
 end
 
 -- the player explored more (MAP_EXPLORATION_UPDATED, with the fog on): read again when next in view
 function Lb.Explored()
 	for _, z in ipairs(zones or NONE) do z.explored, z.found = nil, nil end
 	if FM.Map.IsShown() then FM.Map.MarkDirty() end
+end
+
+-- AzerothVeil: the places named as in a search (the map's search box, Find.lua): those whose name begins with q (FM.Fold
+-- of what's typed), then those that hold it, at most n, each once. Each place of every zone and capital, read the first
+-- time a search asks; with the fog of war on, only what you've explored (as its name on the map).
+-- Returns { { u, v, name, zone uiMapID }, ... }
+function Lb.SearchPlaces(q, n)
+	local out = {}
+	if type(q) ~= "string" or #q < 2 then return out end
+	local fog = FM.Fog and FM.Fog.IsEnabled()
+	local starts, holds, seen = {}, {}, {}
+	for _, z in ipairs(Zones()) do
+		if not z.list then Read(z) end
+		if fog and not z.city and not z.explored then Explored(z) end
+		if not z.city and not z.found then Discover(z) end
+		for i = 1, #z.list + #(z.found or NONE) do
+			local e = z.list[i] or z.found[i - #z.list]
+			if (not fog or IsExplored(z, e)) and not seen[e.name] then
+				e.folded = e.folded or FM.Fold(e.name)
+				local at = e.folded:find(q, 1, true)
+				if at then
+					seen[e.name] = true
+					local list = at == 1 and starts or holds
+					list[#list + 1] = { e.u, e.v, e.name, z.id }
+				end
+			end
+		end
+	end
+	for _, list in ipairs({ starts, holds }) do
+		table.sort(list, function(a, b) return a[3] < b[3] end)
+		for _, e in ipairs(list) do
+			if #out >= n then return out end
+			out[#out + 1] = e
+		end
+	end
+	return out
 end

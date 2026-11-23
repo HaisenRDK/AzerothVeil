@@ -10,10 +10,31 @@ local Map = {}
 FM.Map = Map
 -- one step of the wheel; how much of the world is across the view when M opens it on you
 Map.ZOOM_STEP = 1.35
-Map.OPEN_ACROSS = 220
+-- AzerothVeil: the map's steps of the wheel ("crans"), counted from right out (1: the whole world) to the deepest (16),
+-- the same whatever the window's size or the screen. Each kind of picture has its own, with one step between two of
+-- them where the one fades into the other as the zoom goes (the wheel's step animates: the fade runs with it):
+--   1-2 the world's own art; 3 it into the painted map; 4-7 the painted map (dungeons, flight masters, ways into
+--   the next zone, every quest of the log); 8 the cities' own maps coming in; 9-11 the cities and the townsfolk;
+--   12 the painted map into the minimap's terrain; 13-14 the terrain (with the places' names); 15 the caves coming
+--   in over it; 16 the caves
+Map.DEEPEST = 16
+function Map.Cran(k) return Map.ZOOM_STEP ^ (k - 1) end          -- (the zoom of step k)
+function Map.From(k) return Map.Cran(k) * 0.97 end                -- (a little under: the wheel's step lands on it)
+-- (0 at step k0, 1 at step k1, eased between, counted in steps)
+function Map.Between(zoom, k0, k1)
+	local t = (math.log(math.max(zoom or 1, 1e-6)) / math.log(Map.ZOOM_STEP) + 1 - k0) / (k1 - k0)
+	if t <= 0 then return 0 elseif t >= 1 then return 1 end
+	return t * t * (3 - 2 * t)
+end
+-- (M opens the map on step 6: as much of the world across the view)
+Map.OPEN_ACROSS = FM.W / Map.Cran(6)
 -- (AzerothVeil: the zoom the quest log's quests show from (Quests.lua), and the flight masters with them
--- (Pins.lua): one value for both, so they always come on together)
-Map.QUESTS_ZOOM = 1.7
+-- (Pins.lua): one value for both, so they always come on together: step 4)
+Map.QUESTS_ZOOM = Map.From(4)
+-- (AzerothVeil: the cities' own paper maps whole from step 9 (Cities.lua), fading in over step 8, their zones' banners
+-- for them out; before, the zone's tiles with the city cut out. The townsfolk's icons with them (Pins.lua))
+Map.CITIES_ZOOM = Map.From(9)
+Map.TOWNSFOLK_ZOOM = Map.From(9)
 
 local S = FM.Style
 local Geo = FM.Geo
@@ -26,7 +47,6 @@ local STEP = 510
 local TC0, TC1 = 1 / 512, 511 / 512
 local MEDIA = "Interface\\AddOns\\AzerothVeil\\Media\\"
 local LEVELS = { 1, 2, 4, 8, 16 }
-local MAX_PPU = 64                -- deepest zoom: screen pixels per world unit (past the art's 16: the minimap's terrain)
 local HEADER = 26
 local KEEP_SECONDS = 25           -- a tile off screen keeps its file this long (panning back is free)
 local KEEP_MAX = 64               -- ... and at most this many of them
@@ -223,12 +243,12 @@ local BW, BH = BX1 - BX0, BY1 - BY0
 local awayMap                 -- the land shown on its own (its map), else nil: the world
 local worldView               -- the world's view meanwhile: { cx, cy, scale }
 
+local function WorldFit() return max(vw / W, vh / H) end
 local function Limits()
 	local fit = max(vw / BW, vh / BH)
-	return fit, max(fit, MAX_PPU / ppuFactor)
+	return fit, max(fit, WorldFit() * Map.Cran(Map.DEEPEST))     -- (AzerothVeil: step 16, whatever the screen)
 end
--- (the zoom every kind of icon comes on at is the world's: a land apart is as close in as its size makes it)
-local function WorldFit() return max(vw / W, vh / H) end
+-- (the zoom every kind of icon comes on at is the world's: a land apart is as close in as its size makes it: WorldFit)
 
 local function Clamp()
 	local fit, deepest = Limits()
@@ -258,7 +278,7 @@ function Map.Refresh()
 	zoom = scale / WorldFit()
 	-- right out, the game's own world map; it dissolves into the stitched one over the first step in
 	-- (the wheel's step animates, so the fade runs with the zoom: no jump from one picture to the other)
-	worldAlpha = 1 - Smooth(zoom, 1.0, Map.ZOOM_STEP)
+	worldAlpha = 1 - Map.Between(zoom, 2, 4)      -- (AzerothVeil: steps 1-2, fading over step 3)
 	atWorld = worldAlpha > 0.5
 	UpdateTiles()
 	local fit, deepest = Limits()
@@ -277,6 +297,7 @@ function Map.Refresh()
 	FM.Pins.Layout(left, top, scale, vw, vh, ppu, zoom)
 	FM.AddonPins.Layout(left, top, scale, vw, vh, zoom)
 	FM.Quests.Layout(left, top, scale, vw, vh, ppu, zoom)
+	FM.Find.Layout(left, top, scale)                                   -- AzerothVeil: what the map's search found
 	Map.UpdateUnits()
 	local ms = debugprofilestop() - t0
 	stats.refreshMs, stats.refreshes = ms, stats.refreshes + 1
@@ -975,7 +996,7 @@ local function OnUpdate(_, elapsed)
 	FM.Vessels.Tick(elapsed)
 	FM.Pins.Tick()
 	FM.AddonPins.Tick(elapsed)
-	FM.Terrain.Tick(elapsed)
+	-- (AzerothVeil: no Terrain.Tick: its change goes with the zoom, Terrain.Layout)
 	FM.Friends.Tick()
 	-- the cursor: every frame it moves or the map moves under it (tooltips stay on their pins)
 	if view:IsMouseOver() then
@@ -1262,7 +1283,8 @@ local function Build()
 	FM.Fog.Init(fogLayer)
 	cityLayer = CreateFrame("Frame", nil, view)
 	cityLayer:SetAllPoints()
-	cityLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 2)
+	-- (AzerothVeil: over the fog, not on its level: a zone not explored whole, its fog frame drawn over its capital's map)
+	cityLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 3)
 	FM.Cities.Init(cityLayer)
 	-- AzerothVeil: the places' names over the minimap's terrain up close (Labels.lua), over the cities and caves
 	local labelLayer = CreateFrame("Frame", nil, view)
@@ -1459,11 +1481,20 @@ local function Build()
 		{ L["Options"], L["AzerothVeil's settings."] })
 	options:SetPoint("TOPLEFT", view, "TOPLEFT", CORNER_PAD, -CORNER_PAD)
 	Map.optionsButton = options
+	-- AzerothVeil: under it, the icon menu's (IconMenu.lua; the Map module's "Icon menu on the map")
+	local iconMenu = CornerButton("Interface\\Minimap\\tracking\\innkeeper", function() FM.IconMenu.Toggle() end,
+		{ L["Icons on the map"], L["Click: pick the kinds of icon the map shows."] })
+	iconMenu:SetPoint("TOP", options, "BOTTOM", 0, -4)
+	FM.IconMenu.Attach(view, iconMenu)
+	local lastCorner = options
 	if _G.QuestieLoader and _G.Questie then
 		local questie = CornerButton("Interface\\AddOns\\Questie\\Icons\\questie.png", function() Map.OpenQuestieOptions() end,
 			{ "Questie", L["Questie's own settings."] })
 		questie:SetPoint("LEFT", options, "RIGHT", 4, 0)
+		lastCorner = questie
 	end
+	-- AzerothVeil: the map's search box beside them (Find.lua; the Map module's "Search on the map")
+	FM.Find.Attach(view, lastCorner, instanceLevel + 1)
 
 	-- the map's tools: a button in the bottom left corner opening a little row of icon buttons beside
 	-- it (each with its tooltip): the boat and zeppelin routes on and off, centre on me
@@ -1804,6 +1835,18 @@ function Map.ShowMaps(ids)
 	zoomTarget = nil
 	cx, cy = (l + r) / 2, (t + b) / 2
 	scale = min(vw / ((r - l) * 1.08), vh / ((b - t) * 1.08))
+	dirty = true
+end
+
+-- AzerothVeil: the world's units from l to r, t to b, all in the view with a margin, never closer in than minAcross units
+-- across (the quests found by the log's search, QuestLog.lua)
+function Map.ShowUnits(l, r, t, b, minAcross)
+	if not built or not l then return end
+	zoomTarget = nil
+	cx, cy = (l + r) / 2, (t + b) / 2
+	ModeFor(cx, cy)
+	local w, h = max(r - l, minAcross or 0), max(b - t, (minAcross or 0) * vh / vw)
+	scale = min(vw / (w * 1.25), vh / (h * 1.25))
 	dirty = true
 end
 

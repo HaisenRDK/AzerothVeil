@@ -131,6 +131,8 @@ end
 -- a city's alpha for its zoom (a) and the terrain now: under it in the open, its minimap over it underground
 local function Apply(c)
 	local f, a = c.frame, c.alpha or 0
+	-- (AzerothVeil: the Map module's "Minimap terrain in the capitals" off: the city's own map stays over the terrain)
+	local under = FM.db.cityTerrain == false and 0 or under
 	if c.underground then
 		-- AzerothVeil: its own map fades out under the terrain too (as a city in the open), its minimap inside comes
 		-- over the terrain in its place
@@ -160,6 +162,71 @@ function C.SetTerrain(k)
 	end
 end
 
+-- AzerothVeil: the zones' banners for their cities (Media\CityBanner, OpenMap's) are lettered in English: shown as they are
+-- for a game in English; in another language, the zone's own art (the client's, lettered in its language) cut to the
+-- banner's shape (that picture as the mask), made the first time it shows (the tiles have the zones' own cut out)
+local ENGLISH = ({ enUS = true, enGB = true })[GetLocale and GetLocale() or "enUS"] or false
+
+local function BuildBanner(c)
+	c.bannerBuilt = true
+	local f, b = c.banner, c.bannerDef
+	local zone = b[1]
+	local layers = C_Map.GetMapArtLayers and C_Map.GetMapArtLayers(zone)
+	local info = layers and layers[1]
+	local files = info and C_Map.GetMapArtLayerTextures(zone, 1)
+	if not info or not files or (info.layerWidth or 0) <= 0 then return end
+	local mask = f:CreateMaskTexture()
+	mask:SetTexture(MEDIA .. "CityBanner\\" .. c.id, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+	mask:SetSize(b[4], b[5])
+	mask:SetPoint("TOPLEFT", f, "TOPLEFT", b[2], -b[3])
+	local lw, lh, tw, th = info.layerWidth, info.layerHeight, info.tileWidth, info.tileHeight
+	local sx, sy = ART_W / lw, ART_H / lh
+	local x0, y0, x1, y1 = b[2] / sx, b[3] / sy, (b[2] + b[4]) / sx, (b[3] + b[5]) / sy   -- (the banner, in the layer's px)
+	-- (a file of the art laid at bx, by (its picture bw x bh, the file fw x fh), cut to the banner)
+	local function Crop(file, sub, bx, by, bw, bh, fw, fh)
+		local ix0, iy0 = math.max(x0, bx), math.max(y0, by)
+		local ix1, iy1 = math.min(x1, bx + bw), math.min(y1, by + bh)
+		if bw > 0 and bh > 0 and ix1 > ix0 and iy1 > iy0 then
+			local t = f:CreateTexture(nil, "OVERLAY", nil, sub)
+			t:SetTexture(file, nil, nil, "TRILINEAR")
+			t:SetTexCoord((ix0 - bx) / fw, (ix1 - bx) / fw, (iy0 - by) / fh, (iy1 - by) / fh)
+			t:SetPoint("TOPLEFT", f, "TOPLEFT", ix0 * sx, -iy0 * sy)
+			t:SetPoint("BOTTOMRIGHT", f, "TOPLEFT", ix1 * sx, -iy1 * sy)
+			t:AddMaskTexture(mask)
+		end
+	end
+	-- its base art (the banner there, blank)...
+	local cols = math.ceil(lw / tw)
+	for i, file in ipairs(files) do
+		local bx, by = ((i - 1) % cols) * tw, math.floor((i - 1) / cols) * th
+		Crop(file, 0, bx, by, math.min(tw, lw - bx), math.min(th, lh - by), tw, th)
+	end
+	-- ... and over it its pieces (Data/Fog.lua, FM.FOG_PIECES: every one, explored or not), the banner's name lettered
+	-- on them, each cut in tiles as Blizzard's map cuts them (a piece's last row and column in files of the next power of two)
+	local art = C_Map.GetMapArtID and FM.Plain(C_Map.GetMapArtID(zone))
+	local function Pow2(px) local s = 16 while s < px do s = s * 2 end return s end
+	for key, list in pairs(art and FM.FOG_PIECES and FM.FOG_PIECES[art] or {}) do
+		local pw, ph, px, py = key:match("^(%d+):(%d+):(%d+):(%d+)$")
+		pw, ph, px, py = tonumber(pw), tonumber(ph), tonumber(px), tonumber(py)
+		if pw and px < x1 and px + pw > x0 and py < y1 and py + ph > y0 then
+			local ids = {}
+			for fid in tostring(list):gmatch("%d+") do ids[#ids + 1] = tonumber(fid) end
+			local across, down = math.ceil(pw / tw), math.ceil(ph / th)
+			for j = 1, down do
+				local h = j < down and th or (ph - (down - 1) * th)
+				for k = 1, across do
+					local w = k < across and tw or (pw - (across - 1) * tw)
+					local file = ids[(j - 1) * across + k]
+					if file then
+						Crop(file, 1, px + tw * (k - 1), py + th * (j - 1), w, h,
+							k < across and tw or Pow2(w), j < down and th or Pow2(h))
+					end
+				end
+			end
+		end
+	end
+end
+
 function C.Init(parent)
 	layer = parent
 	for id, def in pairs(CITIES) do
@@ -176,10 +243,14 @@ function C.Init(parent)
 				-- (the banner on a frame laid out in its zone's art pixels, over the city)
 				c.banner = ArtFrame(zr)
 				c.banner:SetFrameLevel(layer:GetFrameLevel() + 1)
-				local t = c.banner:CreateTexture(nil, "OVERLAY")
-				t:SetTexture(MEDIA .. "CityBanner\\" .. id)
-				t:SetSize(b[4], b[5])
-				t:SetPoint("TOPLEFT", c.banner, "TOPLEFT", b[2], -b[3])
+				c.bannerDef = b
+				if ENGLISH then
+					local t = c.banner:CreateTexture(nil, "OVERLAY")
+					t:SetTexture(MEDIA .. "CityBanner\\" .. id)
+					t:SetSize(b[4], b[5])
+					t:SetPoint("TOPLEFT", c.banner, "TOPLEFT", b[2], -b[3])
+					c.bannerBuilt = true
+				end
 			end
 			cities[#cities + 1] = c
 		end
@@ -190,10 +261,10 @@ local function InView(r, left, top, x1, y1)
 	return r[2] > left and r[1] < x1 and r[4] > top and r[3] < y1
 end
 
--- (shown from M's opening zoom; laid out unseen over the two wheel steps before it)
+-- (shown from M's opening zoom; laid out unseen over the two wheel steps before it. AzerothVeil: from Map.CITIES_ZOOM)
 local function FadeRange()
 	local step = FM.Map.ZOOM_STEP
-	local open = FM.W / FM.Map.OPEN_ACROSS * 0.97
+	local open = FM.Map.CITIES_ZOOM
 	return open / (step * step), open
 end
 
@@ -201,8 +272,11 @@ function C.Layout(left, top, scale, vw, vh, zoom)
 	local x1, y1 = left + vw / scale, top + vh / scale
 	local z0, z1 = FadeRange()
 	zoom = zoom or 0
-	-- (no fading: there, or not; just before, there at 1% only, so the client has loaded its files)
-	local a = zoom >= z1 and 1 or zoom >= z0 and 0.01 or 0
+	-- (just before, there at 1% only, so the client has loaded its files. AzerothVeil: over the wheel's step before it,
+	-- from the step's own zoom, the city fades in as the zoom goes, its zone's banner for it out: the wheel's step
+	-- animates, so the fade runs with it; a step of the wheel lands on one or the other, never between)
+	local p = zoom >= z1 and 1 or FM.Map.Between(zoom, 7, 9)        -- (steps 7 to 9: Map.lua)
+	local a = zoom >= z1 and 1 or zoom >= z0 and math.max(0.01, p) or 0
 	for _, c in ipairs(cities) do
 		local f = c.frame
 		if a > 0.003 and not c.failed and InView(c.r, left, top, x1, y1) then
@@ -216,8 +290,9 @@ function C.Layout(left, top, scale, vw, vh, zoom)
 		end
 		local b = c.banner
 		if b then
-			local ba = (c.title and a >= 1) and 0 or 1      -- (gone the moment the city's own title is there)
+			local ba = 1 - p                                -- (AzerothVeil: gone as the city's own map comes in)
 			if ba > 0.003 and InView(b.rect, left, top, x1, y1) then
+				if not c.bannerBuilt then BuildBanner(c) end      -- (AzerothVeil: another language: the zone's own)
 				Place(b, left, top, scale)
 				b:SetAlpha(ba)
 				b:Show()
@@ -227,4 +302,3 @@ function C.Layout(left, top, scale, vw, vh, zoom)
 		end
 	end
 end
-
