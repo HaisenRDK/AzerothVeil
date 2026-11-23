@@ -87,11 +87,24 @@ function S.FontPath()
 	return path
 end
 
--- AzerothVeil: a text made from one of the game's templates (its size, flags and colour), in our face
+-- AzerothVeil: a text made from one of the game's templates (its size, flags and colour), in our face. S.Unfriz:
+-- back in the face it had before (a text of the game's, shared with its own windows)
+local before = setmetatable({}, { __mode = "k" })
+function S.OriginalFace(fs)
+	local b = fs and before[fs]
+	if b then return b[1] end
+	return fs and fs.GetFont and (fs:GetFont())
+end
+function S.Unfriz(fs)
+	local b = fs and before[fs]
+	if b then fs:SetFont(b[1], b[2], b[3]) before[fs] = nil end
+	return fs
+end
 function S.Friz(fs)
 	if not (fs and fs.GetFont) then return fs end
-	local _, size, flags = fs:GetFont()
+	local file, size, flags = fs:GetFont()
 	if type(size) == "number" and size > 0 then
+		if not before[fs] and file ~= S.FontPath() then before[fs] = { file, size, flags or "" } end
 		local face = S.FontPath()
 		if not fs:SetFont(face, size, flags or "") then fs:SetFont(FALLBACK, size, flags or "") end
 	end
@@ -142,12 +155,13 @@ end
 -- AzerothVeil: a font string in one of the game's own font objects' size and flags, in our face (QuestTitleFont,
 -- QuestFont, QuestFontNormalSmall: a quest's page as Blizzard writes it), read from the object as the game has it
 -- now; else ours at that size. Its shadow left as it is
-function S.GameFont(fs, name, size)
+function S.GameFont(fs, name, size, own)
 	local obj = _G[name]
 	local file, h, flags
 	if obj and obj.GetFont then file, h, flags = obj:GetFont() end
 	if type(file) ~= "string" or file == "" or type(h) ~= "number" then return S.Font(fs, size) end
-	file = S.FontPath()      -- (AzerothVeil: their sizes and flags, in Friz Quadrata as the rest of the addon)
+	-- (AzerothVeil: their sizes and flags, in Friz Quadrata as the rest of the addon; own: in their own face, the game's)
+	if not own then file = S.FontPath() end
 	flags = flags or ""
 	local r = registry[fs]
 	if r and r[1] == h and r[2] == flags and r[3] == file then return fs end
@@ -378,6 +392,107 @@ function S.SwitchRow(parent, label, icon, get, set, width)
 end
 
 -- flat slider: an optional icon, label, value text, a thin bar with a square thumb
+-- AzerothVeil: a choice among a few (the options' "select"): a row, its label on the left, on the right a button
+-- showing the choice, opening the list of them under it (ours: not Blizzard's drop-down menus, which spread taint).
+-- values: { { value, label }, ... }; get() / set(value). r:Refresh() shows the current one; r:SetEnabled(on)
+local selectList                          -- (one list, for whichever select opened it)
+local function SelectList()
+	if selectList then return selectList end
+	local f = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+	f:SetFrameStrata("FULLSCREEN_DIALOG")
+	f:SetClampedToScreen(true)
+	if f.SetBackdrop then
+		f:SetBackdrop({ bgFile = TIP_BG, edgeFile = TIP_EDGE, tile = true, tileSize = 8, edgeSize = 12,
+			insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+		f:SetBackdropColor(0.06, 0.05, 0.04, 0.97)
+		f:SetBackdropBorderColor(0.8, 0.68, 0.45, 1)
+	end
+	f.items = {}
+	f:Hide()
+	-- (a click anywhere else closes it)
+	f:SetScript("OnShow", function(self) self:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
+	f:SetScript("OnHide", function(self) self:UnregisterEvent("GLOBAL_MOUSE_DOWN") self.owner = nil end)
+	f:SetScript("OnEvent", function(self)
+		if not self:IsMouseOver() and not (self.owner and self.owner:IsMouseOver()) then self:Hide() end
+	end)
+	selectList = f
+	return f
+end
+function S.Select(parent, label, values, get, set, width, icon)
+	local r = CreateFrame("Frame", nil, parent)
+	r:SetSize(width or 200, 22)
+	local x = 4
+	if icon then
+		local ic = r:CreateTexture(nil, "ARTWORK")
+		ic:SetSize(16, 16)
+		ic:SetPoint("LEFT", 4, 0)
+		S.SetIcon(ic, icon)
+		x = 26
+	end
+	local fs = S.Text(r, 11)
+	fs:SetPoint("LEFT", x, 0)
+	fs:SetText(label or "")
+	local bw = math.max(90, math.floor((width or 200) * 0.42))
+	local b = S.Button(r, "", bw, 20, nil, "action")
+	b:SetPoint("RIGHT", -2, 0)
+	fs:SetPoint("RIGHT", b, "LEFT", -6, 0)
+	fs:SetJustifyH("LEFT")
+	fs:SetWordWrap(false)
+	local function LabelOf(v)
+		for _, e in ipairs(values) do if e[1] == v then return e[2] end end
+		return tostring(v or "")
+	end
+	b:SetScript("OnClick", function(self)
+		local list = SelectList()
+		if list:IsShown() and list.owner == self then list:Hide() return end
+		list.owner = self
+		for _, it in ipairs(list.items) do it:Hide() end
+		for i, e in ipairs(values) do
+			local it = list.items[i]
+			if not it then
+				it = CreateFrame("Button", nil, list)
+				it:SetHeight(20)
+				it:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+				it.text = S.Text(it, 11)
+				it.text:SetPoint("LEFT", 8, 0)
+				it.text:SetPoint("RIGHT", -8, 0)
+				it.text:SetJustifyH("LEFT")
+				list.items[i] = it
+			end
+			it:ClearAllPoints()
+			it:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 20)
+			it:SetPoint("TOPRIGHT", -4, -4 - (i - 1) * 20)
+			it.text:SetText(e[2])
+			local cur = get() == e[1]
+			it.text:SetTextColor(cur and 1 or 0.9, cur and 0.82 or 0.9, cur and 0 or 0.9)
+			it:SetScript("OnClick", function()
+				list:Hide()
+				set(e[1])
+				r:Refresh()
+			end)
+			it:Show()
+		end
+		list:SetSize(math.max(bw, 120), #values * 20 + 8)
+		list:ClearAllPoints()
+		list:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", 0, -2)
+		list:Show()
+	end)
+	function r:Refresh() b.label:SetText(LabelOf(get())) end
+	function r:SetEnabled(on)
+		b:SetEnabled(on)
+		self.disabled = not on
+		if not on and selectList and selectList.owner == b then selectList:Hide() end
+	end
+	r.button = b
+	-- (its tooltip, r.tip, over the row and its button)
+	r:EnableMouse(true)
+	r:SetScript("OnEnter", function(self) if self.tip then S.ShowTip(self, self.tip) end end)
+	r:SetScript("OnLeave", function() S.HideTip() end)
+	b:HookScript("OnEnter", function() if r.tip then S.ShowTip(r, r.tip) end end)
+	r:Refresh()
+	return r
+end
+
 function S.Slider(parent, label, minV, maxV, step, get, set, fmt, width, icon)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetSize(width or 200, 34)

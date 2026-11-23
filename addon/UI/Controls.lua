@@ -85,6 +85,24 @@ function Build.toggle(page, m, spec, y, onChange)
 	return row, y - Controls.ROW_H
 end
 
+-- AzerothVeil: a choice among a few (spec.values = { { value, label }, ... }): its label, then a button showing the
+-- choice and opening the list of them (Style.Select: ours, not Blizzard's drop-down menus)
+function Build.select(page, m, spec, y, onChange)
+	local x = Depth(m, spec) * INDENT
+	local r = ns.Style.Select(page, spec.label or spec.key, spec.values or {},
+		function() return MM:GetSetting(m.name, spec.key) end,
+		function(v) MM:SetSetting(m.name, spec.key, v) if onChange then onChange() end end, 380 - x)
+	r:SetPoint("TOPLEFT", x, y)
+	local row = {}
+	function row.Refresh()
+		r:Refresh()
+		local editable = MM:IsOptionEditable(m.name, spec.key)
+		r:SetEnabled(editable)
+		r:SetAlpha(editable and 1 or 0.5)
+	end
+	return row, y - Controls.ROW_H - 2
+end
+
 -- (no module declares one yet: written to the template's API as other addons on this client use it)
 function Build.range(page, m, spec, y, onChange)
 	local x = Depth(m, spec) * INDENT

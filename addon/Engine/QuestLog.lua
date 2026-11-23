@@ -9,7 +9,7 @@ FM.QuestLog = QL
 
 local S = FM.Style
 local max, min, floor = math.max, math.min, math.floor
-local WIDTH = 300
+local WIDTH = 320                       -- (AzerothVeil: 300 in PerfectMap; room for Blizzard's own quest page, 298 wide)
 local BAR = 26                          -- (as tall as the map's header bar, and drawn the same)
 local PAD = 8
 
@@ -133,14 +133,23 @@ local INK = { 0, 0, 0 }                   -- (titles and headings on the parchme
 local INK_TEXT = { 0, 0, 0 }              -- (its text)
 local INK_SMALL = { 0.3, 0.18, 0 }        -- (its small lines: the level under the name)
 
+-- AzerothVeil: under the mouse, a row lit as the Quests module's "Highlight" says: its name brightened, as
+-- Blizzard's quest log does ("text"), or the bar across the row ("bar", PerfectMap's)
 local function RowEnter(self)
 	if self.questID or self.header then
-		if S.classic then self.hl:Show() else self.bg:SetVertexColor(1, 1, 1, (self.bgBase or 0) + 0.05) end
+		if FM.db.questHover ~= "bar" and self.questID then
+			self.hoverColor = { self.title:GetTextColor() }
+			self.title:SetTextColor(1, 1, 1)
+		elseif S.classic then self.hl:Show() else self.bg:SetVertexColor(1, 1, 1, (self.bgBase or 0) + 0.05) end
 	end
 	if self.questID then FM.Quests.Hint(self.questID) end
 end
 local function RowLeave(self)
 	if self.questID or self.header then
+		if self.hoverColor then
+			self.title:SetTextColor(self.hoverColor[1], self.hoverColor[2], self.hoverColor[3])
+			self.hoverColor = nil
+		end
 		if S.classic then self.hl:Hide() else self.bg:SetVertexColor(1, 1, 1, self.bgBase or 0) end
 	end
 	if self.questID then FM.Quests.Hint(nil) end
@@ -194,10 +203,35 @@ local function NewRow()
 	b.body:SetJustifyV("TOP")
 	b.body:SetWordWrap(true)
 	b.body:SetSpacing(2)
-	-- AzerothVeil: Blizzard's own check box (its look, its highlight, its pressed state), not PerfectMap's
-	b.check = CreateFrame("CheckButton", nil, b, "UICheckButtonTemplate")
-	b.check:SetSize(22, 22)
-	b.check:SetPoint("TOPRIGHT", -4, 0)
+	-- AzerothVeil: the game's own minimal check box, as its settings and OpenMap have it (checkbox-minimal), else
+	-- Blizzard's classic one
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("checkbox-minimal") and C_Texture.GetAtlasInfo("checkmark-minimal") then
+		local cb = CreateFrame("CheckButton", nil, b)
+		cb:SetSize(16, 16)
+		local function Tex(atlas, layer, blend, alpha)
+			local t = cb:CreateTexture(nil, layer)
+			t:SetAtlas(atlas)
+			t:SetAllPoints()
+			if blend then t:SetBlendMode(blend) end
+			if alpha then t:SetAlpha(alpha) end
+			return t
+		end
+		cb:SetNormalTexture(Tex("checkbox-minimal", "BACKGROUND"))
+		cb:SetPushedTexture(Tex("checkbox-minimal", "BACKGROUND"))
+		cb:SetHighlightTexture(Tex("checkbox-minimal", "HIGHLIGHT", "ADD", 0.25))
+		cb:SetCheckedTexture(Tex("checkmark-minimal", "ARTWORK"))
+		b.check = cb
+		b.check:SetPoint("TOPRIGHT", -6, -3)
+	else
+		b.check = CreateFrame("CheckButton", nil, b, "UICheckButtonTemplate")
+		b.check:SetSize(22, 22)
+		b.check:SetPoint("TOPRIGHT", -4, 0)
+	end
+	-- AzerothVeil: a quest's kind written out at the end of its first line, "(Elite)", in gold (the Quests module's
+	-- "Quest kind": "text")
+	b.kind = S.Text(b, 11, { 1, 0.82, 0 })
+	b.kind:SetPoint("TOPRIGHT", b.check, "TOPLEFT", -4, -1)
+	b.kind:Hide()
 	b.sign = S.Text(b, 18, S.ACCENT)
 	b.sign:SetPoint("RIGHT", -10, 0)
 	b.shade = b:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -271,7 +305,8 @@ local function Release()
 		local b = rows[i]
 		b:Hide()
 		b:ClearAllPoints()
-		b.questID, b.header, b.bgBase = nil, nil, nil
+		b.questID, b.header, b.bgBase, b.hoverColor = nil, nil, nil, nil
+		if b.kind then b.kind:Hide() end
 		-- (AzerothVeil: a quest page's row, in the game's quest fonts: back to the list's, its shadow set again)
 		if b.big then S.Font(b.title, 12) S.Font(b.body, 11) b.big, b.shadow = nil, nil end
 		b.sign:Hide()
@@ -521,6 +556,15 @@ function IconEnter(self, link)
 	GameTooltip:Show()
 end
 
+-- AzerothVeil: a quest's kind as the game names it, "(Elite)", "(Dungeon)"... (its tag's own name, in the player's
+-- language); nil for an ordinary one
+local function KindText(questID)
+	local ok, tag = false, nil
+	if C_QuestLog.GetQuestTagInfo then ok, tag = pcall(C_QuestLog.GetQuestTagInfo, questID) end
+	local name = ok and type(tag) == "table" and FM.Plain(tag.tagName)
+	if type(name) == "string" and name ~= "" then return "(" .. name .. ")" end
+end
+
 local function TypeIcon(questID)
 	local m = TagMark(questID)
 	if not m then return "" end
@@ -562,7 +606,7 @@ end
 -- dots, glow). Blizzard's atlases (Blizzard_POIButton) on a button of our own, as FlareUI does: the
 -- template's mixin reaches into the map's pins. A click focuses the quest (the waypoint arrow), or stops
 -- focusing it; a right click is the row's. Its tooltip says what the icons after the name mean.
-local POI_SIZE, POI_BLIZZARD = 14, 20
+local POI_SIZE, POI_BLIZZARD = 20, 20       -- (AzerothVeil: the game's own size; 14 in PerfectMap)
 
 local function SizeAtlas(tex, atlas, k)
 	tex:SetAtlas(atlas, true)
@@ -726,20 +770,30 @@ local function BuildList()
 					local failed = C_QuestLog.IsFailed and C_QuestLog.IsFailed(q)
 					local b = Row()
 					b.questID = q
-					b.title:SetTextColor(SoftColor(DiffColor(info.level)))
+					-- (AzerothVeil: its difficulty's colour, or gold for all, the Quests module's "Colour by difficulty")
+					if FM.db.questDiffColors ~= false then b.title:SetTextColor(SoftColor(DiffColor(info.level)))
+					else b.title:SetTextColor(1, 0.82, 0) end      -- (the yellow of Blizzard's quest titles)
 					-- (no "(Dungeon)" / "(PvP)" tag on the right: the icon left of the name says it)
 					local right = 24
+					-- (AzerothVeil: its kind as text at the end of the line, else its icon after the name)
+					local kindText = FM.db.questKindStyle ~= "icon" and KindText(q) or nil
+					if kindText then
+						b.kind:SetText(kindText)
+						b.kind:Show()
+						right = right + b.kind:GetStringWidth() + 6
+					end
 					-- (Forever Quest Tint: its sign on a quest new in Forever, its colour on the objectives if it
 					-- recolours them, Tint.lua)
-					local title = FM.Tint.MarkTitle(q, ("(%d) %s"):format(info.level or 0, info.title or "?"))
+					local title = FM.Tint.MarkTitle(q, FM.Quests.LevelText(q, info.level or 0, info.title or "?"))   -- (AzerothVeil: its letter)
 					-- (after the name: its kind's icon, then what it asks next: QuestMark)
-					title = title .. TypeIcon(q) .. QuestMark(q, info, complete, failed)
+					-- (AzerothVeil: the objective's icon only if wanted, the Quests module's "Quest objective icons")
+					title = title .. (kindText and "" or TypeIcon(q)) .. (FM.db.questObjIcons ~= false and QuestMark(q, info, complete, failed) or "")
 					if failed then title = title .. L["  |cffff4040Failed|r"] end
 					local or_, og, ob = FM.Tint.ObjectiveColour(q)
 					if or_ then b.body:SetTextColor(or_, og, ob) else b.body:SetTextColor(OBJ_INK[1], OBJ_INK[2], OBJ_INK[3]) end
 					-- (left of the name: Blizzard's round button, to focus it)
 					QuestButton(b, q, complete)
-					local indent = 22
+					local indent = 28        -- (AzerothVeil: clear of the game-sized round button)
 					y = Place(b, y + 2, indent, title, ObjectivesText(q, complete, true), Watched(q), right)
 				end
 			end
@@ -798,7 +852,39 @@ local function ItemClick(self, button)
 	if link and HandleModifiedItemClick then HandleModifiedItemClick(link) end
 end
 
+-- AzerothVeil: classic, Blizzard's own button for a quest's reward (its quest page's: the icon, and beside it the name in
+-- its name frame), when the client has it; else ours below
+local BLIZZ_ITEM_H = 44
+local function BlizzardItem()
+	if not S.classic then return nil end
+	local ok, b = pcall(CreateFrame, "Button", nil, child, "LargeItemButtonTemplate")
+	if not (ok and b and b.Icon and b.Name and b.NameFrame) then
+		if ok and b then b:Hide() end
+		return nil
+	end
+	b.blizz = true
+	b.icon, b.name, b.count = b.Icon, b.Name, b.Count
+	b.bg = b:CreateTexture(nil, "BACKGROUND")      -- (what the rest sets: kept, unseen)
+	b.bg:SetAlpha(0)
+	b.edge = b:CreateTexture(nil, "BACKGROUND")
+	b.edge:SetAlpha(0)
+	if not b.count then
+		b.count = S.FontString(b, "OVERLAY", "NumberFontNormal")
+		b.count:SetPoint("BOTTOMRIGHT", b.Icon, "BOTTOMRIGHT", -1, 1)
+	end
+	S.Friz(b.name)
+	b.name:SetShadowColor(0, 0, 0, 0.8)
+	b.name:SetShadowOffset(1, -1)
+	b:SetScript("OnEnter", function(self) ItemEnter(self) end)
+	b:SetScript("OnLeave", function() GameTooltip_Hide() end)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:SetScript("OnClick", ItemClick)
+	return b
+end
+
 local function NewItem()
+	local blizz = BlizzardItem()
+	if blizz then return blizz end
 	local b = CreateFrame("Button", nil, child)
 	b:SetHeight(ITEM_H - 4)
 	b.bg = b:CreateTexture(nil, "BACKGROUND")
@@ -822,8 +908,32 @@ local function NewItem()
 	b.name:SetJustifyH("LEFT")
 	b.name:SetWordWrap(true)
 	b.name:SetMaxLines(2)
-	b:SetScript("OnEnter", function(self) self.bg:SetVertexColor(1, 1, 1, 0.1) ItemEnter(self) end)
-	b:SetScript("OnLeave", function(self) self.bg:SetVertexColor(1, 1, 1, 0.04) GameTooltip_Hide() end)
+	-- AzerothVeil: classic, as Blizzard's quest page: the icon, and beside it the name in a dark frame of its own
+	-- (in the tooltip's thin gold border), in white or its quality's colour, on the rewards' dark band
+	local base, lit = 0.04, 0.1
+	if S.classic then
+		b.bg:SetAlpha(0)
+		local box = CreateFrame("Frame", nil, b, BackdropTemplateMixin and "BackdropTemplate" or nil)
+		box:SetPoint("TOPLEFT", b.edge, "TOPRIGHT", 3, 0)
+		box:SetPoint("BOTTOMLEFT", b.edge, "BOTTOMRIGHT", 3, 0)
+		box:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+		box:SetFrameLevel(math.max(0, b:GetFrameLevel() - 1))
+		if box.SetBackdrop then
+			box:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+				tile = true, tileSize = 8, edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+			box:SetBackdropColor(0.1, 0.07, 0.04, 0.88)
+			box:SetBackdropBorderColor(0.6, 0.48, 0.3, 1)
+		end
+		b.box = box
+		b.name:ClearAllPoints()
+		b.name:SetPoint("LEFT", box, "LEFT", 6, 0)
+		b.name:SetPoint("RIGHT", box, "RIGHT", -4, 0)
+		b.name:SetShadowColor(0, 0, 0, 0.8)
+		b.name:SetShadowOffset(1, -1)
+		b:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+	end
+	b:SetScript("OnEnter", function(self) self.bg:SetVertexColor(1, 1, 1, lit) ItemEnter(self) end)
+	b:SetScript("OnLeave", function(self) self.bg:SetVertexColor(1, 1, 1, base) GameTooltip_Hide() end)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b:SetScript("OnClick", ItemClick)
 	return b
@@ -850,21 +960,18 @@ local function ItemGrid(y, list)
 		b.count:SetText(it[5] and it[5] > 1 and it[5] or "")
 		b.name:SetText(it[3] or "")
 		local c = it[6] and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[it[6]]
-		-- (AzerothVeil: on the parchment, a name in its quality's colour gets a shadow, to read; one in ink none)
-		local inked = S.classic and (not it[6] or it[6] <= 1)
-		if S.classic then
-			b.name:SetShadowOffset(1, -1)
-			b.name:SetShadowColor(0, 0, 0, inked and 0 or 0.8)
-		end
-		if inked then b.name:SetTextColor(INK[1], INK[2], INK[3])
+		-- (AzerothVeil: classic, in its own dark frame: a plain item's name in white, the others in their quality's colour)
+		if (S.classic and (not it[6] or it[6] <= 1)) or not FM.db.questRewardColors then b.name:SetTextColor(1, 1, 1)
 		elseif c then b.name:SetTextColor(c.r, c.g, c.b) else b.name:SetTextColor(1, 1, 1) end
 		if c then b.edge:SetVertexColor(c.r, c.g, c.b, 1) else b.edge:SetVertexColor(0, 0, 0, 0.9) end
 		b:SetWidth(colW)
 		local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-		b:SetPoint("TOPLEFT", child, "TOPLEFT", PAD + col * (colW + 6), -(y + row * ITEM_H))
+		local rowH = b.blizz and BLIZZ_ITEM_H or ITEM_H
+		b:SetPoint("TOPLEFT", child, "TOPLEFT", PAD + col * (colW + 6), -(y + row * rowH))
 		b:Show()
 	end
-	return y + math.ceil(#list / 2) * ITEM_H
+	local blizz = items[1] and items[#items].blizz
+	return y + math.ceil(#list / 2) * (blizz and BLIZZ_ITEM_H or ITEM_H)
 end
 
 -- (the classic icons for them: a glowing plus for experience, gold coins, a battle standard for honour)
@@ -935,22 +1042,158 @@ local rewardBox
 local function RewardBox(y0, y1)
 	if not rewardBox then
 		rewardBox = CreateFrame("Frame", nil, child)
-		S.Panel(rewardBox, { 0, 0, 0, 0.32 }, { 1, 1, 1, 0.06 })
+		if S.classic then
+			-- (AzerothVeil: classic, as Blizzard's quest page: the rewards on a dark band under the parchment, the
+			-- whole width, a thin gold line along its top)
+			local bg = rewardBox:CreateTexture(nil, "BACKGROUND")
+			bg:SetColorTexture(0.11, 0.08, 0.05, 1)
+			bg:SetAllPoints()
+			local line = rewardBox:CreateTexture(nil, "BORDER")
+			line:SetColorTexture(0.62, 0.5, 0.3, 1)
+			line:SetPoint("TOPLEFT")
+			line:SetPoint("TOPRIGHT")
+			line:SetHeight(1)
+		else
+			S.Panel(rewardBox, { 0, 0, 0, 0.32 }, { 1, 1, 1, 0.06 })
+		end
 		rewardBox:SetFrameLevel(child:GetFrameLevel())
 	end
+	local inset = S.classic and -2 or 2
 	rewardBox:ClearAllPoints()
-	rewardBox:SetPoint("TOPLEFT", child, "TOPLEFT", 2, -y0)
-	rewardBox:SetPoint("TOPRIGHT", child, "TOPRIGHT", -2, -y0)
+	rewardBox:SetPoint("TOPLEFT", child, "TOPLEFT", inset, -y0)
+	rewardBox:SetPoint("TOPRIGHT", child, "TOPRIGHT", -inset, -y0)
 	rewardBox:SetHeight(y1 - y0)
 	rewardBox:Show()
 end
 
+-- AzerothVeil: a quest's page is Blizzard's own (QuestMapFrame.DetailsFrame, as its map shows it: its parchment, its
+-- rewards' panel, its own Back / Abandon / Share / Track buttons), shown in the log, only its texts in our font (or
+-- the game's, the Quests module's "Blizzard's fonts on a quest's page"). Blizzard fills it (QuestMapFrame_ShowQuestDetails),
+-- the log holds it while it shows (its parent, its anchors: put back as they were once it goes), stretched to the log's
+-- height as OpenMap stretches it (Map/Window.lua: the text down to the foot, the parchment fitted). Its Back button
+-- hides it: the log goes back to the list. In combat, or a client without it: our own page, below
+local native = {}
+local function NativeFrame() return _G.QuestMapFrame and _G.QuestMapFrame.DetailsFrame end
+local function NativeAvailable()
+	return S.classic and NativeFrame() ~= nil and type(_G.QuestMapFrame_ShowQuestDetails) == "function" and not InCombatLockdown()
+end
+-- (in our font, or back in the game's, as the Quests module's "Titles' font" and "Text's font" say: a title is a text
+-- the game writes in its decorative face, Morpheus)
+local function FrizAll(f, depth)
+	if not f or (depth or 0) > 6 then return end
+	for _, r in ipairs({ f:GetRegions() }) do
+		if r.GetObjectType and r:GetObjectType() == "FontString" then
+			local face = tostring(S.OriginalFace(r) or ""):upper()
+			local title = face:find("MORPHEUS", 1, true) ~= nil
+			local theirs = (title and FM.db.questTitleFont or FM.db.questTextFont) == "blizzard"
+			if theirs then S.Unfriz(r) else S.Friz(r) end
+		end
+	end
+	for _, c in ipairs({ f:GetChildren() }) do FrizAll(c, (depth or 0) + 1) end
+end
+-- AzerothVeil: the rewards' names on Blizzard's page in their quality's colour (the Quests module's "Rewards in their
+-- quality's colour"), else white as Blizzard writes them
+local function ColorRewards()
+	local rf = _G.MapQuestInfoRewardsFrame
+	for _, b in ipairs(rf and rf.RewardButtons or {}) do
+		if b:IsShown() and b.Name and (b.type == "choice" or b.type == "reward") then
+			local q
+			if FM.db.questRewardColors then
+				local get = b.type == "choice" and _G.GetQuestLogChoiceInfo or _G.GetQuestLogRewardInfo
+				local ok, _, _, _, quality = false, nil, nil, nil, nil
+				if get then ok, _, _, _, quality = pcall(get, b:GetID()) end
+				q = ok and tonumber(FM.Plain(quality))
+			end
+			local c = q and q > 1 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+			if c then b.Name:SetTextColor(c.r, c.g, c.b) else b.Name:SetTextColor(1, 1, 1) end
+		end
+	end
+end
+-- its parchment as tall as the page down to the rewards, cut from its art as Blizzard cuts it (OpenMap's FitDetailsPaper)
+local PAPER_FOOT, TEXT_FOOT = 62, 29
+local function FitPaper(d)
+	if native.shown ~= d then return end
+	local bg = d.Bg
+	local atlas = bg and bg.GetAtlas and bg:GetAtlas()
+	local info = atlas and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+	local w, h = d:GetWidth(), d:GetHeight()
+	if not info or not info.width or info.width <= 0 or not w or not h or h <= PAPER_FOOT then return end
+	local natural = info.height * w / info.width
+	local want = h - PAPER_FOOT
+	bg:SetWidth(w)
+	bg:SetTexCoord(0, 1, 0, math.min(1, want / natural))
+	bg:SetHeight(want)
+end
+-- put back where Blizzard had it, hidden
+local function HideNative()
+	local d = native.shown
+	if not d then return end
+	native.shown = nil
+	native.hiding = true
+	d:Hide()
+	native.hiding = nil
+	local s = native.saved
+	if s then
+		d:SetParent(s.parent)
+		d:ClearAllPoints()
+		for _, pt in ipairs(s.points) do d:SetPoint(pt[1], pt[2], pt[3], pt[4], pt[5]) end
+		if s.scroll and d.ScrollFrame then
+			d.ScrollFrame:ClearAllPoints()
+			for _, pt in ipairs(s.scroll) do d.ScrollFrame:SetPoint(pt[1], pt[2], pt[3], pt[4], pt[5]) end
+		end
+	end
+end
+local function Points(f)
+	local out = {}
+	for i = 1, f:GetNumPoints() do out[i] = { f:GetPoint(i) } end
+	return out
+end
+local function ShowNative(q)
+	local d = NativeFrame()
+	if not native.saved then
+		native.saved = { parent = d:GetParent(), points = Points(d), scroll = d.ScrollFrame and Points(d.ScrollFrame) }
+		-- (its Back button hides it: back to the list)
+		d:HookScript("OnHide", function()
+			if not native.hiding and native.shown == d and mode == "details" then QL.ShowList() end
+		end)
+		d:HookScript("OnSizeChanged", FitPaper)
+	end
+	local ok = pcall(_G.QuestMapFrame_ShowQuestDetails, q)
+	if not ok then return false end
+	native.shown = d
+	d:SetParent(panel)
+	d:ClearAllPoints()
+	d:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+	d:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -10, 0)       -- (its border reaches past its right edge: kept inside the log)
+	d:SetFrameLevel(panel:GetFrameLevel() + 10)
+	if d.ScrollFrame then d.ScrollFrame:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", 5, TEXT_FOOT) end
+	d:Show()
+	FitPaper(d)
+	FrizAll(d)
+	ColorRewards()
+	-- (Blizzard draws its page again as the quest changes: our font and colours on it again after it)
+	if not native.hooked and _G.QuestInfo_Display then
+		native.hooked = true
+		hooksecurefunc("QuestInfo_Display", function()
+			if native.shown then FrizAll(native.shown) ColorRewards() end
+		end)
+	end
+	return true
+end
+QL.HideNative = HideNative
+
 local function BuildDetails()
 	local q = detailID
 	local index = q and C_QuestLog.GetLogIndexForQuestID(q)
-	if not index then mode, detailID = "list", nil return BuildList() end
+	if not index then mode, detailID = "list", nil HideNative() return BuildList() end
 	C_QuestLog.SetSelectedQuest(q)
 	if SelectQuestLogEntry then pcall(SelectQuestLogEntry, index) end
+	-- AzerothVeil: Blizzard's own page, when it can be had (out of combat)
+	if NativeAvailable() then
+		topTitle:SetText("")
+		if ShowNative(q) then return 1 end
+	end
+	HideNative()
 	local info = C_QuestLog.GetInfo(index) or {}
 	local complete = C_QuestLog.IsComplete(q)
 	local description, objectives = GetQuestLogQuestText()
@@ -961,7 +1204,11 @@ local function BuildDetails()
 	local function Head(fs) if CL then fs:SetTextColor(INK[1], INK[2], INK[3]) else fs:SetTextColor(1, 0.82, 0) end end
 	-- (AzerothVeil: classic, in the game's own quest fonts as Blizzard's quest page: QuestTitleFont for the name and
 	-- the headings, QuestFont for the text, QuestFontNormalSmall for the level; else ours at that size)
-	local function Face(fs, name, size) if CL then S.GameFont(fs, name, size) else S.Font(fs, size) end end
+	local function Face(fs, name, size)
+		if not CL then S.Font(fs, size) return end
+		local which = name == "QuestTitleFont" and FM.db.questTitleFont or FM.db.questTextFont
+		S.GameFont(fs, name, size, which == "blizzard")
+	end
 	local b = Row()
 	Head(b.title)
 	Face(b.title, "QuestTitleFont", 16)
@@ -998,30 +1245,37 @@ local function BuildDetails()
 	if rewardBox then rewardBox:Hide() end
 	if #receive > 0 or #choose > 0 then
 		local top = y + 12
+		-- (AzerothVeil: classic, on the dark band as Blizzard's page: the heading centred in pale gold, the lines in a
+		-- light parchment colour, all with a shadow)
+		local function Light(fs, r, g, bb)
+			fs:SetTextColor(r, g, bb)
+			fs:SetShadowColor(0, 0, 0, 0.8)
+			fs:SetShadowOffset(1, -1)
+		end
 		local h = Row()
-		if CL then h.title:SetTextColor(INK[1], INK[2], INK[3]) else h.title:SetTextColor(0.93, 0.85, 0.7) end
+		if CL then Light(h.title, 0.96, 0.84, 0.55) else h.title:SetTextColor(0.93, 0.85, 0.7) end
 		Face(h.title, "QuestTitleFont", 15)
 		h.big = true
-		if not CL then h.title:SetJustifyH("CENTER") end     -- (classic: on the left, as Blizzard's page has it)
-		y = Place(h, top + 6, PAD, L["Rewards"], nil, nil)
-		if #choose > 0 then
+		h.title:SetJustifyH("CENTER")
+		y = Place(h, top + 8, PAD, L["Rewards"], nil, nil)
+		local function Label(text, gap)
 			local r = Row()
-			Head(r.title)
-			Face(r.title, "QuestFont", 12)
+			if CL then Light(r.title, 0.88, 0.82, 0.7) Face(r.title, "QuestFontNormalSmall", 11) else Head(r.title) Face(r.title, "QuestFont", 12) end
 			r.big = true
-			y = Place(r, y + 2, PAD, L["You will be able to choose one of these rewards:"], nil, nil)
+			y = Place(r, y + gap, PAD, text, nil, nil)
+		end
+		if #choose > 0 then
+			Label(L["You will be able to choose one of these rewards:"], 4)
 			y = ItemGrid(y + 2, choose) + 2
 		end
 		if #receive > 0 then
-			local r = Row()
-			Head(r.title)
-			Face(r.title, "QuestFont", 12)
-			r.big = true
-			y = Place(r, y + 4, PAD, #choose > 0 and L["You will also receive:"] or L["You will receive:"], nil, nil)
+			Label(#choose > 0 and L["You will also receive:"] or L["You will receive:"], 6)
 			y = ItemGrid(y + 2, receive) + 2
 		end
-		y = y + 6
-		if not CL then RewardBox(top, y) end      -- (classic: the rewards on the page itself)
+		y = y + 8
+		-- (classic: the band down to the bottom of the page when the page is shorter than the log)
+		if CL then y = max(y, top + 4, (scroll:GetHeight() or 0) - 6) end
+		RewardBox(top, y)
 	end
 	topTitle:SetText("")
 	return y + 6
@@ -1085,7 +1339,7 @@ end
 local function UpdateButtons()
 	local q = detailID
 	local details = mode == "details" and q
-	if panel.paper then panel.paper:SetShown(details and true or false) end
+	if panel.paper then panel.paper:SetShown(details and not native.shown and true or false) end   -- (AzerothVeil: Blizzard's page has its own)
 	TopLayout(details)
 	bottom:SetShown(details and true or false)
 	scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, details and (BAR + 4) or 4)
@@ -1124,9 +1378,14 @@ function QL.Refresh()
 	Release()
 	ReleaseItems()
 	if rewardBox then rewardBox:Hide() end
+	if mode ~= "details" then HideNative() end      -- (AzerothVeil: Blizzard's page, put back)
 	local h = mode == "details" and BuildDetails() or BuildList()
 	child:SetHeight(max(1, h))
 	UpdateButtons()
+	-- (AzerothVeil: Blizzard's page over the log: ours hidden under it, its own buttons in use)
+	local over = native.shown and true or false
+	scroll:SetShown(not over)
+	if over then back:Hide() bottom:Hide() thumb:Hide() end
 	ScrollBy(0)
 end
 
@@ -1387,6 +1646,8 @@ local function Build(parent, headerHeight)
 	end):SetPoint("LEFT", buttons.share, "RIGHT", 3, 0)
 
 	panel:SetScript("OnShow", function() QL.Refresh() end)
+	-- AzerothVeil: the log gone, Blizzard's quest page back where Blizzard had it (shown again with the log)
+	panel:HookScript("OnHide", function() HideNative() end)
 	-- AzerothVeil: a right click on the log's own background (the page around its lines): back to the list
 	panel:SetScript("OnMouseUp", function(_, button) if button == "RightButton" then QL.Back() end end)
 end

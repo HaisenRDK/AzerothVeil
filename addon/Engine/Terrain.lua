@@ -3,7 +3,9 @@
 -- out of detail. One clean change at one zoom (AzerothVeil: between the 4th and 5th step of the wheel past where M
 -- opens the map): on one side the painted map, on the other the minimap, never a zoom showing both;
 -- crossing it, one dissolves into the other over FADE seconds. Drawn through each continent's land
--- (Media/MiniLand, OpenMap's), so the sea stays the painted map's. Only the tiles in view are loaded.
+-- (Media/MiniLand, OpenMap's), so the sea stays the painted map's. AzerothVeil: and only through the zones' land:
+-- the land no zone covers (the raids' grounds, Ahn'Qiraj's and Zul'Gurub's, and the ridges between zones: OpenMap's
+-- MapGapMask) taken out of those masks, so the minimap never shows what the painted map leaves out. Only the tiles in view are loaded.
 -- As OpenMap's Map/Close.lua (MIT) does it.
 local _, FM = ...
 local T = {}
@@ -70,6 +72,32 @@ local function Mask(inst)
 	return m or nil
 end
 
+-- AzerothVeil: land OpenMap's gaps leave in a raid's ground (the middle of Zul'Gurub): cut out by hand, a square with
+-- soft edges from one corner to the other, each given on a zone's map (x, y 0..1) as they're seen in game. Its mask
+-- lets everything through past its own square (CLAMPTOWHITE), so it goes on every tile of the continent
+local CUTS = {
+	[0] = { { 1430, 0.50, 0.87, 1434, 0.52, 0.33 } },      -- Zul'Gurub: north-east on Deadwind Pass, south-west on Stranglethorn
+}
+local cuts = {}                             -- instance -> { { mask, u0, v0, u1, v1 } } (or false)
+local function Cuts(inst)
+	local list = cuts[inst]
+	if list == nil then
+		list = false
+		for _, c in ipairs(CUTS[inst] or {}) do
+			local ua, va = Geo.MapToUnits(c[1], c[2], c[3])
+			local ub, vb = Geo.MapToUnits(c[4], c[5], c[6])
+			if ua and ub then
+				local m = layer:CreateMaskTexture()
+				m:SetTexture("Interface\\AddOns\\AzerothVeil\\Media\\HoleSquare", "CLAMPTOWHITE", "CLAMPTOWHITE")
+				list = list or {}
+				list[#list + 1] = { m, min(ua, ub), min(va, vb), max(ua, ub), max(va, vb) }
+			end
+		end
+		cuts[inst] = list
+	end
+	return list or nil
+end
+
 local function NewTile(inst, fid)
 	local pool = pools[inst]
 	local t = pool and tremove(pool)
@@ -79,6 +107,7 @@ local function NewTile(inst, fid)
 		t:SetTexCoord(INSET, 1 - INSET, INSET, 1 - INSET)
 		local m = Mask(inst)
 		if m then t:AddMaskTexture(m) end
+		for _, c in ipairs(Cuts(inst) or {}) do t:AddMaskTexture(c[1]) end     -- (AzerothVeil)
 		t.inst = inst
 	end
 	t:SetTexture(fid, nil, nil, "LINEAR")
@@ -106,7 +135,7 @@ end
 -- less deep). AzerothVeil: the terrain two steps sooner than PerfectMap's (between the 4th and 5th step,
 -- not the 6th and 7th) and the caves two steps later (CAVES: between the 8th and 9th, or just before the
 -- deepest zoom): the land explored in the minimap's look before its caves
-local SWITCH, CAVES = 4.5, 8.5
+local SWITCH, CAVES = 4.5, 8.5        -- (AzerothVeil: the terrain between the 4th and 5th step)
 local function At(deepest, steps)
 	local step = FM.Map.ZOOM_STEP
 	return min(FM.W / FM.Map.OPEN_ACROSS * step ^ (steps or SWITCH), deepest / math.sqrt(step))
@@ -163,6 +192,12 @@ function T.Layout(left, top, scale, vw, vh, zoom, deepest)
 					m:SetPoint("TOPLEFT", layer, "TOPLEFT", (r[1] - left) * scale, (top - r[3]) * scale)
 					m:SetSize((r[2] - r[1]) * scale, (r[4] - r[3]) * scale)
 					m:Show()
+				end
+				-- (AzerothVeil: the hand cuts, where they are now)
+				for _, c in ipairs(Cuts(inst) or {}) do
+					c[1]:ClearAllPoints()
+					c[1]:SetPoint("TOPLEFT", layer, "TOPLEFT", (c[2] - left) * scale, (top - c[3]) * scale)
+					c[1]:SetSize(max(1, (c[4] - c[2]) * scale), max(1, (c[5] - c[3]) * scale))
 				end
 				for tx = tx0, tx1 do
 					for ty = ty0, ty1 do

@@ -140,6 +140,29 @@ function C.Init(parent)
 	dim:Hide()
 end
 
+-- AzerothVeil: a dungeon's or raid's area (its way in is in the cave's box, a little wider): it surfaces only with
+-- the Map module's "Dungeon & raid areas up close" (else it's seen by clicking the dungeon's icon: its own map)
+local instanceCave = {}
+local function MarkInstances(list)
+	local spots = {}
+	for _, e in ipairs(FM.PLACES and FM.PLACES.instances or {}) do
+		local u, v
+		if e[1] then u, v = Geo.WorldToUnits(e[1], e[2], e[3])
+		elseif e.map then u, v = Geo.MapToUnits(e.map, e[2], e[3]) end
+		if u then spots[#spots + 1] = { u, v } end
+	end
+	for i = 1, #list, 2 do
+		local r = list[i + 1]
+		local pu, pv = (r[3] - r[1]) * 0.1, (r[4] - r[2]) * 0.1
+		for _, s in ipairs(spots) do
+			if s[1] >= r[1] - pu and s[1] <= r[3] + pu and s[2] >= r[2] - pv and s[2] <= r[4] + pv then
+				instanceCave[list[i]] = true
+				break
+			end
+		end
+	end
+end
+
 -- every cave that may surface, with its box: key, rect, key, rect ... (worked out once)
 local candidates
 local function Candidates()
@@ -153,6 +176,7 @@ local function Candidates()
 		local r = RectOf(-i)
 		if r then candidates[#candidates + 1] = -i candidates[#candidates + 1] = r end
 	end
+	MarkInstances(candidates)          -- (AzerothVeil)
 	return candidates
 end
 
@@ -183,7 +207,8 @@ function C.Layout(left, top, scale, vw, vh, zoom, deepest)
 		local list = Candidates()
 		for i = 1, #list, 2 do
 			local key, r = list[i], list[i + 1]
-			if r[3] > u - hu and r[1] < u + hu and r[4] > v - hv and r[2] < v + hv then
+			if (FM.db.dungeonCaves or not instanceCave[key])     -- (AzerothVeil: a dungeon's area, only if wanted)
+				and r[3] > u - hu and r[1] < u + hu and r[4] > v - hv and r[2] < v + hv then
 				local fill = min((2 * hu) / (r[3] - r[1]), (2 * hv) / (r[4] - r[2]))   -- view / cave, its longer way
 				if on and fill <= UNDER then
 					shown[key] = 1

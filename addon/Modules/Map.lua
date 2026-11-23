@@ -51,6 +51,9 @@ local Map = ns.Modules:Register({
 		{ key = "unexploredNPCs", icon = "Interface\\Minimap\\tracking\\innkeeper", type = "toggle", default = true,
 			label = L["Townsfolk of unexplored areas"],
 			tooltip = L["The townsfolk and trainers (the Icons module's) of the land you haven't explored yet show too."] .. "\n" .. L["Off: only where you've explored, as the game counts it; in a capital, once you've been in it."] },
+		{ key = "mapNames", type = "toggle", default = true,
+			label = L["Continents' and seas' names"],
+			tooltip = L["Zoomed out, the names of the continents and the seas, lettered as Blizzard's map art letters them."] },
 		{ key = "hoverHighlight", type = "toggle", default = true,
 			label = L["Highlight zone under cursor"],
 			tooltip = L["The zone under the mouse lights up, as on Blizzard's continent map."] },
@@ -66,15 +69,24 @@ local Map = ns.Modules:Register({
 		{ key = "underground", type = "toggle", default = true,
 			label = L["Caves up close"],
 			tooltip = L["Zoom right in on a cave, mine, crypt or dungeon entrance and its own map surfaces: Blizzard's where it drew one, else the game's minimap of it inside."] },
+		{ key = "dungeonCaves", type = "toggle", default = false, parent = "underground",
+			label = L["Dungeon & raid areas up close"],
+			tooltip = L["Zoom right in on a dungeon's or raid's way in and the map of its area surfaces too, as a cave's."] .. "\n" .. L["Off: its map only by clicking its icon."] },
 		{ key = "minimapTerrain", type = "toggle", default = true,
 			label = L["Minimap terrain up close"],
 			tooltip = L["Zoomed right in, the ground turns into the minimap's own: trees, rocks, roads and buildings."] .. "\n" .. L["The sea stays the map's."] },
 		{ key = "terrainNames", type = "toggle", default = true, parent = "minimapTerrain",
 			label = L["Places' names up close"],
-			tooltip = L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes."] .. "\n" .. L["With the fog of war, only the places you've explored."] },
-		{ key = "cityDistricts", type = "toggle", default = true, parent = "terrainNames",
-			label = L["Districts of the capitals"],
-			tooltip = L["Over the minimap's terrain, the names of the capitals' districts (Elder Rise, Valley of Wisdom...)."] },
+			tooltip = L["Over the minimap's terrain, the names of the places (villages, camps, mines...) the painted map writes, and the capitals' districts."] .. "\n" .. L["With the fog of war, only the places you've explored."] },
+		{ key = "playerCoords", type = "toggle", default = true,
+			label = L["Player's coordinates"],
+			tooltip = L["At the map's bottom: where you are on your zone's map."] },
+		{ key = "cursorCoords", type = "toggle", default = true,
+			label = L["Cursor's coordinates"],
+			tooltip = L["At the map's bottom: where the cursor is on the zone under it."] },
+		{ key = "zoneLevels", type = "toggle", default = true,
+			label = L["Levels of zones"],
+			tooltip = L["Beside the name of the zone under the cursor: its levels, in the colour of how hard it is for you."] },
 		{ key = "zoneFishing", type = "toggle", default = false,
 			label = L["Fishing skill of zones"],
 			tooltip = L["Under the zone's name: the fishing skill its waters want."] },
@@ -85,7 +97,7 @@ local Map = ns.Modules:Register({
 local function Apply(self, running)
 	local function On(key) return running and self:IsOptionActive(key) or false end
 	local db = ns.db
-	local was = { replaceM = db.replaceM, iconScale = db.iconScale, addonPins = db.addonPins, zoneFishing = db.zoneFishing,
+	local was = { replaceM = db.replaceM, iconScale = db.iconScale, addonPins = db.addonPins, zoneFishing = db.zoneFishing, zoneLevels = db.zoneLevels,
 		npcUnexplored = db.npcUnexplored }
 	db.replaceM = On("replaceM")
 	db.reopen = On("centerOnOpen") and "player" or "last"
@@ -98,13 +110,18 @@ local function Apply(self, running)
 	db.underground = On("underground")
 	db.minimapTerrain = On("minimapTerrain")
 	db.zoneFishing = On("zoneFishing")
+	db.zoneLevels = On("zoneLevels")
+	db.dungeonCaves = On("dungeonCaves")
+	db.mapNames = On("mapNames")
 	db.terrainNames = On("terrainNames")
-	db.cityDistricts = On("cityDistricts")
+	db.playerCoords = On("playerCoords")
+	db.cursorCoords = On("cursorCoords")
+	if ns.Map.RefreshCoords then ns.Map.RefreshCoords() end
 	db.npcUnexplored = not running or self:IsOptionActive("unexploredNPCs")
 	if was.replaceM ~= db.replaceM and ns.ApplyBindings then ns.ApplyBindings() end   -- (M: ours or Blizzard's)
 	if was.iconScale ~= db.iconScale and ns.Pins and ns.Pins.ApplyScale then ns.Pins.ApplyScale() end
 	if was.addonPins ~= db.addonPins and ns.AddonPins then ns.AddonPins.Refresh() end
-	if was.zoneFishing ~= db.zoneFishing and ns.Map.ResetHover then ns.Map.ResetHover() end
+	if (was.zoneFishing ~= db.zoneFishing or was.zoneLevels ~= db.zoneLevels) and ns.Map.ResetHover then ns.Map.ResetHover() end
 	if was.npcUnexplored ~= db.npcUnexplored and ns.Pins.RefreshExplored then ns.Pins.RefreshExplored() end
 	if ns.MinimapButton then ns.MinimapButton.SetShown(On("minimapButton")) end
 	-- the fog, and the exploration it follows (and the townsfolk only where you've explored): heard only while
@@ -112,12 +129,12 @@ local function Apply(self, running)
 	local fog = On("fog")
 	local foundOnly = db.npcUnexplored == false
 	if ns.Fog then ns.Fog.SetEnabled(fog) end
-	if fog or foundOnly then
+	-- (AzerothVeil: and the places' names up close: the places WoW Forever added are named once explored, Labels.lua)
+	local names = db.terrainNames
+	if fog or foundOnly or names then
 		self:RegisterEvent("MAP_EXPLORATION_UPDATED", function()
-			if ns.Fog and self:IsOptionActive("fog") then
-				ns.Fog.Explored()
-				if ns.Labels then ns.Labels.Explored() end        -- (the names of what's explored, with the fog)
-			end
+			if ns.Fog and self:IsOptionActive("fog") then ns.Fog.Explored() end
+			if ns.Labels and ns.db.terrainNames then ns.Labels.Explored() end   -- (the names of what's explored)
 			if ns.db.npcUnexplored == false and ns.Pins.RefreshExplored then ns.Pins.RefreshExplored() end
 		end)
 	elseif running then

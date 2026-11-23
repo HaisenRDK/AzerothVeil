@@ -64,7 +64,9 @@ PerfectMap is licensed under the GNU GPL v3 (LICENSE.md), because it ships data 
 - **Data/Places.lua** (instance entrances, docks) is copied from OpenMap's `Data/Forever/Places.lua` (MIT).
 - **Data/Minimap.lua** (the list of the client's minimap tiles, by file ID) and **Media/MiniLand/** (each
   continent's land, the minimap's mask) are copied from OpenMap (`Data/Forever/Minimap.lua`, `MapMiniLand`, MIT);
-  **Terrain.lua** draws them as its `Map/Close.lua` does. The tiles themselves are the client's own.
+  **Terrain.lua** draws them as its `Map/Close.lua` does. The tiles themselves are the client's own. AzerothVeil
+  modified the masks: OpenMap's `MapGapMask` (the land no zone covers: Ahn'Qiraj's, Zul'Gurub's...) taken out of
+  them, so the minimap doesn't show there.
 - **Data/DungeonMaps.lua** (which of the client's pictures make up each dungeon's and raid's floors, by file ID) is copied
   from OpenMap's `Data/Forever/DungeonMaps.lua` (MIT); **Dungeon.lua** shows them as its `Map/Dungeons.lua` does.
 - **Friends.lua** follows OpenMap's `Map/Friends.lua` (MIT): its addon-message protocol (prefix `OpenMapLoc`,
@@ -125,3 +127,7 @@ OpenMap's MIT License:
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
+- **Data/MapNames.lua** (the continents' and seas' names: where Blizzard's map art lettered them, their ink and halo) is
+  copied from OpenMap's `Data/Forever/Labels.lua` (MIT); **Names.lua** letters them as its `Map/Stitch.lua` does.
+  **Media/MapArt/947_*.tga** (the world map's art, hand-cleaned of its continents' and seas' names) are copied from
+  OpenMap's `Media/Textures/Forever/MapArt` (MIT); the art itself is Blizzard's.

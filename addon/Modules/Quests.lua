@@ -39,7 +39,7 @@ local Quests = ns.Modules:Register({
 			tooltip = L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] },
 		{ key = "tipLevel", icon = "Interface\\Icons\\INV_Misc_Note_02", type = "toggle", default = true,
 			label = L["Quest level in tooltips"],
-			tooltip = L["Hovering a quest on the map: its level before its name, \"(level) Name\"."] },
+			tooltip = L["Hovering a quest on the map: its level before its name, \"(level) Name\", with its kind's letter: D dungeon, R raid, P PvP, + elite or group, L legendary."] },
 		{ type = "header", label = L["Quest log"] },
 		{ key = "log", icon = "Interface\\Icons\\INV_Misc_Book_09", type = "toggle", default = true,
 			label = L["Quest log beside the map"],
@@ -47,6 +47,31 @@ local Quests = ns.Modules:Register({
 		{ key = "replace", icon = "Interface\\QuestFrame\\UI-QuestLog-BookIcon", type = "toggle", default = true, parent = "log",
 			label = L["Replace Blizzard's quest log"],
 			tooltip = L["L opens this map's quest log. Outside combat, so does clicking a quest in the objective tracker or its menu."] },
+		{ key = "kindStyle", icon = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", type = "select", default = "text", parent = "log",
+			values = { { "text", L["Text: (Elite), (Dungeon)..."] }, { "icon", L["Icon"] } },
+			label = L["Quest kind"],
+			tooltip = L["In the list, an elite, dungeon, raid or group quest's kind: written at the end of its line, as Blizzard's quest log does, or an icon after its name."] },
+		{ key = "objIcons", icon = "Interface\\AddOns\\AzerothVeil\\Media\\Questie\\loot", type = "toggle", default = true, parent = "log",
+			label = L["Quest objective icons"],
+			tooltip = L["In the list, after a quest's name: the icon of what it asks next (kill, collect, use...), or of the item it's done with."] },
+		{ key = "diffColors", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true, parent = "log",
+			label = L["Quest colour by difficulty"],
+			tooltip = L["In the list, each quest's name in its difficulty's colour (red, orange, yellow, green, grey). Off: all in yellow."] },
+		{ key = "hover", icon = "Interface\\QuestFrame\\UI-QuestTitleHighlight", type = "select", default = "text", parent = "log",
+			values = { { "text", L["Its name lit (Blizzard)"] }, { "bar", L["A bar across the row"] } },
+			label = L["Highlight"],
+			tooltip = L["In the list, how the quest under the mouse is lit."] },
+		{ key = "titleFont", icon = "Interface\\Icons\\INV_Misc_Book_11", type = "select", default = "ours", parent = "log",
+			values = { { "ours", L["AzerothVeil (Friz Quadrata)"] }, { "blizzard", L["Blizzard"] } },
+			label = L["Titles' font"],
+			tooltip = L["On a quest's page, the font of its titles (its name, Description, Rewards): the addon's, or Blizzard's decorative one."] },
+		{ key = "textFont", icon = "Interface\\Icons\\INV_Misc_Note_01", type = "select", default = "ours", parent = "log",
+			values = { { "ours", L["AzerothVeil (Friz Quadrata)"] }, { "blizzard", L["Blizzard"] } },
+			label = L["Text's font"],
+			tooltip = L["On a quest's page, the font of its text: the addon's, or the game's."] },
+		{ key = "rewardColors", icon = "Interface\\Icons\\INV_Misc_Gem_Emerald_02", type = "toggle", default = true, parent = "log",
+			label = L["Rewards in their quality's colour"],
+			tooltip = L["On a quest's page, each reward's name in its quality's colour: green uncommon, blue rare, purple epic..."] },
 		{ key = "search", icon = "Interface\\Common\\UI-Searchbox-Icon", type = "toggle", default = true, parent = "log",
 			label = L["Search box"],
 			tooltip = L["At the top of the quest log, across its whole width."] },
@@ -73,6 +98,13 @@ local function Apply(self, running)
 	db.questLog = On("log")
 	db.replaceQuestLog = On("replace")
 	db.questTipLevel = On("tipLevel")
+	db.questKindStyle = running and self:Get("kindStyle") or "text"
+	db.questObjIcons = On("objIcons")
+	db.questDiffColors = On("diffColors")
+	db.questHover = running and self:Get("hover") or "text"
+	db.questTitleFont = running and self:Get("titleFont") or "ours"
+	db.questTextFont = running and self:Get("textFont") or "ours"
+	db.questRewardColors = On("rewardColors")
 	db.questSearch = On("search")
 	db.questCount = On("count")
 	db.questFoldAll = On("foldAll")

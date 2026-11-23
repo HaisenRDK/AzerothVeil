@@ -55,6 +55,33 @@ end
 
 -- state
 local frame, view, tileLayer, pinLayer, topLayer, arrow, header
+-- AzerothVeil: the coordinates at the map's bottom middle (the Map module's options): the player's and the cursor's,
+-- each on the zone it's in (0-100); the player's written again 5 times a second at most, the cursor's as it moves
+local coordText
+local coordPlayer, coordCursor = nil, nil
+local coordAt = 0
+local function ShowCoords()
+	if not coordText then return end
+	local p = FM.db.playerCoords and coordPlayer
+	local c = FM.db.cursorCoords and coordCursor
+	if p and c then coordText:SetText(p .. "     " .. c) else coordText:SetText(p or c or "") end
+	coordText:SetShown((p or c) and true or false)
+end
+-- (the Map module's options changed: written again from the next look)
+function Map.RefreshCoords()
+	if not FM.db.playerCoords then coordPlayer = nil end
+	if not FM.db.cursorCoords then coordCursor = nil end
+	coordAt = 0
+	ShowCoords()
+end
+local function ZoneCoords(u, v, fmt)
+	if not u then return nil end
+	local mapID = Geo.ZoneAt(u, v)
+	local x, y
+	if mapID then x, y = Geo.UnitsToMap(mapID, u, v) end
+	if not (x and y) or x < 0 or x > 1 or y < 0 or y > 1 then return nil end
+	return (fmt):format(x * 100, y * 100)
+end
 local worldArt, cityLayer
 local built = false
 local cx, cy, scale = W / 2, H / 2, 1        -- view centre (units) and UI px per unit
@@ -237,6 +264,7 @@ function Map.Refresh()
 	local fit, deepest = Limits()
 	FM.Terrain.Layout(left, top, scale, vw, vh, zoom, deepest / fit)
 	FM.Labels.Layout(left, top, scale, vw, vh)                         -- AzerothVeil: the places' names (Labels.lua)
+	FM.Names.Layout(left, top, scale, zoom, worldAlpha)                -- AzerothVeil: the continents' and seas' (Names.lua)
 	FM.Caves.Layout(left, top, scale, vw, vh, zoom, deepest / fit)
 	Map.PlaceWorld()
 	FM.Fog.Layout(left, top, scale, vw, vh, worldAlpha >= 0.999)      -- AzerothVeil: the fog of war (Fog.lua)
@@ -380,6 +408,15 @@ end
 local GetPlayerFacing = GetPlayerFacing
 function Map.UpdatePlayer()
 	local u, v = Geo.UnitUnits("player")
+	-- (AzerothVeil: the player's coordinates, 5 times a second at most)
+	if FM.db.playerCoords and coordText then
+		local now = GetTime()
+		if now - coordAt > 0.2 then
+			coordAt = now
+			local t = ZoneCoords(u, v, L["Player: %.1f, %.1f"])
+			if t ~= coordPlayer then coordPlayer = t ShowCoords() end
+		end
+	end
 	if not u then arrow:Hide() return end
 	local sx, sy = (u - left) * scale, (v - top) * scale
 	if sx < -20 or sy < -20 or sx > vw + 20 or sy > vh + 20 then arrow:Hide() return end
@@ -773,7 +810,7 @@ local function SetZone(mapID, name, cont, u, v)
 		card.zoneName = name
 		cardName:SetText(name)
 		local lo, hi = ZoneLevels(mapID)
-		if lo then
+		if lo and FM.db.zoneLevels ~= false then      -- (AzerothVeil: the Map module's "Levels of zones")
 			local r, g, b = LevelColor(lo, hi)
 			cardLevel:SetText(lo == hi and tostring(lo) or ("%d-%d"):format(lo, hi))
 			cardLevel:SetTextColor(r, g, b)
@@ -808,6 +845,11 @@ local function UpdateHover()
 	else
 		local mapID, name, cont = Geo.ZoneAt(u, v)
 		SetZone(mapID, name, cont, u, v)
+		-- (AzerothVeil: the cursor's coordinates)
+		if FM.db.cursorCoords and coordText then
+			local t = ZoneCoords(u, v, L["Cursor: %.1f, %.1f"])
+			if t ~= coordCursor then coordCursor = t ShowCoords() end
+		end
 		local now = GetTime()
 		if mapID and now - areaAt > 0.1 then
 			areaAt = now
@@ -916,6 +958,7 @@ local function OnUpdate(_, elapsed)
 		FM.Pins.Hover(true)
 		FM.Routes.Hover(nil)
 		Map.EndGroupTip()
+		if coordCursor then coordCursor = nil ShowCoords() end      -- (AzerothVeil)
 	end
 	if FM.db.fadeMoving then
 		local m = IsPlayerMoving() and not frame:IsMouseOver()
@@ -1132,31 +1175,11 @@ local function Build()
 			cross:SetVertexColor(S.TEXT[1], S.TEXT[2], S.TEXT[3], 0.85)
 		end)
 	end
-	local options = S.Button(header, "", 26, 20, function(self) FM.Menu.Toggle(self) end)
-	if close.fm then options:SetSize(22, 18) options:SetPoint("RIGHT", 0, 0)
-	else options:SetPoint("RIGHT", close, "LEFT", -4, 0) end
-	local gear = options:CreateTexture(nil, "ARTWORK")
-	gear:SetSize(16, 16)
-	gear:SetPoint("CENTER")
-	gear:SetTexture("Interface\\Buttons\\UI-OptionsButton")
-	options.tip = { L["Options"], L["AzerothVeil's settings."] }
-	Map.optionsButton = options
-	-- Questie's settings, when it's there: its own icon, left of the options
-	local left = options
-	if _G.QuestieLoader and _G.Questie then
-		local questie = S.Button(header, "", 26, 20, function() Map.OpenQuestieOptions() end)
-		questie:SetPoint("RIGHT", options, "LEFT", -4, 0)
-		if close.fm then questie:SetSize(22, 18) end      -- (classic: as small as the options' in the title bar)
-		local ic = questie:CreateTexture(nil, "ARTWORK")
-		ic:SetSize(close.fm and 14 or 16, close.fm and 14 or 16)
-		ic:SetPoint("CENTER")
-		ic:SetTexture("Interface\\AddOns\\Questie\\Icons\\questie.png")
-		questie.tip = { "Questie", L["Questie's own settings."] }
-		left = questie
-	end
+	-- (AzerothVeil: the options' and Questie's buttons are in the map's top left corner now: below, with the
+	-- map's other buttons)
 	-- inside a dungeon: between its map and the world's (shown only there)
 	local dungeon = S.Button(header, L["Dungeon"], 70, 20, function() FM.Dungeon.TogglePeek() end)
-	dungeon:SetPoint("RIGHT", left, "LEFT", -4, 0)
+	if close.fm then dungeon:SetPoint("RIGHT", 0, 0) else dungeon:SetPoint("RIGHT", close, "LEFT", -4, 0) end
 	dungeon.tip = { L["Dungeon / World"], L["Inside a dungeon: its map, or the world's."] }
 	dungeon:Hide()
 	Map.dungeonButton = dungeon
@@ -1213,6 +1236,11 @@ local function Build()
 	labelLayer:SetAllPoints()
 	labelLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 5)
 	FM.Labels.Init(labelLayer)
+	-- AzerothVeil: the continents' and seas' names zoomed out (Names.lua), with the places'
+	local namesLayer = CreateFrame("Frame", nil, view)
+	namesLayer:SetAllPoints()
+	namesLayer:SetFrameLevel(tileLayer:GetFrameLevel() + 5)
+	FM.Names.Init(namesLayer)
 	-- the hovered zone's highlight (Blizzard's own art for it, added on, as its map does), over cities too
 	local hlLayer = CreateFrame("Frame", nil, view)
 	hlLayer:SetAllPoints()
@@ -1300,7 +1328,8 @@ local function Build()
 	cline:SetPoint("BOTTOMLEFT")
 	cline:SetPoint("BOTTOMRIGHT")
 	cline:SetHeight(2)
-	cardName = S.Text(card, 16, { 0.97, 0.95, 0.9 })
+	-- (AzerothVeil: the card's texts half as big again as PerfectMap's)
+	cardName = S.Text(card, 24, { 0.97, 0.95, 0.9 })
 	cardName:SetWordWrap(false)
 	cardPill = CreateFrame("Frame", nil, card)
 	cardPill:SetPoint("LEFT", cardName, "RIGHT", 7, 0)
@@ -1312,24 +1341,30 @@ local function Build()
 	cardPill.edge:SetPoint("BOTTOMLEFT")
 	cardPill.edge:SetPoint("BOTTOMRIGHT")
 	cardPill.edge:SetHeight(1)
-	cardLevel = S.Text(cardPill, 11)
+	cardLevel = S.Text(cardPill, 17)
 	cardLevel:SetPoint("CENTER", 0, 0)
-	cardArea = S.Text(card, 12, { 0.86, 0.79, 0.62 })
-	cardExtra = S.Text(card, 11, S.DIM)
+	cardArea = S.Text(card, 18, { 0.86, 0.79, 0.62 })
+	cardExtra = S.Text(card, 17, S.DIM)
 	cardExtra:SetSpacing(2)
 	if S.classic then
 		-- (classic: as the classic world map writes the zone under the cursor: big outlined gold, no box)
 		cbg:Hide()
 		cline:Hide()
-		S.Font(cardName, 20, "OUTLINE")
+		S.Font(cardName, 30, "OUTLINE")
 		cardName:SetTextColor(1, 0.82, 0)
 		cardPill.bg:Hide()
 		cardPill.edge:Hide()
-		S.Font(cardLevel, 13, "OUTLINE")
-		S.Font(cardArea, 13, "OUTLINE")
-		S.Font(cardExtra, 11, "OUTLINE")
+		S.Font(cardLevel, 20, "OUTLINE")
+		S.Font(cardArea, 20, "OUTLINE")
+		S.Font(cardExtra, 17, "OUTLINE")
 	end
 	card:Hide()
+	-- AzerothVeil: the coordinates, bottom middle of the map (ShowCoords)
+	coordText = S.Text(card:GetParent(), 14, { 1, 0.82, 0 })
+	S.Font(coordText, 14, "OUTLINE")
+	coordText:SetShadowColor(0, 0, 0, 0)
+	coordText:SetPoint("BOTTOM", view, "BOTTOM", 0, 10)      -- (bottom middle: the tools button holds the left corner)
+	coordText:Hide()
 
 	view:SetScript("OnMouseWheel", OnWheel)
 	view:SetScript("OnMouseDown", OnMouseDown)
@@ -1350,9 +1385,11 @@ local function Build()
 
 	-- the quest log: an arrow in the map's bottom right corner, pointing the way it goes (right: fold
 	-- it away; left: bring it out)
-	local fold = S.Button(view, "", 22, 22, function() FM.QuestLog.Toggle() end, "round")
+	-- (AzerothVeil: in the map's top right corner, against its right edge (the log's search and its "Quests"
+	-- beside it), a little down from the header)
+	local fold = S.Button(view, "", 24, 24, function() FM.QuestLog.Toggle() end, "round")
 	fold:SetFrameLevel(instanceLevel + 1)
-	fold:SetPoint("BOTTOMRIGHT", view, "BOTTOMRIGHT", -24, 6)
+	fold:SetPoint("TOPRIGHT", view, "TOPRIGHT", -2, -8)
 	fold.bg:SetVertexColor(0, 0, 0, 0.55)
 	local arrowTex = fold:CreateTexture(nil, "ARTWORK")
 	arrowTex:SetSize(12, 12)
@@ -1369,6 +1406,31 @@ local function Build()
 	fold:SetScript("OnLeave", function(self) self.bg:SetVertexColor(0, 0, 0, 0.55) S.HideTip() end)
 	fold:SetActive(FM.db.questPanel)
 	Map.questsButton = fold
+
+	-- AzerothVeil: AzerothVeil's options, then Questie's when it's there, in the map's top left corner, bigger than
+	-- they were in the header, a little in from the map's left edge and down from the header
+	local CORNER, CORNER_ICON, CORNER_PAD = 32, 22, 8
+	local function CornerButton(icon, onClick, tip)
+		local b = S.Button(view, "", CORNER, CORNER, onClick, "round")
+		b:SetFrameLevel(instanceLevel + 1)
+		b.bg:SetVertexColor(0, 0, 0, 0.55)
+		b:HookScript("OnLeave", function(self) self.bg:SetVertexColor(0, 0, 0, 0.55) end)
+		local t = b:CreateTexture(nil, "ARTWORK")
+		t:SetSize(CORNER_ICON, CORNER_ICON)
+		t:SetPoint("CENTER")
+		t:SetTexture(icon)
+		b.tip = tip
+		return b
+	end
+	local options = CornerButton("Interface\\Buttons\\UI-OptionsButton", function(self) FM.Menu.Toggle(self) end,
+		{ L["Options"], L["AzerothVeil's settings."] })
+	options:SetPoint("TOPLEFT", view, "TOPLEFT", CORNER_PAD, -CORNER_PAD)
+	Map.optionsButton = options
+	if _G.QuestieLoader and _G.Questie then
+		local questie = CornerButton("Interface\\AddOns\\Questie\\Icons\\questie.png", function() Map.OpenQuestieOptions() end,
+			{ "Questie", L["Questie's own settings."] })
+		questie:SetPoint("LEFT", options, "RIGHT", 4, 0)
+	end
 
 	-- the map's tools: a button in the bottom left corner opening a little row of icon buttons beside
 	-- it (each with its tooltip): the boat and zeppelin routes on and off, centre on me
@@ -1556,7 +1618,11 @@ function Map.PlaceWorld()
 			local lw, lh, tw, th = info.layerWidth, info.layerHeight, info.tileWidth, info.tileHeight
 			local sx, sy = W / lw, H / lh
 			local cols = ceil(lw / tw)
+			-- AzerothVeil: with the continents' and seas' names lettered live (Names.lua), the world's art without its
+			-- own (OpenMap's hand-cleaned tiles, MIT: Media/MapArt/947_<i>, its MapArtEdits)
+			local clean = FM.db.mapNames ~= false and #files == 12
 			for i, file in ipairs(files) do
+				if clean then file = MEDIA .. "MapArt\\947_" .. i end
 				local col, row = (i - 1) % cols, floor((i - 1) / cols)
 				local x, y = col * tw, row * th
 				local w, h = min(tw, lw - x), min(th, lh - y)

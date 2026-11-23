@@ -218,3 +218,12 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
    « Nom (suivies/total) ». Chaque option du module Quêtes retire son élément ; tout décoché : plus d'en-tête.
 4. Police : Friz Quadrata partout (carte, journal, options, donjons, marqueurs), y compris sur les boutons
    survolés, cliqués ou grisés.
+
+## Checklist en jeu — version 1.0
+
+1. Page d'une quête : la page de Blizzard dans le journal (texte, cadre des récompenses, ses boutons) ; Retour
+   revient à la liste ; en combat, notre page de secours ; la fenêtre d'un PNJ donneur de quête reste normale.
+2. Options du journal : polices des titres / du texte (liste de choix), récompenses colorées, type en texte ou
+   icône, objectifs, couleur par difficulté, surbrillance.
+3. Carte : coordonnées joueur / curseur, noms des continents et des mers (sans lettres fantômes, dans la carte),
+   minimap absente d'Ahn'Qiraj et de Zul'Gurub, zones de donjons non affichées de près sans l'option.

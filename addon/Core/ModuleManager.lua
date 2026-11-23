@@ -44,7 +44,7 @@ ns.Modules = MM
 local Module = {}           -- the methods every module gets
 Module.__index = Module
 
-local VALID_TYPES = { toggle = true, range = true, header = true, hidden = true }
+local VALID_TYPES = { toggle = true, range = true, header = true, hidden = true, select = true }   -- (AzerothVeil: select, a choice among a few)
 
 ---------------------------------------------------------------------------
 -- Registration
@@ -100,6 +100,10 @@ end
 local function Coerce(spec, value)
 	if spec.type == "toggle" then
 		return value and true or false
+	elseif spec.type == "select" then
+		-- (AzerothVeil: one of its values, else nothing: its default)
+		for _, e in ipairs(spec.values or {}) do if e[1] == value then return value end end
+		return nil
 	elseif spec.type == "range" then
 		value = tonumber(value)
 		if not value then return nil end

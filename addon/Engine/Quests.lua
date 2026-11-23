@@ -141,10 +141,31 @@ local function QuestLevel(q)
 		end
 	end
 end
+-- AzerothVeil: the letter after a quest's level, as the game's quest addons write it: D a dungeon's, R a raid's,
+-- P player versus player, + elite or group, L legendary (the game's tag for it, C_QuestLog.GetQuestTagInfo)
+local TAG_LETTER = { [81] = "D", [85] = "D", [62] = "R", [88] = "R", [89] = "R", [41] = "P", [1] = "+", [83] = "L" }
+function Q.LevelTag(q)
+	local ok, tag = false, nil
+	if C_QuestLog.GetQuestTagInfo then ok, tag = pcall(C_QuestLog.GetQuestTagInfo, q) end
+	if not (ok and type(tag) == "table") then return "" end
+	local letter = TAG_LETTER[FM.Plain(tag.tagID)]
+	if letter then return letter end
+	local name = FM.Plain(tag.tagName)
+	if type(name) == "string" then
+		if name:find("PvP") then return "P" end
+		if name:find(L["Elite"]) or name:find("Elite") then return "+" end
+	end
+	return ""
+end
+-- "(60D) Name": its level and its letter
+function Q.LevelText(q, level, name)
+	return ("(%d%s) %s"):format(level, Q.LevelTag(q), name)
+end
+
 local function TipTitle(q, name)
 	if not (FM.db.questTipLevel and name and name ~= "") then return name end
 	local lvl = QuestLevel(q)
-	return lvl and ("(%d) %s"):format(lvl, name) or name
+	return lvl and Q.LevelText(q, lvl, name) or name
 end
 
 local function POIEnter(self)

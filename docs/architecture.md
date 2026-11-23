@@ -83,6 +83,8 @@ local M = ns.Modules:Register({
     { key = "entrances", type = "toggle", default = true, label = ..., tooltip = ... },
     { key = "floors", type = "toggle", default = true, parent = "entrances" },
     { key = "scale", type = "range", default = 1, min = 0.5, max = 2, step = 0.05 },
+    { key = "font", type = "select", default = "ours",      -- liste de choix (Style.Select)
+      values = { { "ours", L["..."] }, { "blizzard", L["..."] } } },
     { key = "lastFloor", type = "hidden", default = 1 },
   },
 })

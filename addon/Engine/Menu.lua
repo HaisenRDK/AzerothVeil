@@ -180,6 +180,16 @@ local function ModuleSection(page, m, label, specs, y, width, header)
 				r.tip = { spec.label, spec.tooltip }
 				rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
 				used[col] = used[col] + 1
+			elseif spec.type == "select" then
+				-- (AzerothVeil: a choice among a few, Style.Select)
+				local d = Depth(m, spec)
+				local r = S.Select(sb, spec.label or spec.key, spec.values or {},
+					function() return MM:GetSetting(m.name, spec.key) end,
+					function(v) MM:SetSetting(m.name, spec.key, v) M.Refresh() end, cellW - d * INDENT, IconOf(spec.icon))
+				r:SetPoint("TOPLEFT", x + d * INDENT, yy)
+				r.tip = { spec.label, spec.tooltip }
+				rows[#rows + 1] = Greyable(r, function() return MM:IsOptionEditable(m.name, spec.key) end)
+				used[col] = used[col] + 1
 			elseif spec.type == "range" then
 				local f = S.Slider(sb, spec.label or spec.key, spec.min or 0, spec.max or 1, spec.step or 0.05,
 					function() return MM:GetSetting(m.name, spec.key) end,

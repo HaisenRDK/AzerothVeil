@@ -38,8 +38,8 @@ local BANNERS = {
 -- AzerothVeil: up close, under the minimap's terrain (Terrain.lua), as OpenMap does it (Map/Close.lua, MIT). A city in
 -- the open fades out as the terrain comes in: the minimap draws it, and the city's own map, cut wider than the
 -- city, no longer lies over the land round it. Under the ground (Ironforge, Undercity: the minimap there is the
--- surface over them), the city's map stays, and the game's minimap of the city inside comes over it with the
--- terrain (Data/CaveMinimap.lua, FM.CITY_MINIMAP: its WMO's pictures, made the first time they're wanted)
+-- surface over them), the city's map fades out the same way, and the game's minimap of the city inside comes over
+-- the terrain in its place (Data/CaveMinimap.lua, FM.CITY_MINIMAP: its WMO's pictures, made the first time they're wanted)
 local UNDERGROUND = { [1455] = true, [1458] = true }
 local MINI_DESAT = 0.35                 -- (toned as the caves' minimap pictures, Caves.lua)
 local PAPER = { 1, 0.93, 0.80 }
@@ -79,6 +79,7 @@ local function Build(c)
 	local lw, lh, tw, th = info.layerWidth, info.layerHeight, info.tileWidth, info.tileHeight
 	local sx, sy = ART_W / lw, ART_H / lh          -- (the layer in the frame's 1002 x 668)
 	local cols = math.ceil(lw / tw)
+	c.art = {}                                     -- (AzerothVeil: its tiles, faded on their own under the terrain)
 	for i, file in ipairs(files) do
 		local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
 		local x, y = col * tw, row * th
@@ -90,9 +91,11 @@ local function Build(c)
 			t:SetSize(w * sx, h * sy)
 			t:SetPoint("TOPLEFT", f, "TOPLEFT", x * sx, -y * sy)
 			t:AddMaskTexture(mask)
+			c.art[#c.art + 1] = t
 		end
 	end
 	c.built = true
+	c.artAlpha = nil                               -- (AzerothVeil: its tiles faded as the terrain wants, at the next Apply)
 end
 
 -- the game's minimap of an underground city inside: its pictures (file, centre X, Y, side in yards, rotation,
@@ -129,7 +132,14 @@ end
 local function Apply(c)
 	local f, a = c.frame, c.alpha or 0
 	if c.underground then
+		-- AzerothVeil: its own map fades out under the terrain too (as a city in the open), its minimap inside comes
+		-- over the terrain in its place
 		f:SetAlpha(a)
+		local k = 1 - under
+		if c.artAlpha ~= k then
+			c.artAlpha = k
+			for _, t in ipairs(c.art or {}) do t:SetAlpha(k) end
+		end
 		local m = a >= 1 and under or 0
 		if m > 0.003 and c.mini == nil then MinimapPictures(c) end
 		if c.mini then

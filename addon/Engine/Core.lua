@@ -50,6 +50,13 @@ FM.defaults = {
 	replaceQuestLog = true,          -- L, and every "show this quest", open this map's quest log
 	questLog = true,                 -- AzerothVeil: the quest log docked beside the map is there at all (the Quests module)
 	questPanel = true,               -- the quest log docked beside the map (out or folded away)
+	questKindStyle = "text",         -- AzerothVeil: a quest's kind in the list: "text" or "icon" (the Quests module's)
+	questHover = "text",
+	questObjIcons = true,            -- AzerothVeil: the objective's icon after a quest's name in the list (the Quests module's)
+	questDiffColors = true,          -- AzerothVeil: the list's names in their difficulty's colour (off: yellow)             -- AzerothVeil: the list's highlight: "text" (its name lit) or "bar"
+	questTitleFont = "ours",         -- AzerothVeil: a quest's page's titles' font: "ours" or "blizzard" (the Quests module's)
+	questTextFont = "ours",          -- AzerothVeil: ... its text's
+	questRewardColors = true,        -- AzerothVeil: ... its rewards' names in their quality's colour
 	questTipLevel = true,            -- AzerothVeil: "(level) Name" in a quest's tooltip on the map (the Quests module's)
 	questSearch = true,              -- AzerothVeil: the log's search box (the Quests module's)
 	questCount = true,               -- AzerothVeil: ... its count of quests, under it
@@ -57,7 +64,11 @@ FM.defaults = {
 	questZoneCount = true,           -- AzerothVeil: ... a folded zone's quests tracked / in the log, after its name
 	npcUnexplored = true,            -- AzerothVeil: the townsfolk of land not explored yet too (the Map module's)
 	terrainNames = true,             -- AzerothVeil: the places' names over the minimap's terrain up close (the Map module's)
-	cityDistricts = true,            -- AzerothVeil: ... and the capitals' districts' (the Map module's)
+	mapNames = true,                 -- AzerothVeil: the continents' and seas' names zoomed out (the Map module's)
+	dungeonCaves = false,            -- AzerothVeil: the dungeons' and raids' areas surface up close as caves do (the Map module's)
+	zoneLevels = true,               -- AzerothVeil: the hovered zone's levels beside its name (the Map module's)
+	playerCoords = true,             -- AzerothVeil: the player's coordinates at the map's bottom left (the Map module's)
+	cursorCoords = true,             -- AzerothVeil: ... and the cursor's
 	allClassTrainers = false,        -- AzerothVeil: every class's trainers, not only yours (the Icons module's)
 }
 
@@ -67,12 +78,12 @@ FM.TRANSPORT_PINS = { "boat", "zeppelin", "airship", "tram", "flight" }
 FM.DUNGEON_PINS_KEYS = { "dungeon", "raid" }
 -- (AzerothVeil: and the Quests module's switches)
 FM.QUEST_KEYS = { "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog",
-	"questSearch", "questCount", "questFoldAll", "questZoneCount", "questTipLevel" }
+	"questSearch", "questCount", "questFoldAll", "questZoneCount", "questTipLevel", "questRewardColors" }
 -- (AzerothVeil: and the Map module's switches, as they are while it's off: Modules/Map.lua)
 FM.MAP_OFF = {
 	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
 	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
-	npcUnexplored = true, terrainNames = false, cityDistricts = false,
+	npcUnexplored = true, terrainNames = false, playerCoords = false, cursorCoords = false, zoneLevels = true, dungeonCaves = false, mapNames = false,
 }
 -- (AzerothVeil: and the Icons module's kinds of icon: those of these groups of Pins.CATS, Modules/Icons.lua)
 FM.ICON_GROUPS = { places = true, townsfolk = true, professions = true }

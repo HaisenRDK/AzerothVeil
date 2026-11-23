@@ -84,6 +84,23 @@
 - Zoom sur le lieu de rendu d'une quête terminée (Questie, sinon point de passage du jeu), aura bleue de la quête
   suivie, marqueur temporaire de rendu.
 
+## Version 1.0 (fait)
+
+- Carte : coordonnées du joueur et du curseur, niveau des zones (options), titre du survol 1,5×, boutons Options et
+  Questie en haut à gauche, repli du journal en haut à droite ; minimap entre le 4e et le 5e cran.
+- Noms : tailles agrandies, capitales plus grandes (Forgefer compris), Orgrimmar et Mur-de-Fougères replacés, lieux
+  ajoutés par Forever nommés par le jeu une fois explorés ; noms des continents et des mers lettrés comme OpenMap
+  (art du monde nettoyé d'OpenMap), option « Noms des continents et des mers ».
+- Minimap : plus sur les terres sans zone (masque des « gaps » d'OpenMap), découpe à la main de Zul'Gurub ;
+  Fossoyeuse et Forgefer s'effacent sous le terrain comme les autres capitales ; zones de donjons et raids masquées
+  de près (option « Zones des donjons et raids de près »).
+- Icônes : maîtres de métier réordonnés, « Mes métiers » coche les métiers appris, « Monture ».
+- Quêtes : lettres de type après le niveau (D, R, P, +, L) ; page d'une quête = la page de Blizzard elle-même
+  (QuestMapFrame.DetailsFrame) dans le journal, polices des titres et du texte au choix, récompenses colorées
+  (options) ; liste : cases du jeu, bouton rond à la taille de Blizzard, type en texte ou icône, objectifs,
+  couleur par difficulté, surbrillance (options).
+- Options : nouveau type « select » (liste de choix, Style.Select, sans les menus déroulants de Blizzard).
+
 ## Questions ouvertes
 
 - Permissions de Santiago Reyes / Exehn si AzerothVeil devait être distribué (cf. audit §1).
