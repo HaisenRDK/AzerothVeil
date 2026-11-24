@@ -1,8 +1,9 @@
 -- AzerothVeil — Modules/Markers.lua
 -- "Map markers": as many markers as you like on the map, each with a note, an icon and a colour, in categories of
 -- your own (each shown or hidden on its own), kept for every character (AzerothVeilDB.markers, Core/Database.lua).
--- Ctrl-click on the map drops one (followed: Blizzard's waypoint on it) and opens its card; a click on one opens its
--- card again (note, icon, colour, category, follow, share, delete); Shift-click puts it in chat, Alt-click deletes
+-- Shift-click on the map drops one (followed: Blizzard's waypoint on it) and opens its card; a click on one opens its
+-- card again (note, icon, colour, category, follow, share, delete); Shift-click puts it in chat, a right-click (or
+-- Alt-click) deletes
 -- it. The list (the map's right-click menu, or /av markers) has them all, by category.
 --
 -- Sharing, as OpenMap's map pins (Map/Pins.lua, MIT), so OpenMap users and AzerothVeil users trade them: addon
@@ -12,7 +13,7 @@
 -- they're from your group and you said so. A marker's icon isn't sent (OpenMap has none): one received has the
 -- map pin, in its colour. Also a code to copy and paste ("OMPINS1:", OpenMap's), to trade them anywhere.
 --
--- Off: no marker on the map, no Ctrl-click of its own (the waypoint's, as before), nothing sent or heard (the
+-- Off: no marker on the map, no Shift-click of its own, nothing sent or heard (the
 -- addon message prefix, once registered, stays so until a reload, unused). Its markers are kept.
 local _, ns = ...
 local L = ns.L
@@ -49,9 +50,9 @@ local ICONS = {
 local Markers = ns.Modules:Register({
 	name = "markers",
 	title = L["Map markers"],
-	description = L["Markers of your own on the map: a note, an icon and a colour each, in categories you make and show or hide on their own. Ctrl-click the map to drop one; share them with your group or guild, OpenMap users too."],
-	onText = L["your markers show on the map; Ctrl-click drops one; shared markers reach you if that option is on."],
-	offText = L["no marker shows, Ctrl-click sets the waypoint as before, nothing is sent or heard. Your markers are kept."],
+	description = L["Markers of your own on the map: a note, an icon and a colour each, in categories you make and show or hide on their own. Shift-click the map to drop one, right-click one to delete it; share them with your group or guild, OpenMap users too."],
+	onText = L["your markers show on the map; Shift-click drops one; shared markers reach you if that option is on."],
+	offText = L["no marker shows, nothing is sent or heard. Your markers are kept."],
 	order = 35,
 	icon = RAID .. "1",
 	defaultEnabled = true,
@@ -60,10 +61,10 @@ local Markers = ns.Modules:Register({
 		{ key = "show", iconMenu = true, icon = RAID .. "1", type = "toggle", default = true,
 			label = L["Show the markers"],
 			tooltip = L["Your markers on the map, those of the categories you show."] },
-		{ key = "ctrlClick", icon = "atlas:Waypoint-MapPin-Untracked", type = "toggle", default = true,
-			label = L["Ctrl-click: drop a marker"],
-			tooltip = L["Ctrl-click on the map drops a marker there and opens its card."] .. "\n" .. L["Off: Ctrl-click sets the waypoint, as before."] },
-		{ key = "followNew", icon = "atlas:Waypoint-MapPin-Tracked", type = "toggle", default = true, parent = "ctrlClick",
+		{ key = "shiftClick", icon = "atlas:Waypoint-MapPin-Untracked", type = "toggle", default = true,
+			label = L["Shift-click: drop a marker"],
+			tooltip = L["Shift-click on the map drops a marker there and opens its card."] .. "\n" .. L["A right-click on a marker deletes it."] },
+		{ key = "followNew", icon = "atlas:Waypoint-MapPin-Tracked", type = "toggle", default = true, parent = "shiftClick",
 			label = L["Follow a new marker"],
 			tooltip = L["A marker you drop gets Blizzard's waypoint, and its arrow."] },
 		{ type = "header", label = L["Sharing"] },
@@ -201,7 +202,7 @@ local function Lines(m)
 	local lines = { { ("%s  %.1f, %.1f"):format(Markers.ZoneName(m.map), m.x * 100, m.y * 100), 1, 1, 1, 11 } }
 	lines[#lines + 1] = { Markers.CatName(Markers.Cat(m.cat)), 0.7, 0.7, 0.72, 11 }
 	if m.from then lines[#lines + 1] = { L["Shared by %s"]:format(m.from), 0.6, 0.8, 1, 11 } end
-	lines[#lines + 1] = { L["Click: its card   Shift-click: in chat   Alt-click: delete"], 0.6, 0.6, 0.6, 10 }
+	lines[#lines + 1] = { L["Click: its card   Shift-click: in chat"], 0.6, 0.6, 0.6, 10 }
 	return lines
 end
 
@@ -279,9 +280,15 @@ function Markers.DropAt(u, v)
 	return m
 end
 
-local function OnCtrlClick(u, v)
-	if not Markers:IsOptionActive("ctrlClick") then return false end
+local function OnShiftClick(u, v)
+	if not Markers:IsOptionActive("shiftClick") then return false end
 	return Markers.DropAt(u, v) ~= nil
+end
+
+-- a right-click on a marker: deleted
+local function OnMarkerRightClick(m)
+	Markers.Remove(m)
+	Markers.Changed()
 end
 
 ---------------------------------------------------------------------------
@@ -440,7 +447,8 @@ end
 ---------------------------------------------------------------------------
 local function Apply(self)
 	ns.Pins.OnMarkerClick = OnMarkerClick
-	ns.Pins.OnCtrlClick = OnCtrlClick
+	ns.Pins.OnShiftClick = OnShiftClick
+	ns.Pins.OnMarkerRightClick = OnMarkerRightClick
 	if ns.Spot then
 		ns.Spot.markerItems = {
 			{ L["Add a marker here"], RAID .. "1", function(u, v) Markers.DropAt(u, v) end },
@@ -461,7 +469,7 @@ function Markers:Enable() Apply(self) end
 function Markers:Refresh() Apply(self) end
 
 function Markers:Disable()
-	ns.Pins.OnMarkerClick, ns.Pins.OnCtrlClick = nil, nil
+	ns.Pins.OnMarkerClick, ns.Pins.OnShiftClick, ns.Pins.OnMarkerRightClick = nil, nil, nil
 	if ns.Spot then ns.Spot.markerItems = nil end
 	wipe(queue)
 	wipe(incoming)

@@ -143,6 +143,127 @@ local function GatherPin(template, pin)
 end
 local function GatherOn() return not FM.db or FM.db.gatherPins ~= false end
 
+-- AzerothVeil: whose a pin is, so each addon's icons can be shown or not on their own (the Integrations module's
+-- options: FM.db.addonPinsBy = { [addon] = true / false, others = ... }). The addons it names (KNOWN; a HandyNotes
+-- plugin counts as HandyNotes), found as the gathering addons are:
+--  * a provider's pins: by their template's name, else the global mixin their code comes from and the addon that
+--    wrote it (the game says who did);
+--  * HereBeDragons' pins (one template for every addon): by the reference the icon was registered under: a name,
+--    or the addon's own table (its name field, or the global of that name: TomTom's, HandyNotes').
+-- Any other: "others".
+local KNOWN = { "GatherMate2", "HandyNotes", "TomTom", "RareScanner" }
+local function Known(name)
+	if type(name) ~= "string" then return nil end
+	for _, k in ipairs(KNOWN) do
+		if name:sub(1, #k) == k then return k end
+	end
+end
+local templateAddon = {}                                   -- template -> addon (false: none it knows)
+local iconAddon = setmetatable({}, { __mode = "k" })      -- HereBeDragons' icon frame -> addon (false: none)
+local function RefAddon(ref, reg)
+	if type(ref) == "string" then return Known(ref) or Known(select(2, issecurevariable(reg, ref))) end
+	if type(ref) == "table" then
+		local n = Known(rawget(ref, "name")) or Known(rawget(ref, "moduleName"))
+		if n then return n end
+		for _, k in ipairs(KNOWN) do if rawget(_G, k) == ref then return k end end
+	end
+end
+local function PinAddon(template, pin)
+	local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
+	if lib and template == lib.worldmapPinTemplate then
+		local icon = pin.icon
+		if type(icon) ~= "table" then return nil end
+		local a = iconAddon[icon]
+		if a == nil then
+			a = false
+			local reg = type(lib.worldmapPinRegistry) == "table" and lib.worldmapPinRegistry or {}
+			for ref, icons in pairs(reg) do
+				if type(icons) == "table" and icons[icon] then a = RefAddon(ref, reg) or false break end
+			end
+			iconAddon[icon] = a
+		end
+		return a or nil
+	end
+	local a = templateAddon[template]
+	if a == nil then
+		a = Known(tostring(template))
+		if not a and type(pin.OnAcquired) == "function" then
+			if not mixinOf then IndexMixins() end
+			local name = mixinOf[pin.OnAcquired]
+			if name then a = Known(name) or Known(select(2, issecurevariable(_G, name))) end
+		end
+		templateAddon[template] = a or false
+	end
+	return a or nil
+end
+-- (an addon's icons wanted: its own option, else the "others" one; none set: every one)
+local function Wanted(addon)
+	local by = FM.db and FM.db.addonPinsBy
+	if type(by) ~= "table" then return true end
+	return by[addon or "others"] ~= false
+end
+
+-- AzerothVeil: addons that draw on a layer of their own over Blizzard's map's canvas, not in its pin pools
+-- (RareScanner: its RSWorldMap, a frame on WorldMapFrame.ScrollContainer.Child, its own pools, following the
+-- map's zone through MapCanvas.MapSet). Their pins: known by the code that places them (a global mixin of
+-- theirs), their place in their own fields; a pin they've released has no place (At: nil). Nothing of theirs
+-- is called: their frames are shown on our map as the others' are, their tooltips and clicks their own.
+local OWN_LAYERS = {
+	{ addon = "RareScanner", mixin = "RSPinMixin", method = "ApplyCurrentPosition",
+		-- (its place, and the zone it's in: its POI's own, so a pin of the zone just left, not yet laid out again,
+		-- stays where it belongs instead of taking the new zone's place)
+		At = function(pin)
+			local poi = pin.POI
+			if poi ~= nil then return pin.x, pin.y, type(poi) == "table" and tonumber(poi.mapID) or nil end
+		end },
+}
+local ownPins = setmetatable({}, { __mode = "k" })   -- pin -> its OWN_LAYERS entry (every one seen)
+local ownLayer = {}                                   -- entry -> its layer, once found
+local ownPlaced = setmetatable({}, { __mode = "k" })  -- pin -> where it was last placed (x + y * 7)
+local ownLookAt = -10
+
+-- (the entries whose addon is loaded, its mixin there)
+local function OwnMethod(e)
+	local m = _G[e.mixin]
+	return FM.IsAddOnLoaded(e.addon) and type(m) == "table" and type(m[e.method]) == "function" and m[e.method] or nil
+end
+local function AnyOwn()
+	for _, e in ipairs(OWN_LAYERS) do if OwnMethod(e) then return true end end
+	return false
+end
+
+-- their pins now on their layer (those we show are on ours: still known, ownPins); their layer, found once:
+-- the frame on Blizzard's canvas whose children are their pins (looked for every few seconds until found)
+local function LookForOwn(wm)
+	local canvas = wm.ScrollContainer and wm.ScrollContainer.Child
+	if not canvas then return false end
+	local found = false
+	for _, e in ipairs(OWN_LAYERS) do
+		local fn = OwnMethod(e)
+		if fn then
+			local l = ownLayer[e]
+			if not l and GetTime() - ownLookAt > 2 then
+				ownLookAt = GetTime()
+				for _, c in ipairs({ canvas:GetChildren() }) do
+					if c.OnAcquired == nil then
+						for _, g in ipairs({ c:GetChildren() }) do
+							if g[e.method] == fn then l = c break end
+						end
+					end
+					if l then break end
+				end
+				ownLayer[e] = l
+			end
+			if l then
+				for _, g in ipairs({ l:GetChildren() }) do
+					if g[e.method] == fn and not ownPins[g] then ownPins[g] = e found = true end
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- (whenever an addon's provider lays its pins out again, ours follow at once)
 local function Hook(wm)
 	if hooked then return end
@@ -196,6 +317,8 @@ local function Needed(wm)
 			return true
 		end
 	end
+	-- AzerothVeil: an addon drawing on a layer of its own (RareScanner)
+	if AnyOwn() then needed = true return true end
 	return false
 end
 
@@ -208,9 +331,49 @@ local function Drive(wm, left, top, scale, vw, vh)
 	if wm:GetMapID() ~= zone then pcall(wm.SetMapID, wm, zone) end
 end
 
+-- AzerothVeil: a pool's pins in use: its own enumerator, else the map's (EnumeratePinsByTemplate, its public way)
+local function Active(wm, template, pool)
+	if type(pool) == "table" and pool.EnumerateActive then return pool:EnumerateActive() end
+	if wm.EnumeratePinsByTemplate then return wm:EnumeratePinsByTemplate(template) end
+	return function() end
+end
+-- AzerothVeil: where a pin is on its map (0 to 1): where MapCanvasPinMixin keeps it (SetPosition), else its
+-- GetPosition, else (still on Blizzard's canvas) its anchor there; plain numbers only (ns.Plain: never a secret)
+local function PinXY(wm, pin)
+	local x, y = FM.Plain(pin.normalizedX), FM.Plain(pin.normalizedY)
+	if type(x) == "number" and type(y) == "number" then return x, y end
+	if type(pin.GetPosition) == "function" then
+		local ok, px, py = pcall(pin.GetPosition, pin)
+		px, py = FM.Plain(px), FM.Plain(py)
+		if ok and type(px) == "number" and type(py) == "number" then return px, py end
+	end
+	local canvas = wm.ScrollContainer and wm.ScrollContainer.Child
+	local point, rel, relPoint, ox, oy = pin:GetPoint(1)
+	ox, oy = FM.Plain(ox), FM.Plain(oy)
+	if canvas and rel == canvas and relPoint == "TOPLEFT" and type(ox) == "number" and type(oy) == "number" then
+		local w, h = canvas:GetWidth(), canvas:GetHeight()
+		local sc = pin:GetScale() or 1
+		if w and w > 0 and h and h > 0 then return ox * sc / w, -oy * sc / h end
+	end
+end
+
+-- AzerothVeil: where each pin came from (Blizzard's canvas, an addon's own layer), to give it back
+local origin = setmetatable({}, { __mode = "k" })
+local function Borrow(pin)
+	if pin:GetParent() ~= layer then
+		origin[pin] = pin:GetParent()
+		pin:SetParent(layer)
+	end
+end
+
+-- (AzerothVeil: given back to where it came from, not only hidden: its addon may show it again (a new zone laid
+-- out, a pool's pin taken again) and it must then be on its own hidden map, not on ours, anchored elsewhere)
 local function Release(pin)
 	hosted[pin] = nil
-	if pin:GetParent() == layer then pin:Hide() end
+	if pin:GetParent() == layer then
+		local from = origin[pin]
+		if from then pin:SetParent(from) else pin:Hide() end
+	end
 end
 
 function A.Init(parent, level)
@@ -233,16 +396,18 @@ function A.Layout(left, top, scale, vw, vh, zoom)
 			local level = layer:GetFrameLevel() + 1
 			local gather = GatherOn()
 			for template, pool in pairs(wm.pinPools) do
-				if pool.EnumerateActive then
-					for pin in pool:EnumerateActive() do
+				do
+					for pin in Active(wm, template, pool) do
 						if not Owner(template, pin) then break end
-						local x, y = pin.normalizedX, pin.normalizedY
+						local x, y = PinXY(wm, pin)              -- (AzerothVeil: wherever it's kept)
 						local u, v
 						-- (the gathering addons' icons, turned off with the tools' button: left out)
-						if x and y and (gather or not GatherPin(template, pin)) then u, v = Geo.MapToUnits(map, x, y) end
+						if x and y and (gather or not GatherPin(template, pin)) and Wanted(PinAddon(template, pin)) then   -- (AzerothVeil: its addon's option)
+							u, v = Geo.MapToUnits(map, x, y)
+						end
 						if u then
 							if pin:GetParent() ~= layer then
-								pin:SetParent(layer)
+								Borrow(pin)
 								pin:SetFrameLevel(level)
 							end
 							pin:SetScale(1)
@@ -253,6 +418,25 @@ function A.Layout(left, top, scale, vw, vh, zoom)
 						end
 					end
 				end
+			end
+			-- AzerothVeil: the pins of the addons with a layer of their own (RareScanner), at the same zoom
+			local strata = layer:GetFrameStrata()
+			for pin, e in pairs(ownPins) do
+				local x, y, m = e.At(pin)
+				local u, v
+				if x and y and Wanted(e.addon) then u, v = Geo.MapToUnits(m or map, x, y) end
+				if u then
+					Borrow(pin)
+					pin:SetFrameStrata(strata)
+					pin:SetFrameLevel(level)
+					pin:SetScale(1)
+					pin:ClearAllPoints()
+					pin:SetPoint("CENTER", layer, "TOPLEFT", (u - left) * scale, (top - v) * scale)
+					pin:Show()
+					hosted[pin] = pass
+				end
+				-- (what it was laid out from, placed or not: Tick looks again only once that changes)
+				ownPlaced[pin] = x and y and x + y * 7 + (m or 0) * 13 or nil
 			end
 		end
 	end
@@ -269,11 +453,22 @@ function A.Tick(elapsed)
 	for pin in pairs(hosted) do
 		if pin:GetParent() ~= layer or select(2, pin:GetPoint(1)) ~= layer then Changed() return end
 	end
+	-- AzerothVeil: an addon with a layer of its own (RareScanner) laid its pins out again: new ones, others
+	-- placed elsewhere or released (only while ours are shown, from their zoom)
+	local wm = _G.WorldMapFrame
+	if not (On() and wm and lastZoom >= ShowZoom() and AnyOwn()) then return end
+	if LookForOwn(wm) then Changed() return end
+	for pin, e in pairs(ownPins) do
+		local x, y, m = e.At(pin)
+		if (x and y and x + y * 7 + (m or 0) * 13 or nil) ~= ownPlaced[pin] then Changed() return end
+	end
 end
 
 -- (the map closed: the next opening looks at the zone again)
 function A.OnHide()
 	lastZone = nil
+	-- (AzerothVeil: and every pin given back, so Blizzard's map has them all if it's opened next)
+	for pin in pairs(hosted) do Release(pin) end
 end
 
 function A.Refresh() Changed() end
@@ -303,16 +498,26 @@ function A.Report()
 	for pin in pairs(hosted) do n = n + 1 end
 	for template, pool in pairs(wm.pinPools) do
 		local active, first = 0, nil
-		if pool.EnumerateActive then
-			for pin in pool:EnumerateActive() do active = active + 1 first = first or pin end
-		end
+		for pin in Active(wm, template, pool) do active = active + 1 first = first or pin end
 		if active > 0 then
-			local verdict = first and (Owner(template, first) and ("an addon's: shown"
+			local verdict = first and (Owner(template, first) and ("an addon's (" .. (PinAddon(template, first) or "others") .. ")"
+				.. (Wanted(PinAddon(template, first)) and ": shown" or ": hidden (its option)")
 				.. (GatherPin(template, first) and (GatherOn() and ", gathering" or ", gathering: hidden (tools' button)") or ""))
 				or "Blizzard's / Questie's: left out") or "?"
 			P(("  %s: %d (%s)%s"):format(tostring(template), active, verdict,
-				first and not first.normalizedX and ", no position" or ""))
+				first and not PinXY(wm, first) and ", no position" or ""))
+		end
+	end
+	for _, e in ipairs(OWN_LAYERS) do
+		if FM.IsAddOnLoaded(e.addon) then
+			local known, placed = 0, 0
+			for pin, pe in pairs(ownPins) do
+				if pe == e then known = known + 1 if hosted[pin] then placed = placed + 1 end end
+			end
+			P(("  %s (a layer of its own): %s, %d pins seen, %d on our map"):format(e.addon,
+				not OwnMethod(e) and "its code NOT FOUND" or ownLayer[e] and "layer found" or "layer NOT FOUND yet", known, placed))
 		end
 	end
 	P(("  on our map now: %d"):format(n))
+	if FM.AddonButtons then FM.AddonButtons.Report(P) end          -- (AzerothVeil: their map buttons)
 end

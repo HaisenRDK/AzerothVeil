@@ -5,7 +5,7 @@
 ## Version: 1.1.0
 ## Author: Haisen (based on PerfectMap by sokenn_)
 ## SavedVariables: AzerothVeilDB
-## OptionalDeps: Questie, ForeverQuestTint, ForeverDungeonJournal
+## OptionalDeps: Questie, ForeverQuestTint, ForeverDungeonJournal, NeedRoll
 ## Category: Map
 ## IconTexture: Interface\AddOns\AzerothVeil\Media\icon
 ## AddonCompartmentFunc: AzerothVeil_OnAddonCompartmentClick
@@ -42,6 +42,7 @@ Engine\Data\Reveal.lua
 Engine\Data\Caves.lua
 Engine\Data\CaveMinimap.lua
 Engine\Data\Fog.lua
+Engine\Data\DropRates.lua
 Engine\Data\AreaLabels.lua
 Engine\Geo.lua
 Engine\Terrain.lua
@@ -60,6 +61,7 @@ Engine\Friends.lua
 Engine\Map.lua
 Engine\Pins.lua
 Engine\AddonPins.lua
+Engine\AddonButtons.lua
 Engine\Spot.lua
 Engine\Quests.lua
 Engine\QuestLog.lua
@@ -71,6 +73,7 @@ Engine\Find.lua
 
 # Optional integrations with other addons (used only if they're there)
 Integrations\DungeonJournal.lua
+Integrations\NeedRoll.lua
 Integrations\Questie.lua
 
 # Modules (each registers itself with the module manager; nothing runs until it's enabled)
@@ -81,6 +84,7 @@ Modules\Dungeons.lua
 Modules\Transports.lua
 Modules\Markers.lua
 Modules\Social.lua
+Modules\Integrations.lua
 
 # Options outside the map's window: the game's Settings page; the minimap button
 UI\Controls.lua

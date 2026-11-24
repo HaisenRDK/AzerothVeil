@@ -98,7 +98,7 @@ local function Travel(pin)
 	if not (w and w.u and w.v) then return end
 	local _, _, scale, vw = ns.Map.ViewNow()
 	local across = (scale and scale > 0 and vw) and vw / scale or nil
-	ns.Map.SetView(w.u, w.v, Transports.TravelAcross(across, ns.W))
+	ns.Map.Glide(ns.Map.SetView, w.u, w.v, Transports.TravelAcross(across, ns.W))   -- (gliding there)
 end
 
 ---------------------------------------------------------------------------

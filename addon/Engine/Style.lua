@@ -493,6 +493,42 @@ function S.Select(parent, label, values, get, set, width, icon)
 	return r
 end
 
+-- AzerothVeil: the same list, for any button: items { { value, text } }, current the value lit; a pick calls
+-- onPick(value). It opens above the button when above is true (a bar at the map's bottom), else under it; a
+-- second click on the button closes it
+function S.PickList(owner, items, current, onPick, above, width)
+	local list = SelectList()
+	if list:IsShown() and list.owner == owner then list:Hide() return end
+	list.owner = owner
+	for _, it in ipairs(list.items) do it:Hide() end
+	for i, e in ipairs(items) do
+		local it = list.items[i]
+		if not it then
+			it = CreateFrame("Button", nil, list)
+			it:SetHeight(20)
+			it:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
+			it.text = S.Text(it, 11)
+			it.text:SetPoint("LEFT", 8, 0)
+			it.text:SetPoint("RIGHT", -8, 0)
+			it.text:SetJustifyH("LEFT")
+			list.items[i] = it
+		end
+		it:ClearAllPoints()
+		it:SetPoint("TOPLEFT", 4, -4 - (i - 1) * 20)
+		it:SetPoint("TOPRIGHT", -4, -4 - (i - 1) * 20)
+		it.text:SetText(e[2])
+		local cur = current == e[1]
+		it.text:SetTextColor(cur and 1 or 0.9, cur and 0.82 or 0.9, cur and 0 or 0.9)
+		it:SetScript("OnClick", function() list:Hide() onPick(e[1]) end)
+		it:Show()
+	end
+	list:SetSize(math.max(width or owner:GetWidth(), 120), #items * 20 + 8)
+	list:ClearAllPoints()
+	if above then list:SetPoint("BOTTOM", owner, "TOP", 0, 2) else list:SetPoint("TOP", owner, "BOTTOM", 0, -2) end
+	list:Show()
+end
+function S.HidePickList() if selectList then selectList:Hide() end end
+
 function S.Slider(parent, label, minV, maxV, step, get, set, fmt, width, icon)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetSize(width or 200, 34)

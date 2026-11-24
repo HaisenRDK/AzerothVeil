@@ -91,6 +91,12 @@ function DJ.KeysFor(wing)
 	return out
 end
 
+-- (its two parts of one of our entrances, named in the player's language)
+local PART_NAMES = { ["Stratholme: Living"] = ns.L["Stratholme: Living"], ["Stratholme: Undead"] = ns.L["Stratholme: Undead"] }
+
+-- a key's name in a list of several (one entrance, several of its dungeons)
+function DJ.Label(key) return PART_NAMES[key] end
+
 -- Hands it one of its dungeons: its window shown on that dungeon's page (its map, if it has one not
 -- locked; else its bosses). true when it took it (a locked dungeon too: it says so itself); false if
 -- anything failed (AzerothVeil then shows its own map).

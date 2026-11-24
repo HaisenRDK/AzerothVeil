@@ -46,7 +46,7 @@ donjons de Forever. S'ouvre dans DungeonJournal s'il est installé.
 
 **⛵ Transports** : maîtres de vol, bateaux, zeppelins, tram ; trajets, et position en direct des bateaux.
 
-**📍 Marqueurs** : Ctrl+clic pour poser une note colorée, catégories, partage compatible OpenMap.
+**📍 Marqueurs** : Maj+clic pour poser une note colorée, clic droit pour la retirer, catégories, partage compatible OpenMap.
 
 **👥 Amis & guilde** : position des amis utilisant AzerothVeil, PerfectMap ou OpenMap (partage désactivé
 par défaut).
@@ -61,7 +61,7 @@ Basé sur **PerfectMap** de **sokenn_**. Merci à lui !
 
 Merci aussi à **OpenMap** (MIT), à **Santiago Reyes** pour ses cartes de donjons
 ([sreyesmaps.com](https://sreyesmaps.com)) et à **Exehn** (DungeonJournal), utilisées avec leur permission, ainsi
-qu'à **Questie**, **MapUtils** (D4KiR), **Forever Quest Tint** (xanastar), **Carbonite** et **OneForAll** (Smoergi).
+qu'à **Questie**, **MapUtils** (D4KiR), **Forever Quest Tint** (xanastar), **NeedRoll** (mikebvs, taux de drop), **Carbonite** et **OneForAll** (Smoergi).
 Art de la carte : Blizzard Entertainment. Détail complet dans `NOTICE.md`.
 
 **Licence GPL v3.** Gratuit, sans publicité. Non affilié à Blizzard.

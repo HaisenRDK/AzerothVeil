@@ -119,14 +119,11 @@ local function Fit(w, h)
 end
 
 ---------------------------------------------------------------------------
--- The floors: a list down the map's left (the one shown lit, its number by it), the wheel over the
--- map going up and down them. At an entrance to several dungeons, a button above it names the one
--- shown and drops a list of them all, as a left-click on the entrance's icon does (D.Choose)
+-- The floors: a bar at the map's bottom (AzerothVeil), the wheel over the map going up and down them.
+-- At an entrance to several dungeons, a button in its top left corner names the one shown and drops a
+-- list of them all, as a left-click on the entrance's icon does (D.Choose)
 ---------------------------------------------------------------------------
 local Draw
-local FLOOR_W, ROW_H = 200, 20
-local floorPanel, floorHead
-local floorRows = {}
 local instButton, chooser
 local chooserRows = {}
 
@@ -138,32 +135,69 @@ function D.SetFloor(i)
 	Draw()
 end
 
--- AzerothVeil: the floors as Blizzard's own buttons, stacked down the map's left, the one shown held lit
--- (a click, or the wheel over the map, goes to another; the passages drawn on a floor go too: FloorLinks)
+-- AzerothVeil: the floors in a bar at the map's bottom, in the middle: the floor shown (its name, its number out of
+-- how many), Blizzard's page arrows either side to the one before and the one after; a click on its name lists them
+-- all to pick from (Style.PickList). The wheel over the map goes up and down them too; the passages drawn on a floor
+-- go to theirs (FloorLinks). Shown only for a place of several floors; the map's title then rises above it
+local FOOT_NAME_W = 260
+local footer, footName, footPrev, footNext
+local footNames
+
+local function PageArrow(parent, kind, onClick)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(28, 28)
+	b:SetNormalTexture("Interface\\Buttons\\UI-SpellbookIcon-" .. kind .. "Page-Up")
+	b:SetPushedTexture("Interface\\Buttons\\UI-SpellbookIcon-" .. kind .. "Page-Down")
+	b:SetDisabledTexture("Interface\\Buttons\\UI-SpellbookIcon-" .. kind .. "Page-Disabled")
+	b:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+	b:SetScript("OnClick", onClick)
+	return b
+end
+
+local function BuildFooter()
+	footer = CreateFrame("Frame", nil, layer)
+	footer:SetSize(FOOT_NAME_W + 64, 30)
+	footer:SetPoint("BOTTOM", layer, "BOTTOM", 0, 8)
+	footName = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
+	S.FrizButton(footName)   -- (AzerothVeil: Friz Quadrata)
+	footName:SetSize(FOOT_NAME_W, 24)
+	footName:SetPoint("CENTER")
+	local fs = footName:GetFontString()
+	if fs then fs:SetWordWrap(false) fs:SetPoint("LEFT", 10, 0) fs:SetPoint("RIGHT", -10, 0) end
+	footName:SetScript("OnClick", function(self)
+		if not (view and footNames) then return end
+		local items = {}
+		for i, name in ipairs(footNames) do items[i] = { i, ("%d.  %s"):format(i, name) } end
+		S.PickList(self, items, view.floor, function(i) D.SetFloor(i) end, true)
+	end)
+	footName:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOP")
+		GameTooltip:SetText(L["Floors"], 1, 0.82, 0)
+		GameTooltip:AddLine(L["Click: every floor, to pick one. The wheel over the map goes up and down them too."], 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	footName:SetScript("OnLeave", GameTooltip_Hide)
+	footPrev = PageArrow(footer, "Prev", function() if view and view.floor then D.SetFloor(view.floor - 1) end end)
+	footPrev:SetPoint("RIGHT", footName, "LEFT", -2, 0)
+	footNext = PageArrow(footer, "Next", function() if view and view.floor then D.SetFloor(view.floor + 1) end end)
+	footNext:SetPoint("LEFT", footName, "RIGHT", 2, 0)
+end
+
 local function Floors(names, current)
-	for _, r in ipairs(floorRows) do r:Hide() end
-	if not names or #names < 2 then return end
-	local y = (instButton and instButton:IsShown()) and -38 or -8
-	for i, name in ipairs(names) do
-		local r = floorRows[i]
-		if not r then
-			r = CreateFrame("Button", nil, layer, "UIPanelButtonTemplate")
-			S.FrizButton(r)   -- (AzerothVeil: Friz Quadrata)
-			r:SetSize(FLOOR_W, 22)
-			r:SetScript("OnClick", function(self) D.SetFloor(self.index) end)
-			local fs = r:GetFontString()
-			if fs then fs:SetWordWrap(false) fs:SetPoint("LEFT", 8, 0) fs:SetPoint("RIGHT", -8, 0) end
-			floorRows[i] = r
-		end
-		r.index = i
-		r:SetFrameLevel(layer:GetFrameLevel() + 20)
-		r:SetText(("%d.  %s"):format(i, name))
-		if i == current then r:LockHighlight() else r:UnlockHighlight() end
-		r:ClearAllPoints()
-		r:SetPoint("TOPLEFT", layer, "TOPLEFT", 8, y)
-		r:Show()
-		y = y - 24
+	footNames = names
+	local several = names and #names >= 2
+	if footer then footer:SetShown(several and true or false) end
+	-- (the map's title above the bar while it's there)
+	if title then
+		title:ClearAllPoints()
+		title:SetPoint("BOTTOM", 0, several and 44 or 12)
 	end
+	if not several then S.HidePickList() return end
+	if not footer then BuildFooter() footer:Show() end
+	footer:SetFrameLevel(layer:GetFrameLevel() + 20)
+	footName:SetText(("%s  (%d/%d)"):format(names[current] or "", current or 0, #names))
+	footPrev:SetEnabled((current or 1) > 1)
+	footNext:SetEnabled((current or 1) < #names)
 end
 
 -- the list of an entrance's dungeons, under anchor (else at the cursor): a click opens that one's map
@@ -306,6 +340,8 @@ local function BossEnter(self)
 	elseif b[4] == 3 then
 		GameTooltip:AddLine(L["Boss"], 1, 0.3, 0.3)
 	end
+	-- (AzerothVeil: a click opens its page in the side panel, Modules/Dungeons.lua)
+	if D.OnBossClick then GameTooltip:AddLine(L["Click: its page, its loot."], 0.6, 0.6, 0.6) end
 	GameTooltip:Show()
 end
 
@@ -315,6 +351,10 @@ local function NewBossPin()
 	p:SetScale(BOSS_SCALE)
 	p:EnableMouse(true)
 	FM.Style.PassClicks(p)
+	-- (AzerothVeil: a left-click, its page in the side panel while the Dungeons module has one: D.OnBossClick)
+	p:SetScript("OnMouseUp", function(self, button)
+		if button == "LeftButton" and self.boss and D.OnBossClick then D.OnBossClick(self.boss[1]) end
+	end)
 	p:SetScript("OnEnter", BossEnter)
 	p:SetScript("OnLeave", GameTooltip_Hide)
 	p.portrait = p:CreateTexture(nil, "ARTWORK")
@@ -771,6 +811,8 @@ local function DrawData()
 	local shown = FM.Pins.DisplayName and FM.Pins.DisplayName(view.inst, name ~= "" and name or nil) or name
 	local floorShown = f.name and FM.Pins.DisplayName and FM.Pins.DisplayName(nil, f.name) or f.name
 	title:SetText(f.name and f.name ~= name and (name ~= "" and not own and (shown .. ": " .. floorShown) or floorShown) or shown)
+	-- (AzerothVeil: several floors: the bar at the bottom names the floor, the title only the place)
+	if #floors >= 2 and shown and shown ~= "" then title:SetText(shown) end
 	ClearTiles()
 	if f.texture then
 		local bottom = f.bottom or 683 / 1024
@@ -799,7 +841,10 @@ local function DrawData()
 	credit:SetShown(f.credit ~= nil)
 	PlaceBosses(view.inst, view.floor, f.name)
 	local names = {}
-	for i, fl in ipairs(floors) do names[i] = fl.name or (L["Floor "] .. i) end
+	for i, fl in ipairs(floors) do
+		-- (AzerothVeil: in the player's language, as the title)
+		names[i] = fl.name and (FM.Pins.DisplayName and FM.Pins.DisplayName(nil, fl.name) or fl.name) or (L["Floor "] .. i)
+	end
 	Floors(names, view.floor)
 end
 
@@ -1541,7 +1586,11 @@ function D.Init(view_, level)
 		-- (a right-click on a boss or the way in is theirs: only one on the bare map goes back)
 		local focus = GetMouseFoci and GetMouseFoci()[1] or GetMouseFocus and GetMouseFocus()
 		if focus and focus ~= layer then return end
-		if button == "RightButton" then D.Back() end
+		-- (AzerothVeil: the side panel on a boss's or a quest's page: back to the dungeon's first, Modules/Dungeons.lua)
+		if button == "RightButton" then
+			if D.OnBack and D.OnBack() then return end
+			D.Back()
+		end
 	end)
 	layer:Hide()
 	local bg = layer:CreateTexture(nil, "BACKGROUND", nil, -8)

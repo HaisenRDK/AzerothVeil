@@ -322,10 +322,12 @@ end
 ---------------------------------------------------------------------------
 local zoomTarget, zoomSX, zoomSY
 local dragging, dragX, dragY, dragMoved
+local glide                     -- AzerothVeil: the view gliding to a place (Map.Glide, below); nil: none
 
 -- the world, or a land off it shown on its own (mapID: that land's; nil: back to the world, as it was)
 function Map.SetAway(mapID)
 	if mapID == awayMap then return end
+	glide = nil
 	local r = mapID and Geo.Rect(mapID)
 	if mapID and not r then return end
 	if r then
@@ -357,6 +359,7 @@ local function ModeFor(u, v)
 end
 
 function Map.SetView(u, v, unitsAcross)
+	glide = nil
 	ModeFor(u, v)
 	cx, cy = u, v
 	if unitsAcross then scale = vw / unitsAcross end
@@ -375,6 +378,7 @@ local function ZoomAt(newScale, sx, sy)
 end
 
 local function OnWheel(_, delta)
+	glide = nil                     -- (AzerothVeil: the wheel takes over from a glide)
 	local _, _, sx, sy = Map.CursorUnits()
 	local fit, deepest = Limits()
 	local base = zoomTarget or scale
@@ -390,10 +394,90 @@ function Map.AnimateZoom(current, target, elapsed)
 	return exp(nextLog), target
 end
 
+---------------------------------------------------------------------------
+-- AzerothVeil: the glide. Map.Glide(Set, ...) runs Set (SetView, ShowMaps, ShowUnits... anything that puts the
+-- view somewhere) to learn where it goes, then takes the view there smoothly instead of at once: out a little
+-- and back in when the way is long, as a camera flies (van Wijk & Nuij's "smooth and efficient zooming and
+-- panning", d3's interpolateZoom), never further out than the whole map. A jump as before when the map isn't
+-- up, inside a dungeon's map, from one land to another (Zephras Isle), or with the Map module's option off.
+-- Any other move of the view (a drag, the wheel, a jump) stops it where it is. Driven by the map's own
+-- OnUpdate (only while it's shown); nothing more runs once it's there.
+---------------------------------------------------------------------------
+local RHO = math.sqrt(2)
+local GLIDE_MIN, GLIDE_MAX, GLIDE_PACE = 0.35, 1.3, 0.45   -- (seconds; seconds per unit of the path's length)
+
+local function cosh(x) local e = exp(x) return (e + 1 / e) / 2 end
+local function sinh(x) local e = exp(x) return (e - 1 / e) / 2 end
+local function tanh(x) local e = exp(2 * x) return (e - 1) / (e + 1) end
+
+-- from x0, y0 with w0 units across to x1, y1 with w1: the path at t (0 to 1), and its length (S)
+local function ZoomPath(x0, y0, w0, x1, y1, w1)
+	local dx, dy = x1 - x0, y1 - y0
+	local d2 = dx * dx + dy * dy
+	local rho2, rho4 = RHO * RHO, RHO ^ 4
+	if d2 < 1e-6 then
+		local S = log(w1 / w0) / RHO
+		return function(t) return x0 + t * dx, y0 + t * dy, w0 * exp(RHO * t * S) end, math.abs(S)
+	end
+	local d1 = math.sqrt(d2)
+	local b0 = (w1 * w1 - w0 * w0 + rho4 * d2) / (2 * w0 * rho2 * d1)
+	local b1 = (w1 * w1 - w0 * w0 - rho4 * d2) / (2 * w1 * rho2 * d1)
+	local r0 = log(math.sqrt(b0 * b0 + 1) - b0)
+	local r1 = log(math.sqrt(b1 * b1 + 1) - b1)
+	local S = (r1 - r0) / RHO
+	local c0 = cosh(r0)
+	return function(t)
+		local s = t * S
+		local k = w0 / (rho2 * d1) * (c0 * tanh(RHO * s + r0) - sinh(r0))
+		return x0 + k * dx, y0 + k * dy, w0 * c0 / cosh(RHO * s + r0)
+	end, math.abs(S)
+end
+
+local function Ease(t) if t < 0.5 then return 4 * t * t * t end local f = 2 * t - 2 return 1 + f * f * f / 2 end
+
+function Map.Glide(Set, ...)
+	local can = built and frame:IsShown() and FM.db.smoothTravel and not dragging and not FM.Dungeon.Active()
+		and scale > 0 and vw > 0
+	if not can then glide = nil Set(...) return end
+	local fx, fy, fs, fromAway = cx, cy, scale, awayMap
+	Set(...)
+	if awayMap ~= fromAway or FM.Dungeon.Active() then glide = nil return end     -- (another land, a dungeon: a jump)
+	zoomTarget = nil
+	Clamp()                                    -- (where it really ends: in the map's bounds)
+	local tx, ty, ts = cx, cy, scale
+	cx, cy, scale = fx, fy, fs
+	local At, S = ZoomPath(fx, fy, vw / fs, tx, ty, vw / ts)
+	if S < 1e-3 or S ~= S then cx, cy, scale = tx, ty, ts glide = nil dirty = true return end
+	glide = { At = At, t = 0, dur = min(max(S * GLIDE_PACE, GLIDE_MIN), GLIDE_MAX), tx = tx, ty = ty, ts = ts }
+	dirty = true
+end
+
+-- one frame of it; true while it moves
+local function GlideStep(elapsed)
+	if not glide then return false end
+	glide.t = glide.t + elapsed
+	local p = min(glide.t / glide.dur, 1)
+	if p >= 1 then
+		cx, cy, scale = glide.tx, glide.ty, glide.ts
+		glide = nil
+		return true
+	end
+	local x, y, w = glide.At(Ease(p))
+	local fit = Limits()
+	cx, cy, scale = x, y, max(vw / w, fit)
+	return true
+end
+
+-- (gliding when the map closes: where it was going, so it opens there)
+local function GlideEnd()
+	if glide then cx, cy, scale = glide.tx, glide.ty, glide.ts glide = nil end
+end
+
 local function OnMouseDown(_, button)
 	FM.Dungeon.HideChooser()
 	if button == "LeftButton" then FM.Spot.Hide() end
 	if button == "LeftButton" then
+		glide = nil                 -- (AzerothVeil: so does a drag, where the view is)
 		dragging, dragMoved = true, false
 		dragX, dragY = GetCursorPosition()
 	end
@@ -944,6 +1028,7 @@ local fadeOn = false
 local function OnUpdate(_, elapsed)
 	-- (inside a dungeon, its map is up over the world: only it moves; the world rests, unhovered)
 	if FM.Dungeon.Active() then
+		glide = nil                 -- (AzerothVeil)
 		local start = debugprofilestop()
 		if FM.Dungeon.Tick(elapsed) then
 			local ms = debugprofilestop() - start
@@ -985,6 +1070,7 @@ local function OnUpdate(_, elapsed)
 		ZoomAt(nextScale, zoomSX, zoomSY)
 		changed = true
 	end
+	if GlideStep(elapsed) then changed = true end     -- AzerothVeil: gliding to a place
 	if changed or dirty then
 		dirty = false
 		Map.Refresh()
@@ -1486,6 +1572,8 @@ local function Build()
 		{ L["Icons on the map"], L["Click: pick the kinds of icon the map shows."] })
 	iconMenu:SetPoint("TOP", options, "BOTTOM", 0, -4)
 	FM.IconMenu.Attach(view, iconMenu)
+	-- AzerothVeil: other addons' map buttons in a column under them (AddonButtons.lua; the Integrations module's)
+	FM.AddonButtons.Attach(view, function() return iconMenu:IsShown() and iconMenu or options end, instanceLevel + 1)
 	local lastCorner = options
 	if _G.QuestieLoader and _G.Questie then
 		local questie = CornerButton("Interface\\AddOns\\Questie\\Icons\\questie.png", function() Map.OpenQuestieOptions() end,
@@ -1546,7 +1634,7 @@ local function Build()
 	end
 	routesButton:SetActive(FM.db.routes)
 	-- (... and centre on me)
-	local centerButton = IconButton(tools, "locate", 15, function() Map.CenterOnMe() end)
+	local centerButton = IconButton(tools, "locate", 15, function() Map.Glide(Map.CenterOnMe) end)   -- (AzerothVeil: gliding)
 	centerButton.tip = { L["Center on me"], L["The map on where you are, as M opens it (inside a dungeon: its map)."] }
 	local row = { routesButton }
 	-- (... and, with a gathering addon loaded (GatherMate2, Gatherer...), its herb and ore icons on and off)
@@ -1650,6 +1738,7 @@ local function Build()
 		FM.Quests.OnHide()
 		FM.Dungeon.OnHide()
 		FM.AddonPins.OnHide()
+		FM.AddonButtons.Update()        -- AzerothVeil: their buttons given back to Blizzard's map
 		Map.KeepZoom()
 		FM.Isles.OnHide()
 		FM.Spot.Hide()
@@ -1714,6 +1803,7 @@ end
 function Map.CenterOnPlayer(unitsAcross)
 	local u, v = Geo.UnitUnits("player")
 	if u then
+		glide = nil
 		ModeFor(u, v)        -- (on a land apart: its map)
 		cx, cy = u, v
 		if unitsAcross then scale = vw / unitsAcross end
@@ -1759,7 +1849,7 @@ function Map.CenterOnMe()
 	if FM.Dungeon.ShowHere() then return end
 	local u, v = Geo.UnitUnits("player")
 	if not u then return end
-	zoomTarget = nil
+	zoomTarget, glide = nil, nil
 	local across = OpenAcross()
 	ModeFor(u, v)            -- (on a land apart, Zephras Isle: its map)
 	if vw / scale > across then scale = vw / across end
@@ -1785,12 +1875,14 @@ function Map.Show()
 	FM.Vessels.OnShow()
 	FM.Friends.OnShow()
 	FM.Isles.Update()
+	FM.AddonButtons.Update()            -- AzerothVeil: other addons' map buttons lent to this map
 	if not FM.Dungeon.Active() then Map.Refresh() end
 end
 
 -- show a whole map (a zone, a continent, the world; a dungeon's or a city's district: the zone it's in)
 function Map.ShowMapID(mapID, zoomOut)
 	if not built or not mapID then return end
+	glide = nil
 	-- (a land off the world map, or a map on it: that land's map apart; anything else, the world's)
 	local away = Geo.AwayOf(mapID)
 	if away then Map.SetAway(away) elseif awayMap then Map.SetAway(nil) end
@@ -1832,7 +1924,7 @@ function Map.ShowMaps(ids)
 	end
 	if not l then return end
 	if awayMap then Map.SetAway(nil) end
-	zoomTarget = nil
+	zoomTarget, glide = nil, nil
 	cx, cy = (l + r) / 2, (t + b) / 2
 	scale = min(vw / ((r - l) * 1.08), vh / ((b - t) * 1.08))
 	dirty = true
@@ -1842,7 +1934,7 @@ end
 -- across (the quests found by the log's search, QuestLog.lua)
 function Map.ShowUnits(l, r, t, b, minAcross)
 	if not built or not l then return end
-	zoomTarget = nil
+	zoomTarget, glide = nil, nil
 	cx, cy = (l + r) / 2, (t + b) / 2
 	ModeFor(cx, cy)
 	local w, h = max(r - l, minAcross or 0), max(b - t, (minAcross or 0) * vh / vw)
@@ -1855,6 +1947,7 @@ function Map.ShowSpot(mapID, x, y)
 	if not built then return end
 	local u, v = Geo.MapToUnits(mapID, x, y)
 	if not u then Map.ShowMapID(mapID) return end
+	glide = nil
 	ModeFor(u, v)
 	cx, cy = u, v
 	scale = max(scale, vw / 160)
@@ -1884,6 +1977,7 @@ end
 
 -- (the zoom it's closed at: how much of the world is across the view, kept for next time)
 local function KeepZoom()
+	GlideEnd()                  -- (AzerothVeil: closed while gliding: where it was going)
 	-- (on a land apart: the world's zoom, as it was before)
 	local s = awayMap and worldView and worldView[3] or (zoomTarget or scale)
 	if s and s > 0 and vw and vw > 0 then FM.db.window.across = vw / s end

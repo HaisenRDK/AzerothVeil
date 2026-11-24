@@ -84,7 +84,7 @@ FM.MAP_OFF = {
 	replaceM = false, reopen = "last", rememberZoom = false, fadeMoving = false, hoverHighlight = false,
 	joinIcons = false, addonPins = false, iconScale = 1, underground = false, minimapTerrain = false, zoneFishing = false,
 	npcUnexplored = true, terrainNames = false, playerCoords = false, cursorCoords = false, zoneLevels = true, dungeonCaves = false, mapNames = false,
-	placeFactions = false, iconMenu = false, cityTerrain = false, mapSearch = false,
+	placeFactions = false, iconMenu = false, cityTerrain = false, mapSearch = false, smoothTravel = false,
 }
 -- (AzerothVeil: and the Icons module's kinds of icon: those of these groups of Pins.CATS, Modules/Icons.lua)
 FM.ICON_GROUPS = { places = true, townsfolk = true, professions = true }
@@ -280,6 +280,8 @@ ev:SetScript("OnEvent", function(_, event, arg)
 		FM.db.dungeonMaps, FM.db.dungeonBosses, FM.db.dungeonLevels, FM.db.dungeonWays = false, false, false, false
 		for _, k in ipairs(FM.QUEST_KEYS) do FM.db[k] = false end
 		FM.db.pins.questie = false
+		FM.db.questTint = false                   -- (AzerothVeil: the Integrations module's, Modules/Integrations.lua)
+		FM.db.addonButtons = false                -- (AzerothVeil: the same)
 		for k, v in pairs(FM.MAP_OFF) do FM.db[k] = v end
 		for _, c in ipairs(FM.Pins.CATS) do if FM.ICON_GROUPS[c.group] then FM.db.pins[c.key] = false end end
 		FM.db.allClassTrainers = false

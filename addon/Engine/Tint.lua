@@ -22,6 +22,7 @@ local MARK_BASELINE = -2
 
 -- its settings while it's enabled (its saved variables exist only then), else nil
 local function Cfg()
+	if not (FM.db and FM.db.questTint) then return nil end       -- (AzerothVeil: the Integrations module's switch)
 	local db = _G.ForeverQuestTintDB
 	return type(db) == "table" and db or nil
 end

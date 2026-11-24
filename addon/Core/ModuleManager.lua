@@ -20,6 +20,8 @@
 --                   A header with all = true: "Show all" / "Hide all" buttons for its section's toggles (down to
 --                   the next header), but those declared noAll = true (MM:SectionToggles / MM:SetSection).
 --                   AzerothVeil: a toggle declared iconMenu = true is also in the map's icon menu (Engine/IconMenu.lua).
+--                   AzerothVeil: requiresAddOns = { "AddOn", ... } on a setting: it only counts (and is only
+--                   editable) while those addons are loaded; without them it's greyed, "(not installed)".
 --   Initialize(self)            once, just before its first Enable (never for a module that never runs)
 --   Enable(self)                it starts: its events, frames, hooks...
 --   Disable(self)               it stops and lets go of what it holds
@@ -144,11 +146,20 @@ function MM:GetSetting(name, key)
 	return m.db[key]
 end
 
+-- AzerothVeil: the first addon a setting needs that isn't loaded (nil: it has them all)
+local function MissingAddOn(spec)
+	for _, addon in ipairs(spec and spec.requiresAddOns or {}) do
+		if not ns.IsAddOnLoaded(addon) then return addon end
+	end
+end
+MM.MissingAddOn = function(_, spec) return MissingAddOn(spec) end
+
 -- whether an option is in effect: the module active, the option on, and its parent option too
 function MM:IsOptionActive(name, key)
 	local m = self.byName[name]
 	if not (m and m.active and m.db) then return false end
 	local spec = m.settingByKey[key]
+	if MissingAddOn(spec) then return false end
 	if spec and spec.parent and not self:IsOptionActive(name, spec.parent) then return false end
 	return m.db[key] and true or false
 end
@@ -158,6 +169,7 @@ function MM:IsOptionEditable(name, key)
 	local m = self.byName[name]
 	if not (m and m.db and m.entry.enabled) then return false end
 	local spec = m.settingByKey[key]
+	if MissingAddOn(spec) then return false end
 	if spec and spec.parent then return self:IsOptionEditable(name, spec.parent) and m.db[spec.parent] and true or false end
 	return true
 end
@@ -401,8 +413,24 @@ function MM:Evaluate()
 end
 
 -- At PLAYER_LOGIN (Core/Bootstrap.lua): every addon is loaded, the game's data is there
+-- AzerothVeil: the settings whose addons aren't there say so, in their label and tooltip (every addon is loaded
+-- by now; the option screens are built after this)
+local function MarkMissing(self)
+	for _, m in ipairs(self.list) do
+		for _, spec in ipairs(m.settings) do
+			local addon = not spec.missingMarked and MissingAddOn(spec)
+			if addon then
+				spec.missingMarked = true
+				spec.label = (spec.label or spec.key) .. " |cff808080" .. L["(not installed)"] .. "|r"
+				spec.tooltip = (spec.tooltip and spec.tooltip .. "\n" or "") .. "|cffff8c4c" .. L["Requires the addon %s"]:format(addon) .. "|r"
+			end
+		end
+	end
+end
+
 function MM:Start()
 	self.started = true
+	MarkMissing(self)
 	self:Evaluate()
 end
 

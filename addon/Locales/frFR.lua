@@ -87,8 +87,8 @@ L["Only your guild and friends, never from a dungeon, raid or battleground. /av 
 ---------------------------------------------------------------------------
 -- Module: Quests
 ---------------------------------------------------------------------------
-L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, Questie's icons, and a quest log docked beside the map that L and the objective tracker open."] =
-	"Les quêtes du journal sur la carte comme les montre la carte de Blizzard, les quêtes à prendre et les zones de quête, les icônes de Questie, et un journal de quêtes ancré à côté de la carte, qu'ouvrent L et le suivi d'objectifs."
+L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, and a quest log docked beside the map that L and the objective tracker open."] =
+	"Les quêtes du journal sur la carte comme les montre la carte de Blizzard, les quêtes à prendre et les zones de quête, et un journal de quêtes ancré à côté de la carte, qu'ouvrent L et le suivi d'objectifs."
 L["the quests picked below show on the map; the quest log beside it replaces Blizzard's if that option is on."] =
 	"les quêtes choisies ci-dessous s'affichent sur la carte ; le journal à côté remplace celui de Blizzard si l'option est cochée."
 L["WoW's own way: no quest on this map, no quest log beside it; L and the objective tracker open Blizzard's quest log."] =
@@ -97,8 +97,8 @@ L["WoW's own way: no quest on this map, no quest log beside it; L and the object
 ---------------------------------------------------------------------------
 -- Module: Map (its other options keep the engine's texts, below)
 ---------------------------------------------------------------------------
-L["How the map opens and what it draws: M, the minimap button, the fog of war over the land you haven't explored, the zone under the cursor, other addons' icons, the icons' size, and the detail that comes in up close."] =
-	"Comment la carte s'ouvre et ce qu'elle dessine : la touche M, le bouton de la minicarte, le brouillard de guerre sur les terres pas encore explorées, la zone sous le curseur, les icônes des autres addons, la taille des icônes et les détails qui apparaissent de près."
+L["How the map opens and what it draws: M, the minimap button, the fog of war over the land you haven't explored, the zone under the cursor, the icons' size, and the detail that comes in up close."] =
+	"Comment la carte s'ouvre et ce qu'elle dessine : la touche M, le bouton de la minicarte, le brouillard de guerre sur les terres pas encore explorées, la zone sous le curseur, la taille des icônes et les détails qui apparaissent de près."
 L["the options below apply to the map."] = "les options ci-dessous s'appliquent à la carte."
 L["the map plain: M opens Blizzard's map; this one still opens with /av or the addon compartment, without fog, highlight, other addons' icons, caves or terrain up close, nor minimap button."] =
 	"la carte nue : M ouvre la carte de Blizzard ; celle-ci s'ouvre encore avec /av ou le compartiment d'addons, sans brouillard, surbrillance, icônes des autres addons, grottes ni terrain de près, ni bouton de minicarte."
@@ -380,6 +380,10 @@ L["Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and
 L["They show two steps of the wheel closer than the townsfolk."] = "Elles apparaissent deux crans de molette plus près que les PNJ des villes."
 L["Fade while moving"] = "Estomper en mouvement"
 L["The map turns see-through while you move."] = "La carte devient transparente quand vous vous déplacez."
+L["Glide to places"] = "Glisser jusqu'à la destination"
+L["When the map goes somewhere (a quest, a boat's or zeppelin's destination, a search, a marker), it glides there smoothly, out a little and back in when it's far."] =
+	"Quand la carte se rend quelque part (une quête, la destination d'un bateau ou d'un zeppelin, une recherche, un marqueur), elle y glisse en douceur, en dézoomant un peu puis en rezoomant quand c'est loin."
+L["Off: it jumps there at once."] = "Désactivé : elle y saute d'un coup."
 L["Detail"] = "Détails"
 L["Caves up close"] = "Grottes en zoom rapproché"
 L["Zoom right in on a cave, mine, crypt or dungeon entrance and its own map surfaces: Blizzard's where it drew one, else the game's minimap of it inside."] =
@@ -417,8 +421,8 @@ L["Drag: move   Wheel: zoom   Right-click: pin / coordinates (on an icon: waypoi
 ---------------------------------------------------------------------------
 -- Module: Dungeons
 ---------------------------------------------------------------------------
-L["The dungeons' and raids' entrances on the map; a click opens the dungeon's own map in the map's window, its floors, its bosses, its ways in, with its quests and bosses beside it. With DungeonJournal, its page of the dungeon opens instead."] =
-	"Les entrées des donjons et des raids sur la carte ; un clic ouvre la carte du donjon dans la fenêtre de la carte, ses niveaux, ses boss, ses entrées, avec ses quêtes et ses boss à côté. Avec DungeonJournal, c'est sa page du donjon qui s'ouvre."
+L["The dungeons' and raids' entrances on the map; a click opens the dungeon's own map in the map's window, its floors, its bosses, its ways in, with its quests and bosses beside it. With DungeonJournal or NeedRoll, its page of the dungeon can open instead."] =
+	"Les entrées des donjons et des raids sur la carte ; un clic ouvre la carte du donjon dans la fenêtre de la carte, ses niveaux, ses boss, ses entrées, avec ses quêtes et ses boss à côté. Avec DungeonJournal ou NeedRoll, sa page du donjon peut s'ouvrir à la place."
 L["the entrances, maps and tabs picked below are there; a dungeon's map is shown inside one if that option is on."] =
 	"les entrées, cartes et onglets choisis ci-dessous sont présents ; la carte d'un donjon s'affiche quand vous y êtes si l'option est cochée."
 L["no entrance icon, no dungeon map, no tab: nothing of it shows or runs."] =
@@ -448,9 +452,12 @@ L["Bosses tab"] = "Onglet Boss"
 L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] =
 	"Pendant qu'une carte de donjon est affichée, à côté : ses boss et leurs niveaux ; un clic montre où se trouve chacun."
 L["Integrations"] = "Intégrations"
-L["Use DungeonJournal when it's there"] = "Utiliser DungeonJournal s'il est présent"
-L["With the DungeonJournal addon loaded, a click on an entrance opens its page of that dungeon (its map, quests, bosses and loot); AzerothVeil's tabs then stay away. Its own settings (locked dungeons, spoilers) apply."] =
-	"Avec l'addon DungeonJournal chargé, un clic sur une entrée ouvre sa page du donjon (sa carte, ses quêtes, ses boss et son butin) ; les onglets d'AzerothVeil ne s'affichent alors pas. Ses propres réglages (donjons verrouillés, spoilers) s'appliquent."
+L["A click on an entrance opens"] = "Un clic sur une entrée ouvre"
+L["AzerothVeil's map"] = "La carte d'AzerothVeil"
+L["Which one shows a dungeon when its entrance is clicked: AzerothVeil's own map, or the page of that dungeon in DungeonJournal or NeedRoll (its map, quests, bosses and loot); AzerothVeil's tabs then stay away. Their own settings apply."] =
+	"Ce qui affiche un donjon quand on clique sur son entrée : la carte d'AzerothVeil, ou la page de ce donjon dans DungeonJournal ou NeedRoll (sa carte, ses quêtes, ses boss et son butin) ; les onglets d'AzerothVeil ne s'affichent alors pas. Leurs propres réglages s'appliquent."
+L["The one picked not installed, or without that dungeon: AzerothVeil's map."] =
+	"Si l'addon choisi n'est pas installé, ou n'a pas ce donjon : la carte d'AzerothVeil."
 L["Stratholme: Living"] = "Stratholme : côté vivant"
 L["Stratholme: Undead"] = "Stratholme : côté mort-vivant"
 L["None of your quests is for this dungeon."] = "Aucune de vos quêtes ne concerne ce donjon."
@@ -559,14 +566,14 @@ L["Interact"] = "Interaction"
 L["Event"] = "Événement"
 L["Dot"] = "Point"
 L["Map markers"] = "Marqueurs de carte"
-L["Markers of your own on the map: a note, an icon and a colour each, in categories you make and show or hide on their own. Ctrl-click the map to drop one; share them with your group or guild, OpenMap users too."] = "Vos propres marqueurs sur la carte : une note, une icône et une couleur chacun, rangés dans des catégories que vous créez et affichez ou masquez séparément. Ctrl+clic sur la carte pour en poser un ; partagez-les avec votre groupe ou votre guilde, y compris avec les utilisateurs d'OpenMap."
-L["your markers show on the map; Ctrl-click drops one; shared markers reach you if that option is on."] = "vos marqueurs s'affichent sur la carte ; Ctrl+clic en pose un ; les marqueurs partagés vous parviennent si l'option est cochée."
-L["no marker shows, Ctrl-click sets the waypoint as before, nothing is sent or heard. Your markers are kept."] = "aucun marqueur ne s'affiche, Ctrl+clic pose le point de passage comme avant, rien n'est envoyé ni écouté. Vos marqueurs sont conservés."
+L["Markers of your own on the map: a note, an icon and a colour each, in categories you make and show or hide on their own. Shift-click the map to drop one, right-click one to delete it; share them with your group or guild, OpenMap users too."] = "Vos propres marqueurs sur la carte : une note, une icône et une couleur chacun, rangés dans des catégories que vous créez et affichez ou masquez séparément. Maj+clic sur la carte pour en poser un, clic droit sur un marqueur pour le supprimer ; partagez-les avec votre groupe ou votre guilde, y compris avec les utilisateurs d'OpenMap."
+L["your markers show on the map; Shift-click drops one; shared markers reach you if that option is on."] = "vos marqueurs s'affichent sur la carte ; Maj+clic en pose un ; les marqueurs partagés vous parviennent si l'option est cochée."
+L["no marker shows, nothing is sent or heard. Your markers are kept."] = "aucun marqueur ne s'affiche, rien n'est envoyé ni écouté. Vos marqueurs sont conservés."
 L["Show the markers"] = "Afficher les marqueurs"
 L["Your markers on the map, those of the categories you show."] = "Vos marqueurs sur la carte, ceux des catégories affichées."
-L["Ctrl-click: drop a marker"] = "Ctrl+clic : poser un marqueur"
-L["Ctrl-click on the map drops a marker there and opens its card."] = "Ctrl+clic sur la carte pose un marqueur à cet endroit et ouvre sa fiche."
-L["Off: Ctrl-click sets the waypoint, as before."] = "Décoché : Ctrl+clic pose le point de passage, comme avant."
+L["Shift-click: drop a marker"] = "Maj+clic : poser un marqueur"
+L["Shift-click on the map drops a marker there and opens its card."] = "Maj+clic sur la carte pose un marqueur à cet endroit et ouvre sa fiche."
+L["A right-click on a marker deletes it."] = "Un clic droit sur un marqueur le supprime."
 L["Follow a new marker"] = "Suivre un nouveau marqueur"
 L["A marker you drop gets Blizzard's waypoint, and its arrow."] = "Un marqueur que vous posez reçoit le point de passage de Blizzard, et sa flèche."
 L["Sharing"] = "Partage"
@@ -579,7 +586,8 @@ L["Shared with me"] = "Partagés avec moi"
 L["My markers"] = "Mes marqueurs"
 L["Category"] = "Catégorie"
 L["Shared by %s"] = "Partagé par %s"
-L["Click: its card   Shift-click: in chat   Alt-click: delete"] = "Clic : sa fiche   Maj+clic : dans le chat   Alt+clic : supprimer"
+L["Click: its card   Shift-click: in chat"] = "Clic : sa fiche   Maj+clic : dans le chat"
+L["delete"] = "supprimer"
 L["Map marker"] = "Marqueur de carte"
 L["your group"] = "votre groupe"
 L["your guild"] = "votre guilde"
@@ -602,7 +610,7 @@ L["Blizzard's waypoint on it, and its arrow."] = "Le point de passage de Blizzar
 L["In chat"] = "Dans le chat"
 L["Its link in the chat box (also Shift-click on it)."] = "Son lien dans la zone de saisie du chat (aussi Maj+clic dessus)."
 L["Delete"] = "Supprimer"
-L["Also Alt-click on it."] = "Aussi Alt+clic dessus."
+L["Also a right-click on it."] = "Aussi un clic droit dessus."
 L["Stop following"] = "Ne plus suivre"
 L["Shown on the map"] = "Affichée sur la carte"
 L["Click: show it on the map, and its card"] = "Clic : le montrer sur la carte, avec sa fiche"
@@ -766,3 +774,67 @@ L["Skinning trainer"] = "Maître dépeceur"
 L["Tailoring trainer"] = "Maître tailleur"
 L["Class colours"] = "Couleurs de classe"
 L["Hovering a class trainer's icon: what it is in its class's colour (\"Mage trainer\" in light blue)."] = "Au survol de l'icône d'un maître de classe : son titre dans la couleur de sa classe (« Maître des mages » en bleu clair)."
+
+-- AzerothVeil: the Integrations module (Modules/Integrations.lua) and the settings that need another addon
+L["(not installed)"] = "(non installé)"
+L["What AzerothVeil does with other addons, when they're installed: DungeonJournal or NeedRoll for the dungeons, Questie, Forever Quest Tint, and the icons other addons put on the map (HandyNotes, TomTom, GatherMate2, RareScanner...)."] =
+	"Ce qu'AzerothVeil fait avec les autres addons quand ils sont installés : DungeonJournal ou NeedRoll pour les donjons, Questie, Forever Quest Tint, et les icônes que les autres addons posent sur la carte (HandyNotes, TomTom, GatherMate2, RareScanner...)."
+L["the addons picked below are used when they're installed."] = "les addons choisis ci-dessous sont utilisés quand ils sont installés."
+L["no other addon is used; a dungeon's entrance opens AzerothVeil's map."] =
+	"aucun autre addon n'est utilisé ; l'entrée d'un donjon ouvre la carte d'AzerothVeil."
+L["Dungeon journals"] = "Journaux de donjons"
+L["Its marks on the quests"] = "Ses marques sur les quêtes"
+L["The quests WoW Forever added marked as Forever Quest Tint marks them, by its own settings: its colour on their map icons, its sign after their names in the quest log."] =
+	"Les quêtes ajoutées par WoW Forever marquées comme Forever Quest Tint les marque, selon ses propres réglages : sa couleur sur leurs icônes de la carte, son signe après leur nom dans le journal de quêtes."
+L["Other addons' map icons"] = "Icônes des autres addons sur la carte"
+L["%s's icons on the map."] = "Les icônes de %s sur la carte."
+L["Other addons"] = "Autres addons"
+L["The icons of every other addon that puts some on Blizzard's map."] = "Les icônes de tous les autres addons qui en posent sur la carte de Blizzard."
+L["Other addons' map buttons"] = "Boutons des autres addons sur la carte"
+L["The buttons other addons put on Blizzard's map (RareScanner's filters and others), on this one, under the icon menu's button: the same buttons, their clicks and menus their own. Questie's: this map's own Questie button."] =
+	"Les boutons que les autres addons posent sur la carte de Blizzard (les filtres de RareScanner et d'autres), sur celle-ci, sous le bouton du menu des icônes : les mêmes boutons, avec leurs propres clics et menus. Pour Questie : le bouton Questie de cette carte."
+
+-- AzerothVeil: a dungeon's floors in a bar at the map's bottom (Engine/Dungeon.lua)
+L["Floors"] = "Étages"
+L["Click: every floor, to pick one. The wheel over the map goes up and down them too."] =
+	"Clic : tous les étages, pour en choisir un. La molette sur la carte passe aussi de l'un à l'autre."
+
+-- AzerothVeil: the dungeon panel's two pages (UI/DungeonPanel.lua) and its options (Modules/Dungeons.lua)
+L["Its entrance"] = "Son entrée"
+L["Click: the world map, from where you are to the dungeon's entrance."] = "Clic : la carte du monde, de là où vous êtes jusqu'à l'entrée du donjon."
+L["Back to the dungeon's quests and bosses."] = "Retour aux quêtes et aux boss du donjon."
+L["Boss %d of %d"] = "Boss %d sur %d"
+L["The dungeon's quests"] = "Les quêtes du donjon"
+L["While a dungeon's map is up, in the panel beside it: its quests first (those of your log; with Questie's data, all of them), their progress and rewards."] =
+	"Quand la carte d'un donjon est affichée, dans le panneau à côté : d'abord ses quêtes (celles de votre journal ; avec les données de Questie, toutes), leur progression et leurs récompenses."
+L["The dungeon's bosses"] = "Les boss du donjon"
+L["While a dungeon's map is up, in the panel beside it: its bosses after its quests; a click opens a boss's page, its loot, and shows where it stands."] =
+	"Quand la carte d'un donjon est affichée, dans le panneau à côté : ses boss après ses quêtes ; un clic ouvre la page d'un boss, son butin, et montre où il se trouve."
+
+-- AzerothVeil: a dungeon's quests, their states, chains and pages (UI/DungeonPanel.lua, Integrations/Questie.lua)
+L["Done"] = "Terminée"
+L["Failed"] = "Échouée"
+L["In your quest log"] = "Dans votre journal"
+L["You can take it"] = "Vous pouvez la prendre"
+L["Not available yet"] = "Pas encore disponible"
+L["Picked up in the dungeon"] = "À prendre dans le donjon"
+L["Step %d of %d"] = "Étape %d sur %d"
+L["Click: its page.   Shift-click: link it in chat."] = "Clic : sa page.   Maj+clic : son lien dans le chat."
+L["Where to pick it up"] = "Où la prendre"
+L["First, one of these: %s"] = "D'abord l'une de celles-ci : %s"
+L["First, all of these: %s"] = "D'abord toutes celles-ci : %s"
+L["Only while %s is in your quest log."] = "Seulement tant que %s est dans votre journal."
+L["No longer offered: you took %s instead."] = "Plus proposée : vous avez pris %s à la place."
+L["Requires %s with %s."] = "Nécessite %s auprès de : %s."
+L["Handed in to %s"] = "À rendre à %s"
+L["in the dungeon"] = "dans le donjon"
+L["Quest chain"] = "Suite de quêtes"
+L["You've done the whole chain."] = "Vous avez terminé toute la suite."
+L["You are here"] = "Vous en êtes là"
+L["Objectives"] = "Objectifs"
+L["No reward."] = "Aucune récompense."
+L["Its rewards show once it's in your quest log."] = "Ses récompenses s'affichent une fois la quête dans votre journal."
+L["Patterns and recipes"] = "Patrons et recettes"
+L["%s%% chance"] = "%s %% de chance"
+L["."] = ","
+L["Click: its page, its loot."] = "Clic : sa page, son butin."

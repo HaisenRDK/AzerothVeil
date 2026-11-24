@@ -233,7 +233,7 @@ local function BuildCard()
 	ShareButtons(f, function() return { f.marker } end, 56, -276)
 	local delete = Button(f, L["Delete"], 144, function()
 		if f.marker then M().Remove(f.marker) f.marker = nil M().Changed() f:Hide() end
-	end, L["Also Alt-click on it."])
+	end, L["Also a right-click on it."])
 	delete:SetPoint("TOPLEFT", 16, -312)
 	local all = Button(f, L["Map markers..."], 144, function() UI.OpenList() end)
 	all:SetPoint("TOPLEFT", 166, -312)
@@ -348,7 +348,7 @@ local function MarkerRow(sf, i)
 		local m = r.marker
 		if not m then return end
 		local u, v = M().Units(m)
-		if u and ns.Map then ns.Map.Show() ns.Map.SetView(u, v) end
+		if u and ns.Map then ns.Map.Show() ns.Map.Glide(ns.Map.SetView, u, v) end   -- (open already: gliding there)
 		UI.Edit(m)
 	end)
 	r:SetScript("OnEnter", function(self)

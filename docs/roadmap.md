@@ -60,7 +60,7 @@
 ## Étape 4 — Marqueurs (v0.6.0)
 
 - [x] Module **Marqueurs de carte** : marqueurs illimités (note, icône, couleur), catégories libres affichables
-  séparément, Ctrl+clic pour poser (suivi), fiche, liste par catégorie, lien dans le chat
+  séparément, Maj+clic pour poser (suivi), clic droit pour supprimer (v1.2 ; Ctrl+clic avant), fiche, liste par catégorie, lien dans le chat
 - [x] Partage compatible OpenMap (préfixe `OpenMap`, messages `P1`, code `OMPINS1:`) : groupe, guilde, cible ;
   réception confirmée par notre fenêtre (option : ceux du groupe sans demander)
 - [ ] Validation en jeu (checklist de `docs/development.md`)
@@ -113,6 +113,19 @@
   scripts/make_dungeon_ring.py), dragon élite pour les élites (option « Cadres donjon et élite »).
 - Options : barres de défilement proportionnelles (MinimalScrollBar) dans la fenêtre et dans Options > AddOns.
 - Titre du survol : pas de sous-zone tant que la région est surlignée ; compétence de pêche colorée selon la tienne.
+
+## Version 1.2 (en cours)
+
+- Carte : barre de recherche, menu des icônes, glissement fluide vers une destination (option « Glisser jusqu'à la
+  destination »), terrain de la minicarte dans les capitales (option).
+- Module **Intégrations** : toutes les options qui dépendent d'un autre addon, grisées « (non installé) » sans lui
+  (`requiresAddOns` sur une option) ; clic sur une entrée de donjon : AzerothVeil, DungeonJournal ou **NeedRoll** ;
+  Questie ; Forever Quest Tint (désormais désactivable) ; icônes des autres addons, **RareScanner** compris (son calque à part).
+- Une case par addon pour ses icônes (GatherMate2, HandyNotes, TomTom, RareScanner, autres) ; boutons des autres addons
+  (Krowi_WorldMapButtons) prêtés à notre carte, sous le menu des icônes.
+- [x] En jeu : NeedRoll, RareScanner (icônes, zoom, bouton et menu), GatherMate2 (une fois ses données importées dans
+  ses options : sa base était vide)
+- [ ] En jeu : TomTom
 
 ## Questions ouvertes
 

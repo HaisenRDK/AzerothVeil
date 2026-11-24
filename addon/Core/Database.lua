@@ -26,7 +26,7 @@ local _, ns = ...
 local Database = {}
 ns.Database = Database
 
-Database.SCHEMA = 7
+Database.SCHEMA = 10
 
 -- Fills dst with what's missing from defaults (tables merged deeply). A value whose type differs from
 -- its default's is replaced by the default (a corrupted or hand-edited file).
@@ -193,6 +193,50 @@ migrations[7] = function(root)
 	for k, v in pairs(pins) do
 		if type(k) == "string" and k:match("^prof_") then Copy(k, v) end   -- (the profession trainers)
 	end
+end
+
+-- 8: the Dungeons module's "Use DungeonJournal" (useDJ) becomes a choice among AzerothVeil's map, DungeonJournal
+-- and NeedRoll (journal): off, AzerothVeil's map; on (or never set), DungeonJournal, as before
+migrations[8] = function(root)
+	local m = root.modules.dungeons
+	local set = type(m) == "table" and type(m.settings) == "table" and m.settings
+	if not set then return end
+	if set.journal == nil and set.useDJ == false then set.journal = "ours" end
+	set.useDJ = nil
+end
+
+-- 9: the Integrations module (Modules/Integrations.lua) takes the options that depend on another addon: the
+-- Quests module's Questie icons, the Dungeons module's journal and Questie options, the Map module's other
+-- addons' icons; each one as it was set
+local MOVED = {
+	{ "quests", "questie", "questieIcons" },
+	{ "dungeons", "journal", "journal" },
+	{ "dungeons", "useQuestie", "questieDungeons" },
+	{ "dungeons", "onlyMine", "questieOnlyMine" },
+	{ "map", "addonPins", "addonPins" },
+}
+migrations[9] = function(root)
+	local into = type(root.modules.integrations) == "table" and root.modules.integrations or {}
+	root.modules.integrations = into
+	into.settings = type(into.settings) == "table" and into.settings or {}
+	for _, mv in ipairs(MOVED) do
+		local m = root.modules[mv[1]]
+		local set = type(m) == "table" and type(m.settings) == "table" and m.settings
+		if set and set[mv[2]] ~= nil then
+			if into.settings[mv[3]] == nil then into.settings[mv[3]] = set[mv[2]] end
+			set[mv[2]] = nil
+		end
+	end
+end
+
+-- 10: the Markers module drops a marker with Shift-click, no longer Ctrl-click: its option ctrlClick becomes
+-- shiftClick, as it was set
+migrations[10] = function(root)
+	local m = root.modules.markers
+	local set = type(m) == "table" and type(m.settings) == "table" and m.settings
+	if not set then return end
+	if set.shiftClick == nil and set.ctrlClick ~= nil then set.shiftClick = set.ctrlClick end
+	set.ctrlClick = nil
 end
 
 -- (for tests)

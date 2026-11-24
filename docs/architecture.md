@@ -31,8 +31,9 @@ AzerothVeil/                     dépôt Git (WSL)
 └── CLAUDE.local.md, .claude/    (ignorés) configuration de l'agent IA
 ```
 
-Les **intégrations tierces** vont dans `addon/Integrations/` (première : `DungeonJournal.lua`). Aujourd'hui celles de PerfectMap restent
-dans `Engine/` (Quests.lua, Tint.lua, AddonPins.lua).
+Les **intégrations tierces** vont dans `addon/Integrations/`, un fichier par addon tiers (`DungeonJournal.lua`, `NeedRoll.lua`,
+`Questie.lua`) : chacun décrit l'API publique de cet addon. Celles de PerfectMap restent dans `Engine/` (Quests.lua, Tint.lua,
+AddonPins.lua). Leurs **réglages** sont tous dans le module `integrations` (`Modules/Integrations.lua`).
 
 ### Ordre de chargement (`AzerothVeil.toc`)
 
@@ -148,15 +149,16 @@ arrêté. Les options correspondantes quittent `FM.db` pour les réglages du mod
 
 | `quests` | `Engine/Quests.lua`, `QuestLog.lua`, `Takeover.lua`, `Core.lua` (touche L) | interrupteurs effectifs (`questPOI`, `questOffers`, `questAreas`, `pins.questie`, `questLog`, `replaceQuestLog`) ; `QuestLog.Apply` (journal présent ou non, bouton de repli) ; module éteint = comportement de WoW : L et le suivi d'objectifs ouvrent le journal de Blizzard (`Takeover.KeepNative`). `FM.db.questPanel` reste l'état replié/déplié du journal |
 | `map` (Carte) | `Engine/Map.lua`, `Pins.lua`, `AddonPins.lua`, `Caves.lua`, `Terrain.lua`, `Core.lua` (touche M), `Takeover.lua`, `Fog.lua`, `UI/MinimapButton.lua` | interrupteurs effectifs (`replaceM`, `reopen`, `rememberZoom`, `fadeMoving`, `hoverHighlight`, `joinIcons`, `addonPins`, `iconScale`, `underground`, `minimapTerrain`, `zoneFishing`), valeurs « éteintes » dans `FM.MAP_OFF` (appliquées à chaque chargement) ; `MinimapButton.SetShown`, `Fog.SetEnabled/Explored`, `Labels` (noms des lieux de près, `terrainNames`, enfant de `minimapTerrain`), `Pins.RefreshExplored` (`MAP_EXPLORATION_UPDATED` écouté seulement si le brouillard est actif ou les PNJ inexplorés masqués), `npcUnexplored`. Ancien onglet « Carte » du moteur. Module éteint = carte nue : M ouvre la carte de Blizzard, ni brouillard, ni extras, ni bouton de minicarte (la carte reste ouverte par `/av` et le compartiment d'addons) |
-| `markers` (Marqueurs de carte) | `Engine/Pins.lua` (catégorie `marker`, `P.SetPins`, `P.FollowAt`, crochets `P.OnMarkerClick` / `P.OnCtrlClick`), `Engine/Spot.lua` (`SP.markerItems`), `UI/Markers.lua` | données dans `AzerothVeilDB.markers` (`Database.CheckMarkers` : liste, catégories libres, catégorie « Partagés avec moi ») ; Ctrl+clic pose un marqueur suivi et ouvre sa fiche ; partage compatible OpenMap (préfixe `OpenMap`, messages `P1`, file espacée de 0,5 s, code `OMPINS1:`) ; réception écoutée seulement si l'option est cochée, confirmation par notre propre fenêtre (pas `StaticPopupDialogs`). Éteint : hooks retirés, rien sur la carte, rien d'envoyé ni d'écouté, marqueurs conservés |
+| `markers` (Marqueurs de carte) | `Engine/Pins.lua` (catégorie `marker`, `P.SetPins`, `P.FollowAt`, crochets `P.OnMarkerClick` / `P.OnShiftClick` / `P.OnMarkerRightClick`), `Engine/Spot.lua` (`SP.markerItems`), `UI/Markers.lua` | données dans `AzerothVeilDB.markers` (`Database.CheckMarkers` : liste, catégories libres, catégorie « Partagés avec moi ») ; Maj+clic pose un marqueur suivi et ouvre sa fiche, clic droit sur un marqueur le supprime (migration 10 : `ctrlClick` → `shiftClick`) ; partage compatible OpenMap (préfixe `OpenMap`, messages `P1`, file espacée de 0,5 s, code `OMPINS1:`) ; réception écoutée seulement si l'option est cochée, confirmation par notre propre fenêtre (pas `StaticPopupDialogs`). Éteint : hooks retirés, rien sur la carte, rien d'envoyé ni d'écouté, marqueurs conservés |
 | `icons` (Icônes) | `Engine/Pins.lua` (catégories des groupes `FM.ICON_GROUPS` : `places`, `townsfolk`, `professions`) | réglages générés depuis `Pins.CATS` (mêmes clés que `FM.db.pins` : `capital`, `innkeeper`… `prof_*`), interrupteurs effectifs remis à `false` à chaque chargement ; construction seulement carte ouverte (`Pins.Ensure`, sinon à l'ouverture). Remplace les onglets Lieux / PNJ des villes / Métiers du moteur. La synchro avec le menu de PNJ de Questie passe par `MM:SetSetting` (icons, ou transports pour `flight`). « Toutes les classes » (enfant de Maîtres de classe) → `FM.db.allClassTrainers`, `Pins.RebuildKind`. « Mes métiers » : un maître s'affiche s'il est coché **ou** si vous avez le métier (`C_SkillInfo.GetSkillLineInfoByID`, sinon `GetProfessions` ; pas de `GetSkillLineInfo` sur Forever), relu à l'activation, au changement d'option et à chaque ouverture de la carte (`Pins.BeforeOpen`) : aucun événement écouté |
+| `integrations` (Intégrations) | `Engine/Quests.lua` (icônes Questie), `Tint.lua`, `AddonPins.lua` ; `Integrations/*.lua` | interrupteurs effectifs (`pins.questie`, `questTint`, `addonPins`) remis à `false` à chaque chargement ; `Integrations.Journal()` (le journal de donjon choisi : DungeonJournal, NeedRoll, ou aucun), lu par `dungeons` au clic ; options Questie des quêtes de donjon lues par `dungeons` et `UI/DungeonPanel.lua` (`MODULE_SETTING_CHANGED` redessine l'onglet Quêtes). Chaque option qui dépend d'un addon déclare `requiresAddOns` : grisée, « (non installé) » sans lui. Éteint : aucun autre addon utilisé, l'entrée d'un donjon ouvre notre carte |
 | `dungeons` | `Engine/Dungeon.lua`, `Pins.lua`, `QuestLog.lua` | interrupteurs effectifs (`pins.dungeon/raid`, `dungeonMaps`, `dungeonBosses`, `dungeonLevels`, `dungeonWays`) ; `Pins.OnDungeonClick` (aiguillage du clic), `Dungeon.ReturnView` (retour au monde), `Dungeon.Choose(..., onPick)`, `Dungeon.CollectBosses/FocusBoss/Current`, messages `DUNGEON_MAP_SHOWN/CLOSED`, `QuestLog.Suspend` |
 
 **Donjons — détails** (audit : `docs/dungeons-audit.md`).
-- Clic sur une entrée : sans DungeonJournal, la carte intérieure du moteur (sélecteur si plusieurs
-  donjons/ailes) ; avec DungeonJournal et l'option, **sa** page du donjon (`Integrations/DungeonJournal.lua` :
-  fonctions publiques sous `pcall`, correspondance par numéro d'instance + nom d'aile de nos données,
-  repli sur notre carte en cas d'échec).
+- Clic sur une entrée : la carte intérieure du moteur (sélecteur si plusieurs donjons/ailes), ou la page du
+  donjon dans le journal choisi par le module `integrations` (`Integrations/DungeonJournal.lua`,
+  `Integrations/NeedRoll.lua` : même interface `Available/KeysFor/Open/Label`, fonctions publiques sous `pcall`,
+  correspondance par numéro d'instance + nom d'aile de nos données, repli sur notre carte en cas d'échec ou de refus).
 - Retour : la vue du monde (centre, zoom) mémorisée à l'ouverture depuis une entrée est restaurée par le
   bouton Monde et le clic droit ; un second donjon ouvert depuis le premier garde le point de départ.
 - Panneau latéral (`UI/DungeonPanel.lua`) : pendant qu'une carte de donjon est affichée (ouverte depuis
@@ -217,7 +219,7 @@ par l'art du monde au zoom le plus éloigné. Éteint : frames cachées, fichier
 - Valeurs par défaut fusionnées à chaque chargement ; une valeur de mauvais type est remise par défaut.
 - **Migrations** : `Database.migrations[n]` amène un schéma n-1 à n, exécutées une fois dans l'ordre ;
   un fichier venant d'une version plus récente n'est jamais rétrogradé. Migration 1 : options amis/guilde
-  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports` ; migration 4 : entrées, cartes et boss des donjons → module `dungeons`. Migration 5 : quêtes sur la carte, icônes Questie et remplacement du journal → module `quests`. Migration 6 : options de l'onglet Carte du moteur et `core.minimap.hide` → module `map`. Migration 7 : capitales, PNJ des villes et maîtres de métiers (`engine.pins`) → module `icons`.
+  du moteur → module `social`. Migration 2 : options de transport de PerfectMap → module `transports` ; migration 3 : maîtres de vol (et ceux de l'autre faction) → module `transports` ; migration 4 : entrées, cartes et boss des donjons → module `dungeons`. Migration 5 : quêtes sur la carte, icônes Questie et remplacement du journal → module `quests`. Migration 6 : options de l'onglet Carte du moteur et `core.minimap.hide` → module `map`. Migration 7 : capitales, PNJ des villes et maîtres de métiers (`engine.pins`) → module `icons`. Migration 8 : `useDJ` de `dungeons` → choix `journal`. Migration 9 : icônes Questie (`quests`), journal et options Questie (`dungeons`), icônes des autres addons (`map`) → module `integrations`.
 - Les anciennes migrations internes de PerfectMap (dans `Engine/Core.lua`) sont conservées telles quelles
   sur `engine`.
 
@@ -256,7 +258,8 @@ faction du joueur, lu au moment du dessin). Composants natifs : `InsetFrameTempl
 
 ## 5. Contrat des intégrations tierces
 
-- Toujours **facultatives** : `requiresAddOns` pour un module qui n'a de sens qu'avec l'addon,
+- Toujours **facultatives** : `requiresAddOns` pour un module qui n'a de sens qu'avec l'addon, ou pour **une
+  option** (grisée et marquée « non installé » sans lui, `IsOptionActive` faux),
   `conflictsWithAddOns` quand l'autre addon doit prendre la main (ex. quêtes et boss de donjon quand
   DungeonJournal est actif).
 - Ne jamais modifier les fichiers ni les SavedVariables d'un autre addon ; lecture seule de leur API

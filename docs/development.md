@@ -195,10 +195,10 @@ Préparation : relancer le jeu (nouveau fichier et `.toc`).
 Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
 
 1. Onglet **Marqueurs de carte** dans les options (après Donjons), même page dans Options > AddOns.
-2. Ctrl+clic sur la carte : un marqueur (épingle) apparaît, suivi (flèche de Blizzard), sa fiche s'ouvre, saisie
+2. Maj+clic sur la carte : un marqueur (épingle) apparaît, suivi (flèche de Blizzard), sa fiche s'ouvre, saisie
    de la note ; icône, couleur, catégorie modifiables et vues aussitôt sur la carte. Entrée ou Échap ferme.
-3. Survol : note, zone et coordonnées, catégorie. Clic : la fiche ; Maj+clic : lien dans le chat ; Alt+clic :
-   supprimé ; clic droit : suivre / ne plus suivre.
+3. Survol : note, zone et coordonnées, catégorie. Clic : la fiche ; Maj+clic : lien dans le chat ; clic droit
+   (ou Alt+clic) : supprimé. Ctrl+clic sur la carte : le point de passage de Blizzard.
 4. Clic droit sur la carte : « Ajouter un marqueur ici », « Marqueurs de carte… » (aussi `/av markers`). Liste :
    catégories (case affichée/masquée, nouvelle, renommer, supprimer en deux clics), marqueurs de la catégorie
    (clic : la carte va dessus et ouvre la fiche ; croix : supprimé).
@@ -207,7 +207,7 @@ Préparation : relancer le jeu (nouveaux fichiers et `.toc`).
    ajouter / Ignorer », les marqueurs vont dans « Partagés avec moi ». Plusieurs marqueurs : envoyés un par un,
    sans message d'erreur de débit.
 7. « Recevoir les marqueurs partagés » décoché : plus rien n'arrive. Module désactivé : plus de marqueurs sur la
-   carte, Ctrl+clic pose le point de passage comme avant ; réactivé : tout revient. En combat : aucune erreur.
+   carte, Maj+clic ne fait plus rien ; réactivé : tout revient. En combat : aucune erreur.
 
 ## Checklist en jeu — journal de quêtes (v0.6.1)
 

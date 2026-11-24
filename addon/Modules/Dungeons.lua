@@ -1,14 +1,15 @@
 -- AzerothVeil — Modules/Dungeons.lua
 -- "Dungeons": the dungeons' and raids' entrances on the map, their interior maps (floors, bosses, ways in
 -- and out), the map of the place you're in, and the side panel's Quests and Bosses tabs while a dungeon's
--- map is up. With DungeonJournal (optional, Integrations/DungeonJournal.lua), a click on an entrance
--- opens its page of that dungeon instead: no second interface besides it.
+-- map is up. With DungeonJournal or NeedRoll (optional; the one picked in the Integrations module,
+-- Modules/Integrations.lua), a click on an entrance opens its page of that dungeon instead: no second
+-- interface besides it. So do Questie's data for the Quests tab (the Integrations module's option).
 --
 -- The maps are PerfectMap's (Engine/Dungeon.lua, Engine/Pins.lua); this module owns their settings and
 -- writes the engine's switches (FM.db.pins.dungeon / raid, dungeonMaps, dungeonBosses, dungeonLevels,
 -- dungeonWays), all false while it's off (Engine/Core.lua turns them off at each load, before it starts).
 -- It also:
---   * routes the click on an entrance (Pins.OnDungeonClick): its map here, or DungeonJournal's page;
+--   * routes the click on an entrance (Pins.OnDungeonClick): its map here, or the picked journal's page;
 --     several dungeons or wings at one entrance: the engine's chooser, every one of them listed;
 --   * keeps the world's view as it was when a dungeon was opened from its entrance, and puts it back
 --     (Dungeon.ReturnView: the header's World button, a right-click), the side panel too;
@@ -26,7 +27,7 @@ local BOSS_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local Dungeons = ns.Modules:Register({
 	name = "dungeons",
 	title = L["Dungeons"],
-	description = L["The dungeons' and raids' entrances on the map; a click opens the dungeon's own map in the map's window, its floors, its bosses, its ways in, with its quests and bosses beside it. With DungeonJournal, its page of the dungeon opens instead."],
+	description = L["The dungeons' and raids' entrances on the map; a click opens the dungeon's own map in the map's window, its floors, its bosses, its ways in, with its quests and bosses beside it. With DungeonJournal or NeedRoll, its page of the dungeon can open instead."],
 	onText = L["the entrances, maps and tabs picked below are there; a dungeon's map is shown inside one if that option is on."],
 	offText = L["no entrance icon, no dungeon map, no tab: nothing of it shows or runs."],
 	order = 30,
@@ -57,33 +58,25 @@ local Dungeons = ns.Modules:Register({
 			tooltip = L["Inside a dungeon, raid or battleground, the map shows that place's own map (the header's World button: the world's)."] },
 		{ type = "header", label = L["Side panel"] },
 		{ key = "questsTab", icon = "Interface\\GossipFrame\\AvailableQuestIcon", type = "toggle", default = true,
-			label = L["Quests tab"],
-			tooltip = L["While a dungeon's map is up, beside it: the quests of your quest log for that dungeon, their progress and rewards."] },
-		{ key = "useQuestie", icon = "Interface\\AddOns\\Questie\\Icons\\questie.png", type = "toggle", default = true, parent = "questsTab",
-			label = L["Use Questie's data for dungeon quests"],
-			tooltip = L["With Questie installed: every quest of the dungeon for your faction, not only those of your log: available, not yet, in progress or done (the game's own state), who gives it and where. Read from Questie, nothing changed there."] },
-		{ key = "onlyMine", icon = "Interface\\TargetingFrame\\UI-PVP-FFA", type = "toggle", default = true, parent = "useQuestie",
-			label = L["Only quests for my faction and class"],
-			tooltip = L["Off: every quest of the dungeon, those of the other faction and of other classes too; a quest for one faction or for some classes only shows their icons at the end of its line."] },
+			label = L["The dungeon's quests"],
+			tooltip = L["While a dungeon's map is up, in the panel beside it: its quests first (those of your log; with Questie's data, all of them), their progress and rewards."] },
 		{ key = "bossesTab", icon = BOSS_ICON, type = "toggle", default = true,
-			label = L["Bosses tab"],
-			tooltip = L["While a dungeon's map is up, beside it: its bosses, their levels; a click shows where one stands."] },
-		{ type = "header", label = L["Integrations"] },
-		{ key = "useDJ", icon = "Interface\\Icons\\INV_Misc_Book_09", type = "toggle", default = true,
-			label = L["Use DungeonJournal when it's there"],
-			tooltip = L["With the DungeonJournal addon loaded, a click on an entrance opens its page of that dungeon (its map, quests, bosses and loot); AzerothVeil's tabs then stay away. Its own settings (locked dungeons, spoilers) apply."] },
+			label = L["The dungeon's bosses"],
+			tooltip = L["While a dungeon's map is up, in the panel beside it: its bosses after its quests; a click opens a boss's page, its loot, and shows where it stands."] },
 	},
 })
 
 ---------------------------------------------------------------------------
--- DungeonJournal: in charge of the entrances' clicks while it's there and asked for
+-- DungeonJournal or NeedRoll: in charge of the entrances' clicks while it's there and picked
 ---------------------------------------------------------------------------
--- (DungeonJournal's two parts of one of our entrances, named in the player's language)
-local PART_NAMES = { ["Stratholme: Living"] = L["Stratholme: Living"], ["Stratholme: Undead"] = L["Stratholme: Undead"] }
-
-function Dungeons:UsesJournal()
-	return self:IsOptionActive("useDJ") and DJ.Available() or false
+-- the picked journal (Integrations/*.lua: Available, KeysFor, Open, Label), if it's there; else nil (the
+-- Integrations module's option, Modules/Integrations.lua: read at each click)
+function Dungeons:Journal()
+	local I = ns.Modules:Get("integrations")
+	return I and I.Journal() or nil
 end
+
+function Dungeons:UsesJournal() return self:Journal() ~= nil end
 
 ---------------------------------------------------------------------------
 -- The world's view kept while a dungeon's map is up, put back after
@@ -118,23 +111,24 @@ end
 
 function Dungeons:Click(wings, title)
 	if not wings or #wings == 0 then return end
-	if self:UsesJournal() then
+	local J = self:Journal()
+	if J then
 		-- (its dungeons for these wings; a wing it doesn't have, a raid: AzerothVeil's own map)
 		local entries = {}
 		for _, w in ipairs(wings) do
-			local keys = DJ.KeysFor(w)
+			local keys = J.KeysFor(w)
 			if #keys == 0 then
 				if self:IsOptionActive("maps") then entries[#entries + 1] = w end
 			else
 				for _, key in ipairs(keys) do
-					entries[#entries + 1] = { id = w.id, name = w.name, label = #keys > 1 and (PART_NAMES[key] or key) or w.label, raid = w.raid,
+					entries[#entries + 1] = { id = w.id, name = w.name, label = #keys > 1 and (J.Label(key) or key) or w.label, raid = w.raid,
 						lo = w.lo, hi = w.hi, key = key }
 				end
 			end
 		end
 		local function Pick(e)
-			if e.key and DJ.Open(e.key) then return end
-			if self:IsOptionActive("maps") then OpenHere(e) end     -- (DungeonJournal failed: ours)
+			if e.key and J.Open(e.key) then return end
+			if self:IsOptionActive("maps") then OpenHere(e) end     -- (the journal failed, or said no: ours)
 		end
 		if #entries == 1 then Pick(entries[1])
 		elseif #entries > 1 then ns.Dungeon.Choose(entries, nil, title, Pick) end
@@ -193,15 +187,16 @@ end
 
 local STATUS_ORDER = { complete = 1, active = 2, failed = 3, available = 4, locked = 5, done = 6 }
 
--- The dungeon's quests for the Quests tab: with "Use Questie's data" and Questie there, every quest Questie
+-- The dungeon's quests for the Quests tab: with "Use Questie's data" (the Integrations module's) and Questie there, every quest Questie
 -- files under the dungeon for your faction, each quest of your log taking its own entry's place (its
 -- progress and rewards); else the quests of your log. Second result: "questie" or "log". nil while
 -- Questie's quests are being read (onReady once they are).
 function Dungeons.QuestsFor(inst, onReady)
 	local log = Dungeons.LogQuestsFor(inst)
 	local Qz = ns.Questie
-	if not (Dungeons:IsOptionActive("useQuestie") and Qz and Qz.Available()) then return log, "log" end
-	local list = Qz.QuestsFor(inst, onReady, not Dungeons:IsOptionActive("onlyMine"))
+	local MM = ns.Modules
+	if not (MM:IsOptionActive("integrations", "questieDungeons") and Qz and Qz.Available()) then return log, "log" end
+	local list = Qz.QuestsFor(inst, onReady, not MM:IsOptionActive("integrations", "questieOnlyMine"))
 	if list == nil then return nil, "questie" end
 	local mine = {}
 	for _, q in ipairs(log) do mine[q.questID] = q end
@@ -235,7 +230,22 @@ function Dungeons.ShowQuest(q)
 	if ns.Map.SetMark then
 		ns.Map.SetMark(giver.uiMap, giver.x, giver.y, q.title, giver.name and L["Given by %s"]:format(giver.name))
 	end
-	ns.Map.ShowSpot(giver.uiMap, giver.x, giver.y)
+	ns.Map.Glide(ns.Map.ShowSpot, giver.uiMap, giver.x, giver.y)
+	ns.Map.MarkDirty()
+end
+
+-- the dungeon's entrance on the world map (the panel's entrance icon): its map put away, the world on you, then a
+-- glide from you to its entrance (out a little and back in when it's far: Map.Glide). You not on the world map
+-- (inside it): straight on its entrance
+local ENTRANCE_ACROSS = 140            -- (how much of the world is across the view: the engine's on a way in)
+function Dungeons.ShowEntrance(inst)
+	if not ns.Pins.InstanceUnits then return end
+	local u, v = ns.Pins.InstanceUnits(inst)      -- (both values: "a and f()" would keep only the first)
+	if not (u and v) then return end
+	saved = nil                         -- (to its entrance, not back to where it was opened from)
+	if ns.Dungeon.Current() then ns.Dungeon.Back() end
+	ns.Map.CenterOnPlayer(ENTRANCE_ACROSS)
+	ns.Map.Glide(ns.Map.SetView, u, v, ENTRANCE_ACROSS)
 	ns.Map.MarkDirty()
 end
 
@@ -253,13 +263,35 @@ function Dungeons.BossesFor(inst)
 	return out
 end
 
+-- (a name as Engine/Data/DropRates.lua keys them: lower case, letters and digits only, no leading "the")
+local function RateKey(name)
+	if type(name) ~= "string" then return nil end
+	return (name:gsub("%s*<[^>]*>", ""):lower():gsub("^the%s+", ""):gsub("[^%w]", ""))
+end
+
+-- An item's drop rate from a boss (0..1; Engine/Data/DropRates.lua, NeedRoll's): the boss's own, by its name or
+-- one of its other names, else the item's single rate wherever it drops; nil when none is known
+function Dungeons.DropRate(names, itemID)
+	local R = ns.DROP_RATES
+	if not (R and itemID) then return nil end
+	for _, n in ipairs(names) do
+		local t = R.byBoss[RateKey(n) or ""]
+		if t and t[itemID] then return t[itemID] end
+	end
+	return R.byItem[itemID]
+end
+
 -- A boss's loot: DungeonJournal's list (read only) when it's installed; nil when it isn't, false when it
--- has nothing for that boss. AzerothVeil's own data has no loot: nothing is made up.
+-- has nothing for that boss. AzerothVeil's own data has no loot: nothing is made up. (AzerothVeil: each item with
+-- its drop rate when one is known: it.rate)
 function Dungeons.BossLoot(inst, wingName, boss)
 	if not DJ.NS() then return nil end
 	local names = { boss.key, boss.name }
 	for _, a in ipairs(boss.aliases or {}) do names[#names + 1] = a end
-	return DJ.BossLoot(inst, wingName, names) or false
+	local loot = DJ.BossLoot(inst, wingName, names)
+	if not loot then return false end
+	for _, it in ipairs(loot) do it.rate = Dungeons.DropRate(names, it.itemID) end
+	return loot
 end
 
 ---------------------------------------------------------------------------
@@ -312,6 +344,12 @@ local function Apply(self, running)
 	db.dungeonMaps = On("auto")
 	ns.Pins.OnDungeonClick = running and function(wings, title) self:Click(wings, title) end or nil
 	ns.Dungeon.ReturnView = running and Dungeons.ReturnView or nil
+	-- (a click on a boss on the dungeon's map: its page in the panel, while the panel is there)
+	ns.Dungeon.OnBossClick = running and function(name)
+		if panelUp and ns.DungeonPanel then ns.DungeonPanel.OpenBoss(name) end
+	end or nil
+	-- (a right-click on the dungeon's map: the panel back to the dungeon's page first, while it's on another)
+	ns.Dungeon.OnBack = running and function() return ns.DungeonPanel and ns.DungeonPanel.Back() or false end or nil
 	-- (the passages between floors: DungeonJournal's, where it's installed and the maps are the game's)
 	ns.Dungeon.FloorLinks = On("ways") and DJ.FloorLinks or nil
 	-- (the bosses no map places: in the Bosses tab, not over the map, while that tab is there)
@@ -336,6 +374,12 @@ function Dungeons:Enable()
 		-- (the window closed with the dungeon's map: nothing to go back to next time)
 		if not ns.Map.IsShown() then saved = nil end
 	end)
+	-- (the Integrations module's Questie options changed, or it turned on or off: the Quests tab drawn again)
+	local function Integrations(_, name)
+		if name == "integrations" and panelUp and ns.DungeonPanel then ns.DungeonPanel.Refresh() end
+	end
+	self:RegisterMessage("MODULE_SETTING_CHANGED", Integrations)
+	self:RegisterMessage("MODULE_ENABLED_CHANGED", Integrations)
 	Apply(self, true)
 	-- (a dungeon's map already up: its panel)
 	local inst = ns.Dungeon.Current()

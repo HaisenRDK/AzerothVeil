@@ -804,7 +804,7 @@ local function SearchOnMap()
 		local l, r, t, b = FM.Quests.SearchBounds(set)
 		if l then
 			if FM.Dungeon then FM.Dungeon.ToWorld() end
-			FM.Map.ShowUnits(l, r, t, b, 50)
+			FM.Map.Glide(FM.Map.ShowUnits, l, r, t, b, 50)   -- (gliding there)
 		end
 	end
 end

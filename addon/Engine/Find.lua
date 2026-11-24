@@ -62,9 +62,9 @@ Run = function(r)
 	if FM.Dungeon then FM.Dungeon.ToWorld() end
 	if r.kind == "place" then
 		marks[1] = { r.u, r.v }
-		FM.Map.SetView(r.u, r.v, 60)
+		FM.Map.Glide(FM.Map.SetView, r.u, r.v, 60)     -- (AzerothVeil: gliding there)
 	elseif r.kind == "zone" then
-		FM.Map.ShowMapID(r.zone)
+		FM.Map.Glide(FM.Map.ShowMapID, r.zone)
 	elseif r.kind == "near" then
 		local u, v = Here()
 		local found = FM.Pins.Nearest(r.cat.key, u, v, NEAREST)
@@ -77,7 +77,7 @@ Run = function(r)
 		end
 		-- (you and the nearest both in view, framed together; no closer in than the map's step 10, Map.lua)
 		local near = found[1]
-		FM.Map.ShowUnits(math.min(u, near.u), math.max(u, near.u), math.min(v, near.v), math.max(v, near.v),
+		FM.Map.Glide(FM.Map.ShowUnits, math.min(u, near.u), math.max(u, near.u), math.min(v, near.v), math.max(v, near.v),
 			FM.W / FM.Map.Cran(10))
 		FM.Print(L["Nearest: %s"]:format(near.title or r.cat.label))
 	end

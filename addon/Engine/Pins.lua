@@ -995,7 +995,8 @@ function P.Hover(clear)
 	if n > 0 then
 		local first = hovered[1]
 		local picked = waypointPin and (waypointPin == first or waypointPin.leader == first)
-		local right = L["Right-click: "] .. (picked and L["remove waypoint"] or L["set waypoint"])
+		local right = L["Right-click: "] .. ((first.marker and P.OnMarkerRightClick) and L["delete"]          -- (AzerothVeil: a marker's)
+			or picked and L["remove waypoint"] or L["set waypoint"])
 		tipLines[#tipLines + 1] = { first.exits and (L["Left-click: show that zone   "] .. right) or (first.insts or first.away) and (L["Left-click: its map   "] .. right) or right, 0.5, 0.5, 0.52, 10 }
 	end
 	-- (on the pin itself, not the cursor: it never trails behind)
@@ -1052,6 +1053,8 @@ function P.RightClick()
 	FindUnderCursor()
 	if hoverWaypoint then ClearWaypoint() return true end
 	local pin = nHovered > 0 and hovered[1]
+	-- (AzerothVeil: a map marker: the Markers module's right-click, deleting it)
+	if pin and pin.marker and P.OnMarkerRightClick then P.OnMarkerRightClick(pin.marker) return true end
 	if pin then ToggleWaypoint(pin) return true end
 	return false
 end
@@ -1089,13 +1092,15 @@ function P.Click()
 		-- (a dock to a land off the world map, Zephras Isle: that land's own map, as a dungeon's)
 		if pin.away then FM.Isles.Open(pin.away) return end
 		-- (AzerothVeil: a signpost into the next zone: that zone whole; into several, all of them)
-		if pin.exits then FM.Map.ShowMaps(pin.exits) Sound("IG_MAINMENU_OPTION_CHECKBOX_ON") return end
+		if pin.exits then FM.Map.Glide(FM.Map.ShowMaps, pin.exits) Sound("IG_MAINMENU_OPTION_CHECKBOX_ON") return end
 		-- (AzerothVeil: a dock or a tram station, its click the Transports module's while it's on)
 		if pin.travel and P.OnTravelClick then P.OnTravelClick(pin) return end
+	elseif IsShiftKeyDown() then
+		-- (AzerothVeil: the Markers module's Shift-click while it's on: a marker dropped there)
+		local u, v = FM.Map.CursorUnits()
+		if P.OnShiftClick then P.OnShiftClick(u, v) end
 	elseif IsControlKeyDown() then
 		local u, v = FM.Map.CursorUnits()
-		-- (AzerothVeil: the Markers module's Ctrl-click while it's on: a marker dropped there)
-		if P.OnCtrlClick and P.OnCtrlClick(u, v) then return end
 		SetWaypointAt(u, v)
 	end
 end

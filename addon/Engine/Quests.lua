@@ -1289,11 +1289,11 @@ function Q.Focus(questID)
 	end
 	if dungeon then dungeon.ToWorld() end
 	if u then
-		FM.Map.SetView(u, v, 140)
+		FM.Map.Glide(FM.Map.SetView, u, v, 140)         -- (AzerothVeil: gliding there)
 	else
 		local r = m and m > 0 and Geo.Rect(m)
 		if r then
-			FM.Map.SetView((r[1] + r[2]) / 2, (r[3] + r[4]) / 2, max(r[2] - r[1], (r[4] - r[3]) * 1.5) * 1.1)
+			FM.Map.Glide(FM.Map.SetView, (r[1] + r[2]) / 2, (r[3] + r[4]) / 2, max(r[2] - r[1], (r[4] - r[3]) * 1.5) * 1.1)
 		end
 	end
 	FM.Map.MarkDirty()

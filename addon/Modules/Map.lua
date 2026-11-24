@@ -21,7 +21,7 @@ local L = ns.L
 local Map = ns.Modules:Register({
 	name = "map",
 	title = L["Map"],
-	description = L["How the map opens and what it draws: M, the minimap button, the fog of war over the land you haven't explored, the zone under the cursor, other addons' icons, the icons' size, and the detail that comes in up close."],
+	description = L["How the map opens and what it draws: M, the minimap button, the fog of war over the land you haven't explored, the zone under the cursor, the icons' size, and the detail that comes in up close."],
 	onText = L["the options below apply to the map."],
 	offText = L["the map plain: M opens Blizzard's map; this one still opens with /av or the addon compartment, without fog, highlight, other addons' icons, caves or terrain up close, nor minimap button."],
 	order = 5,
@@ -41,6 +41,9 @@ local Map = ns.Modules:Register({
 		{ key = "minimapButton", icon = ns.MEDIA .. "icon", type = "toggle", default = true,
 			label = L["Minimap button"],
 			tooltip = L["Left-click: open or close the map"] .. "\n" .. L["Right-click: options"] },
+		{ key = "smoothTravel", type = "toggle", default = true,
+			label = L["Glide to places"],
+			tooltip = L["When the map goes somewhere (a quest, a boat's or zeppelin's destination, a search, a marker), it glides there smoothly, out a little and back in when it's far."] .. "\n" .. L["Off: it jumps there at once."] },
 		{ key = "fadeMoving", type = "toggle", default = false,
 			label = L["Fade while moving"],
 			tooltip = L["The map turns see-through while you move."] },
@@ -60,9 +63,6 @@ local Map = ns.Modules:Register({
 		{ key = "joinIcons", type = "toggle", default = true,
 			label = L["Sum identical icons"],
 			tooltip = L["Identical icons that overlap show as one, with their count, every one of them in its tooltip, at every zoom."] .. "\n" .. L["Off: every icon on its own."] },
-		{ key = "addonPins", type = "toggle", default = true,
-			label = L["Other addons' icons"],
-			tooltip = L["Icons other addons put on Blizzard's map (GatherMate2, HandyNotes, TomTom and others) show on this one, exactly where they put them, with their own tooltips and clicks."] .. "\n" .. L["They show two steps of the wheel closer than the townsfolk."] },
 		{ key = "mapSearch", icon = "Interface\\Common\\UI-Searchbox-Icon", type = "toggle", default = true,
 			label = L["Search on the map"],
 			tooltip = L["In the map's top left corner, a search box: a place, a zone or a kind of icon (innkeeper, bank...), and the map goes there, what's found in a gold glow."] .. "\n" .. L["Empty, it offers the nearest innkeeper, bank, flight master..."] },
@@ -109,19 +109,20 @@ local Map = ns.Modules:Register({
 local function Apply(self, running)
 	local function On(key) return running and self:IsOptionActive(key) or false end
 	local db = ns.db
-	local was = { replaceM = db.replaceM, iconScale = db.iconScale, addonPins = db.addonPins, zoneFishing = db.zoneFishing, zoneLevels = db.zoneLevels,
+	local was = { replaceM = db.replaceM, iconScale = db.iconScale, zoneFishing = db.zoneFishing, zoneLevels = db.zoneLevels,
 		npcUnexplored = db.npcUnexplored }
 	db.replaceM = On("replaceM")
 	db.reopen = On("centerOnOpen") and "player" or "last"
 	db.rememberZoom = On("rememberZoom")
 	db.fadeMoving = On("fadeMoving")
+	db.smoothTravel = On("smoothTravel")
 	db.hoverHighlight = On("hoverHighlight")
 	db.joinIcons = On("joinIcons")
 	db.iconMenu = On("iconMenu")
 	db.mapSearch = On("mapSearch")
 	if ns.Find then ns.Find.Apply() end
 	if ns.IconMenu then ns.IconMenu.Apply() end
-	db.addonPins = On("addonPins")
+	if ns.AddonButtons then ns.AddonButtons.Update() end      -- (their column hangs under the icon menu's button)
 	db.iconScale = running and tonumber(self:Get("iconScale")) or 1
 	db.underground = On("underground")
 	db.minimapTerrain = On("minimapTerrain")
@@ -138,7 +139,6 @@ local function Apply(self, running)
 	db.npcUnexplored = not running or self:IsOptionActive("unexploredNPCs")
 	if was.replaceM ~= db.replaceM and ns.ApplyBindings then ns.ApplyBindings() end   -- (M: ours or Blizzard's)
 	if was.iconScale ~= db.iconScale and ns.Pins and ns.Pins.ApplyScale then ns.Pins.ApplyScale() end
-	if was.addonPins ~= db.addonPins and ns.AddonPins then ns.AddonPins.Refresh() end
 	if (was.zoneFishing ~= db.zoneFishing or was.zoneLevels ~= db.zoneLevels) and ns.Map.ResetHover then ns.Map.ResetHover() end
 	if was.npcUnexplored ~= db.npcUnexplored and ns.Pins.RefreshExplored then ns.Pins.RefreshExplored() end
 	if ns.MinimapButton then ns.MinimapButton.SetShown(On("minimapButton")) end

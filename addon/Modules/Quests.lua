@@ -1,23 +1,21 @@
 -- AzerothVeil — Modules/Quests.lua
 -- "Quests": the quest log's quests on the map as Blizzard's map shows them (their buttons, the "!" of
--- quests to pick up, the quest areas), Questie's icons when it's installed, and the quest log docked
+-- quests to pick up, the quest areas) and the quest log docked
 -- beside the map, which the L key and the objective tracker's clicks can open instead of Blizzard's.
 --
 -- The work is PerfectMap's: Engine/Quests.lua (the map's quests), Engine/QuestLog.lua (the log),
 -- Engine/Takeover.lua and the L key (Engine/Core.lua). This module owns their settings and writes the
--- engine's switches (FM.db.questPOI, questOffers, questAreas, pins.questie, questLog, replaceQuestLog),
+-- engine's switches (FM.db.questPOI, questOffers, questAreas, questLog, replaceQuestLog),
 -- all false while it's off (Engine/Core.lua turns them off at each load, before it starts).
 -- Off: WoW's own way. No quest on the map, no log beside it; L and the tracker open Blizzard's quest log.
 -- (The engine's quest events stay heard: the Dungeons module's Quests tab reads them too.)
 local _, ns = ...
 local L = ns.L
 
-local QUESTIE_ICON = "Interface\\AddOns\\Questie\\Icons\\questie.png"
-
 local Quests = ns.Modules:Register({
 	name = "quests",
 	title = L["Quests"],
-	description = L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, Questie's icons, and a quest log docked beside the map that L and the objective tracker open."],
+	description = L["The quest log's quests on the map as Blizzard's map shows them, the quests to pick up and the quest areas, and a quest log docked beside the map that L and the objective tracker open."],
 	onText = L["the quests picked below show on the map; the quest log beside it replaces Blizzard's if that option is on."],
 	offText = L["WoW's own way: no quest on this map, no quest log beside it; L and the objective tracker open Blizzard's quest log."],
 	order = 20,
@@ -37,9 +35,6 @@ local Quests = ns.Modules:Register({
 		{ key = "areas", icon = "Interface\\Icons\\INV_Misc_Map_01", type = "toggle", default = true,
 			label = L["Quest areas"],
 			tooltip = L["The blue area of the followed quest, and of the one under the mouse."] },
-		{ key = "questie", iconMenu = true, icon = QUESTIE_ICON, type = "toggle", default = true,
-			label = L["Questie icons"],
-			tooltip = L["With Questie installed: Questie's quest, objective and turn-in icons, with its own tooltips."] },
 		{ key = "tipLevel", icon = "Interface\\Icons\\INV_Misc_Note_02", type = "toggle", default = true,
 			label = L["Quest level in tooltips"],
 			tooltip = L["Hovering a quest on the map: its level before its name, \"(level) Name\", with its kind's letter: D dungeon, R raid, P PvP, + elite or group, L legendary."] },
@@ -97,7 +92,6 @@ local function Apply(self, running)
 	db.questPOIFar = On("poiFar")
 	db.questOffers = On("offers")
 	db.questAreas = On("areas")
-	db.pins.questie = On("questie")
 	db.questLog = On("log")
 	db.replaceQuestLog = On("replace")
 	db.questTipLevel = On("tipLevel")

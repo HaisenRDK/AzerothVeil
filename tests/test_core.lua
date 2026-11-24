@@ -328,6 +328,7 @@ local function LoadTransports(saved, engineDb)
 		MarkDirty = function() end,
 		ViewNow = function() return 0, 0, st.scale, st.vw, 533 end,
 		SetView = function(u, v, across) st.view = { u, v, across } end,
+		Glide = function(Set, ...) st.glided = (st.glided or 0) + 1 return Set(...) end,
 	}
 	local chunk = assert(loadfile(ADDON_DIR .. "Modules/Transports.lua"))
 	chunk("AzerothVeil", ns)
@@ -506,7 +507,7 @@ test("on by default: the quests on the map, the log, ours on L", function()
 	Boot(ns)
 	local db = ns.db
 	eq(db.questPOI, true, "poi") eq(db.questOffers, true, "offers") eq(db.questAreas, true, "areas")
-	eq(db.pins.questie, true, "questie") eq(db.questLog, true, "log") eq(db.replaceQuestLog, true, "L")
+	eq(db.questLog, true, "log") eq(db.replaceQuestLog, true, "L")
 	eq(st.applied > 0, true, "log told") eq(st.bindings > 0, true, "L bound again")
 end)
 test("disabled: WoW's own way, settings kept", function()
@@ -515,7 +516,6 @@ test("disabled: WoW's own way, settings kept", function()
 	ns.Modules:Disable("quests")
 	local db = ns.db
 	for _, k in ipairs({ "questPOI", "questOffers", "questAreas", "questLog", "replaceQuestLog" }) do eq(db[k], false, k) end
-	eq(db.pins.questie, false, "questie")
 	eq(ns.Modules:GetSetting("quests", "log"), true, "setting kept")
 end)
 test("no log beside the map: L stays Blizzard's", function()
@@ -530,7 +530,8 @@ test("migration 5: PerfectMap's quest switches become the module's settings", fu
 	Boot(ns)
 	local get = function(k) return ns.Modules:GetSetting("quests", k) end
 	eq(get("poi"), false, "poi") eq(get("areas"), true, "areas") eq(get("replace"), false, "replace")
-	eq(get("questie"), false, "questie") eq(get("offers"), true, "missing: default")
+	eq(get("offers"), true, "missing: default")
+	eq(_G.AzerothVeilDB.modules.integrations.settings.questieIcons, false, "questie: on to the Integrations module (migration 9)")
 end)
 
 ---------------------------------------------------------------------------
@@ -563,7 +564,7 @@ test("on by default: M ours, the map's options in effect, no fog", function()
 	Boot(ns)
 	local db = ns.db
 	eq(db.replaceM, true, "M") eq(db.reopen, "player", "centre on me") eq(db.rememberZoom, true, "zoom")
-	eq(db.hoverHighlight, true, "highlight") eq(db.joinIcons, true, "sum") eq(db.addonPins, true, "addons' icons")
+	eq(db.hoverHighlight, true, "highlight") eq(db.joinIcons, true, "sum")
 	eq(db.underground, true, "caves") eq(db.minimapTerrain, true, "terrain") eq(db.zoneFishing, false, "fishing")
 	eq(db.fadeMoving, false, "fade") eq(db.iconScale, 1, "size")
 	eq(st.bindings > 0, true, "M bound") eq(st.button, true, "minimap button") eq(st.fog, false, "no fog")
@@ -805,18 +806,36 @@ end
 local function LastSet(st) return st.sets[#st.sets] or {} end
 
 print("Map markers module")
-test("Ctrl-click drops a marker, followed, its card open; on the map", function()
+test("Shift-click drops a marker, followed, its card open; on the map", function()
 	local ns, st = LoadMarkers(nil)
 	Boot(ns)
 	local d = ns.Database.Root().markers
 	eq(#d.cats, 1, "one category") eq(#d.list, 0, "no marker")
-	eq(ns.Pins.OnCtrlClick(45, 63), true, "taken")
+	eq(ns.Pins.OnShiftClick(45, 63), true, "taken")
 	eq(#d.list, 1, "dropped") eq(d.list[1].map, 1429, "on its zone") eq(d.list[1].x, 0.45, "x")
 	eq(st.followed ~= nil, true, "followed") eq(st.edited[2], true, "card, fresh")
 	eq(#LastSet(st), 1, "on the map") eq(ns.db.pins.marker, true, "kind on")
-	eq(ns.Pins.OnCtrlClick(150, 150), true, "at sea: on the continent") eq(d.list[2].map, 1415, "continent")
-	ns.Modules:SetSetting("markers", "ctrlClick", false)
-	eq(ns.Pins.OnCtrlClick(10, 10), false, "off: the waypoint's, as before")
+	eq(ns.Pins.OnShiftClick(150, 150), true, "at sea: on the continent") eq(d.list[2].map, 1415, "continent")
+	ns.Modules:SetSetting("markers", "shiftClick", false)
+	eq(ns.Pins.OnShiftClick(10, 10), false, "off: nothing")
+end)
+test("right-click on a marker deletes it; off, the waypoint's as before", function()
+	local ns, st = LoadMarkers(nil)
+	Boot(ns)
+	local d = ns.Database.Root().markers
+	ns.Pins.OnShiftClick(45, 63) ns.Pins.OnShiftClick(46, 64)
+	local first = d.list[1]
+	ns.Pins.OnMarkerRightClick(first)
+	eq(#d.list, 1, "one left") eq(d.list[1] ~= first, true, "the right-clicked one gone")
+	eq(#LastSet(st), 1, "the map drawn again")
+	ns.Modules:Disable("markers")
+	eq(ns.Pins.OnMarkerRightClick, nil, "off: no right-click of its own") eq(ns.Pins.OnShiftClick, nil, "nor Shift-click")
+end)
+test("migration 10: Ctrl-click's option becomes Shift-click's, as it was set", function()
+	local ns = LoadMarkers({ schema = 9, modules = { markers = { enabled = true, settings = { ctrlClick = false } } } })
+	Boot(ns)
+	eq(ns.Modules:GetSetting("markers", "shiftClick"), false, "kept off")
+	eq(_G.AzerothVeilDB.modules.markers.settings.ctrlClick, nil, "old key gone")
 end)
 test("categories: hidden off the map; one deleted with its markers; the first stays", function()
 	local ns, st = LoadMarkers(nil)
@@ -928,9 +947,11 @@ end)
 -- Modules/Dungeons.lua and Integrations/DungeonJournal.lua, on a stand-in engine and DungeonJournal
 ---------------------------------------------------------------------------
 -- dj: nil (not installed) or { locked = { [name] = true }, broken = true }
-local function LoadDungeons(saved, dj)
+-- nr: nil (NeedRoll not installed) or { noMap = { [key] = true }, broken = true }
+local function LoadDungeons(saved, dj, nr)
 	local ns = LoadCore(saved)
 	_G.ForeverDungeonJournal_NS, _G.ForeverDungeonJournalFrame, _G.ForeverDungeonJournal_Toggle = nil, nil, nil
+	_G.NeedRoll_ShowMap, _G.NeedRoll_ShowLoot = nil, nil
 	local st = { opened = {}, chosen = nil, view = nil, suspended = nil, panel = nil, journal = {}, side = nil }
 	ns.db = { pins = {} }
 	ns.W = 1002
@@ -946,6 +967,7 @@ local function LoadDungeons(saved, dj)
 	ns.Map = {
 		ViewNow = function() return st.left, st.top, st.scale, st.vw, st.vh end,
 		SetView = function(u, v, across) st.view = { u, v, across } end,
+		Glide = function(Set, ...) st.glided = (st.glided or 0) + 1 return Set(...) end,
 		MarkDirty = function() end,
 		IsShown = function() return st.mapShown or false end,
 		SetSideWidth = function(w) st.side = w end,
@@ -980,12 +1002,23 @@ local function LoadDungeons(saved, dj)
 		_G.ForeverDungeonJournalFrame = { IsShown = function() return st.djShown end }
 		_G.ForeverDungeonJournal_Toggle = function() st.djShown = true end
 	end
+	st.needroll = {}
+	if nr then
+		stub.loadedAddOns.NeedRoll = true
+		_G.NeedRoll_ShowMap = function(key) if nr.broken then error("broken") end
+			if (nr.noMap or {})[key] then return false end st.needroll[#st.needroll + 1] = "map:" .. tostring(key) return true end
+		_G.NeedRoll_ShowLoot = function(key) if nr.broken then error("broken") end
+			st.needroll[#st.needroll + 1] = "loot:" .. tostring(key) return true end
+	end
 	assert(loadfile(ADDON_DIR .. "Integrations/DungeonJournal.lua"))("AzerothVeil", ns)
+	assert(loadfile(ADDON_DIR .. "Integrations/NeedRoll.lua"))("AzerothVeil", ns)
 	assert(loadfile(ADDON_DIR .. "Integrations/Questie.lua"))("AzerothVeil", ns)
 	assert(loadfile(ADDON_DIR .. "Modules/Dungeons.lua"))("AzerothVeil", ns)
-	-- (Boot without a reset: the stand-in DungeonJournal stays loaded)
+	assert(loadfile(ADDON_DIR .. "Modules/Integrations.lua"))("AzerothVeil", ns)
+	-- (Boot without a reset: the stand-ins stay loaded)
 	ns.Database.Load() ns.Modules:LoadSettings()
 	if dj then stub.loadedAddOns.ForeverDungeonJournal = true end
+	if nr then stub.loadedAddOns.NeedRoll = true end
 	ns.Modules:Start()
 	return ns, st
 end
@@ -1070,9 +1103,137 @@ test("DungeonJournal failing, or not wanted: our own map", function()
 	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
 	eq(st.opened[1], 36, "fallback")
 	local ns2, st2 = LoadDungeons(nil, {})
-	ns2.Modules:SetSetting("dungeons", "useDJ", false)
+	ns2.Modules:SetSetting("integrations", "journal", "ours")
 	ns2.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
 	eq(st2.opened[1], 36, "option off: ours") eq(#st2.journal, 0, "journal left alone")
+end)
+test("NeedRoll picked: its map of the dungeon, by its own IDs; wings, Stratholme's halves, raids", function()
+	local ns, st = LoadDungeons(nil, nil, {})
+	ns.Modules:SetSetting("integrations", "journal", "needroll")
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.needroll[1], "map:DEADMINES", "its map") eq(#st.opened, 0, "not ours")
+	ns.Pins.OnDungeonClick({ { id = 189, name = "Scarlet Monastery - Library" } }, "SM")
+	eq(st.needroll[2], "map:SM_LIBRARY", "a wing by its data name")
+	ns.Pins.OnDungeonClick({ { id = 329, name = "Stratholme" } }, "Stratholme")
+	eq(#st.chosen.entries, 2, "its two halves") eq(st.chosen.entries[2].label, "Stratholme: Undead", "named")
+	st.chosen.onPick(st.chosen.entries[2])
+	eq(st.needroll[3], "map:STRAT_UNDEAD", "the picked half")
+	ns.Pins.OnDungeonClick({ { id = 409, name = "Molten Core", raid = true } }, "MC")
+	eq(st.needroll[4], "map:MOLTEN_CORE", "a raid too")
+	ns.Pins.OnDungeonClick({ { id = 3065, name = "The Hall of Thanes" } }, "Thanes")
+	eq(st.needroll[5], "map:HALL_OF_THANES", "a dungeon of Forever, by its ID")
+	eq(st.panel, nil, "no tabs of ours while it's in charge")
+	ns.Callbacks:Fire("DUNGEON_MAP_SHOWN", 36, false)
+	eq(st.panel, nil, "no second interface")
+end)
+test("NeedRoll: no map there, its page; failing or saying no, ours; not installed, ours", function()
+	local ns, st = LoadDungeons(nil, nil, { noMap = { DEADMINES = true } })
+	ns.Modules:SetSetting("integrations", "journal", "needroll")
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.needroll[1], "loot:DEADMINES", "its page")
+	local ns2, st2 = LoadDungeons(nil, nil, { broken = true })
+	ns2.Modules:SetSetting("integrations", "journal", "needroll")
+	ns2.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st2.opened[1], 36, "fallback")
+	local ns3, st3 = LoadDungeons(nil, {})              -- (DungeonJournal there, NeedRoll not)
+	ns3.Modules:SetSetting("integrations", "journal", "needroll")
+	ns3.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st3.opened[1], 36, "ours, not the other journal") eq(#st3.journal, 0, "DungeonJournal left alone")
+end)
+test("both installed: only the one picked", function()
+	local ns, st = LoadDungeons(nil, {}, {})
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.journal[1], "map:The Deadmines", "DungeonJournal by default") eq(#st.needroll, 0, "NeedRoll left alone")
+	ns.Modules:SetSetting("integrations", "journal", "needroll")
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.needroll[1], "map:DEADMINES", "NeedRoll") eq(#st.journal, 1, "DungeonJournal not called again")
+end)
+test("migration 8: DungeonJournal off becomes AzerothVeil's map; on, DungeonJournal", function()
+	local ns = LoadDungeons({ schema = 7, modules = { dungeons = { enabled = true, settings = { useDJ = false } } } })
+	eq(ns.Modules:GetSetting("integrations", "journal"), "ours", "off: ours (now the Integrations module's)")
+	eq(_G.AzerothVeilDB.modules.dungeons.settings.useDJ, nil, "old key gone")
+	local ns2 = LoadDungeons({ schema = 7, modules = { dungeons = { enabled = true, settings = { useDJ = true } } } })
+	eq(ns2.Modules:GetSetting("integrations", "journal"), "dj", "on: DungeonJournal")
+	eq(_G.AzerothVeilDB.modules.dungeons.settings.journal, nil, "moved, not copied")
+end)
+test("the panel's entrance icon: the dungeon's map put away, from you, a glide to its entrance", function()
+	local ns, st = LoadDungeons(nil)
+	ns.Pins.InstanceUnits = function(id) if id == 36 then return 420, 610 end end
+	ns.Map.CenterOnPlayer = function(across) st.centred = across end
+	st.current = 36
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")             -- (opened from its entrance: a view kept)
+	ns.Modules:Get("dungeons").ShowEntrance(36)
+	eq(st.back, true, "its map put away") eq(st.centred, 140, "on you first")
+	eq(st.glided, 1, "then a glide") eq(st.view[1], 420, "to its entrance") eq(st.view[2], 610, "y")
+	eq(ns.Dungeon.ReturnView(), false, "not back to where it was opened from")
+	st.glided = 0
+	ns.Modules:Get("dungeons").ShowEntrance(999)
+	eq(st.glided, 0, "no place known: nothing")
+end)
+test("drop rates: the boss's own by any of its names, else the item's single one; none: none", function()
+	local ns = LoadDungeons(nil, {})
+	ns.DROP_RATES = { byBoss = { edwinvancleef = { [5191] = 0.17 } }, byItem = { [5191] = 0.5, [777] = 0.02 } }
+	local mod = ns.Modules:Get("dungeons")
+	eq(mod.DropRate({ "Edwin VanCleef" }, 5191), 0.17, "the boss's, its name normalized")
+	eq(mod.DropRate({ "Someone", "The Edwin VanCleef <Defias>" }, 5191), 0.17, "by another of its names")
+	eq(mod.DropRate({ "Nobody" }, 777), 0.02, "the item's single rate")
+	eq(mod.DropRate({ "Nobody" }, 1), nil, "none known")
+	local loot = mod.BossLoot(36, nil, { key = "Edwin VanCleef", name = "Edwin VanCleef" })
+	eq(loot[1].rate, 0.17, "on the boss's loot")
+end)
+test("a click on a boss on the dungeon's map: its page in the panel, only while the panel is up", function()
+	local ns, st = LoadDungeons(nil)
+	ns.DungeonPanel.OpenBoss = function(name) st.openedBoss = name end
+	ns.Dungeon.OnBossClick("Edwin VanCleef")
+	eq(st.openedBoss, nil, "no panel: nothing")
+	ns.Callbacks:Fire("DUNGEON_MAP_SHOWN", 36, true)
+	ns.Dungeon.OnBossClick("Edwin VanCleef")
+	eq(st.openedBoss, "Edwin VanCleef", "its page")
+	ns.Modules:Disable("dungeons")
+	eq(ns.Dungeon.OnBossClick, nil, "module off: no click of its own")
+end)
+print("Integrations module")
+test("an option whose addon isn't there: not in effect, greyed, said in its label", function()
+	local ns = LoadDungeons(nil)
+	local MM = ns.Modules
+	eq(MM:GetSetting("integrations", "questieIcons"), true, "its saved value kept")
+	eq(MM:IsOptionActive("integrations", "questieIcons"), false, "no Questie: not in effect")
+	eq(MM:IsOptionEditable("integrations", "questieIcons"), false, "greyed")
+	eq(MM:IsOptionEditable("integrations", "questieOnlyMine"), false, "its child too")
+	eq(ns.db.pins.questie, false, "the engine's switch off")
+	local spec = MM:Get("integrations").settingByKey.questieIcons
+	eq(spec.label:find("(not installed)", 1, true) ~= nil, true, "label says so")
+	eq(MM:IsOptionActive("integrations", "addonPins"), true, "an option needing no addon: in effect")
+	eq(ns.db.addonPins, true, "its switch on")
+	eq(ns.db.addonPinsBy.TomTom, false, "an addon's icons: its own option, off without it")
+	eq(ns.db.addonPinsBy.others, true, "the other addons' icons")
+	stub.loadedAddOns.TomTom = true
+	ns.Modules:SetSetting("integrations", "pinsOthers", false)
+	eq(ns.db.addonPinsBy.TomTom, true, "TomTom there: its icons") eq(ns.db.addonPinsBy.others, false, "the others' off")
+	stub.loadedAddOns.Questie = true
+	eq(MM:IsOptionActive("integrations", "questieIcons"), true, "Questie there: in effect")
+end)
+test("Integrations off: no journal, no other addon's icons; a click opens ours", function()
+	local ns, st = LoadDungeons(nil, {}, {})
+	ns.Modules:Disable("integrations")
+	eq(ns.db.addonPins, false, "no addons' icons") eq(ns.db.pins.questie, false, "no Questie icons") eq(ns.db.questTint, false, "no tint")
+	ns.Pins.OnDungeonClick({ DEADMINES }, "Deadmines")
+	eq(st.opened[1], 36, "ours") eq(#st.journal, 0, "DungeonJournal left alone") eq(#st.needroll, 0, "NeedRoll left alone")
+	eq(ns.Modules:GetSetting("integrations", "journal"), "dj", "setting kept")
+end)
+test("migration 9: the options that need another addon move into the Integrations module", function()
+	local ns = LoadDungeons({ schema = 8, modules = {
+		quests = { enabled = true, settings = { questie = false, log = true } },
+		dungeons = { enabled = true, settings = { journal = "needroll", useQuestie = false, onlyMine = false, bossesTab = false } },
+		map = { enabled = true, settings = { addonPins = false } } } })
+	local get = function(k) return ns.Modules:GetSetting("integrations", k) end
+	eq(get("questieIcons"), false, "Questie icons") eq(get("journal"), "needroll", "journal")
+	eq(get("questieDungeons"), false, "Questie's dungeon quests") eq(get("questieOnlyMine"), false, "only mine")
+	eq(get("addonPins"), false, "addons' icons") eq(get("questTint"), true, "missing: default")
+	local db = _G.AzerothVeilDB.modules
+	eq(db.dungeons.settings.journal, nil, "gone from Dungeons") eq(db.quests.settings.questie, nil, "gone from Quests")
+	eq(db.map.settings.addonPins, nil, "gone from Map")
+	eq(ns.Modules:GetSetting("dungeons", "bossesTab"), false, "the rest left as it was")
 end)
 test("without DungeonJournal: no key, no error", function()
 	local ns = LoadDungeons(nil)
@@ -1173,15 +1334,22 @@ local function FakeQuestie(ready)
 		[7] = { "Elsewhere", { { 101 } }, 10, 5, 0, 12 },
 		[8] = { "Mages Only", { { 102 } }, 20, 15, 0, 1581, nil, 128 },
 	}
-	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6, objectivesText = 7, requiredClasses = 8 }
+	-- (a chain: 1 then 4 then 9, a quest outside the dungeon; 5 needs both 2 and 3; 4 is handed in inside)
+	quests[9] = { "Back to Westfall", { { 101 } }, 24, 18, 0, 40 }
+	quests[1][9], quests[1][11] = nil, 4
+	quests[4][9], quests[4][11], quests[4][12] = { 1 }, 9, { { 103 } }
+	quests[9][9] = { 4 }
+	quests[5][10] = { 2, 3 }
+	local KEYS = { name = 1, startedBy = 2, questLevel = 3, requiredLevel = 4, requiredRaces = 5, zoneOrSort = 6, objectivesText = 7, requiredClasses = 8,
+		preQuestSingle = 9, preQuestGroup = 10, nextQuestInChain = 11, finishedBy = 12 }
 	_G.QuestDB = {
 		GetAllIds = function() return { 1, 2, 3, 4, 5, 6, 7, 8 } end,
 		Get = function(id, key) return quests[id] and quests[id][KEYS[key]] end,
 		GetAll = function(id, keys) local v = { n = #keys } for i, k in ipairs(keys) do v[i] = quests[id][KEYS[k]] end return v end,
 	}
 	_G.NpcDB = { Get = function(id, key)
-		if key == "name" then return id == 101 and "Gryan Stoutmantle" or "Wilder Thistlenettle" end
-		if key == "spawns" then return { [40] = { { 56.3, 47.5 } } } end
+		if key == "name" then return id == 101 and "Gryan Stoutmantle" or id == 103 and "Captain Inside" or "Wilder Thistlenettle" end
+		if key == "spawns" then return id == 103 and { [1581] = { { 20, 30 } } } or { [40] = { { 56.3, 47.5 } } } end
 	end }
 	_G.LibQuestieDB = { Enum = { factionRaceMasks = { Alliance = 1, Horde = 2 } } }
 	_G.Questie = { API = { isReady = ready } }
@@ -1228,7 +1396,7 @@ test("Questie: every quest of the dungeon for my faction, with the game's state,
 	eq(by[1].faction, "Alliance", "for one faction: said") eq(by[4].faction, nil, "for both: none")
 	eq(by[8], nil, "another class's left out")
 	-- the other faction's and other classes' shown too when that option is off
-	ns.Modules:SetSetting("dungeons", "onlyMine", false)
+	ns.Modules:SetSetting("integrations", "questieOnlyMine", false)
 	local all = {}
 	for _, q in ipairs(ns.Modules:Get("dungeons").QuestsFor(36)) do all[q.questID] = q end
 	eq(all[6] and all[6].faction, "Horde", "the Horde's, with its faction")
@@ -1236,15 +1404,34 @@ test("Questie: every quest of the dungeon for my faction, with the game's state,
 	eq(ns.Questie.ClassesOf(1503), nil, "every class: no restriction")
 	ClearQuestie()
 end)
+test("Questie: a quest's chain, its steps' states, what it still needs, who takes it back and where", function()
+	local ns = LoadDungeons(nil)
+	FakeQuestie(true)
+	ns.Questie._Reset()
+	local quests = ns.Modules:Get("dungeons").QuestsFor(36)
+	local by = {}
+	for _, q in ipairs(quests) do by[q.questID] = q end
+	eq(by[4].needs.step, 2, "the second step") eq(by[4].needs.of, 3, "of three") eq(by[4].needs.prev, 1, "after 1") eq(by[4].needs.next, 9, "before 9")
+	eq(by[4].needs.oneOf, nil, "its prerequisite done: nothing needed")
+	eq(by[5].needs.allOf and #by[5].needs.allOf, 2, "both still to do") eq(by[5].needs.step, nil, "not a chain")
+	eq(by[4].ender.name, "Captain Inside", "handed in to") eq(by[4].ender.inside, true, "inside the dungeon")
+	eq(by[4].giver.inside, nil, "picked up outside")
+	local chain, here = ns.Questie.Chain(4)
+	eq(#chain, 3, "every step") eq(here, 2, "this one's") eq(chain[1].status, "done", "the first: done")
+	eq(chain[3].title, "Back to Westfall", "a step outside the dungeon too") eq(chain[3].status, "available", "Questie: doable")
+	eq(chain[3].giver.uiMap, 1436, "its giver, on the world map")
+	eq(ns.Questie.Chain(2), nil, "not a chain: nil")
+	ClearQuestie()
+end)
 test("Questie: option off, not ready, or a dungeon it doesn't know: the log only / nothing", function()
 	local ns = LoadDungeons(nil)
 	local mod = ns.Modules:Get("dungeons")
 	FakeQuestie(true)
 	ns.Questie._Reset()
-	ns.Modules:SetSetting("dungeons", "useQuestie", false)
+	ns.Modules:SetSetting("integrations", "questieDungeons", false)
 	local q, source = mod.QuestsFor(36)
 	eq(source, "log", "option off: the log") eq(#q, 1, "its one quest")
-	ns.Modules:SetSetting("dungeons", "useQuestie", true)
+	ns.Modules:SetSetting("integrations", "questieDungeons", true)
 	_G.Questie.API.isReady = false
 	eq(select(2, mod.QuestsFor(36)), "log", "not ready yet: the log")
 	_G.Questie.API.isReady = true
