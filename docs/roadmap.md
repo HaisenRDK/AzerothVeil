@@ -114,7 +114,7 @@
 - Options : barres de défilement proportionnelles (MinimalScrollBar) dans la fenêtre et dans Options > AddOns.
 - Titre du survol : pas de sous-zone tant que la région est surlignée ; compétence de pêche colorée selon la tienne.
 
-## Version 1.2 (en cours)
+## Version 1.2 (fait)
 
 - Carte : barre de recherche, menu des icônes, glissement fluide vers une destination (option « Glisser jusqu'à la
   destination »), terrain de la minicarte dans les capitales (option).
