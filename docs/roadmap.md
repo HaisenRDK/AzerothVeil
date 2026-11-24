@@ -125,7 +125,7 @@
   (Krowi_WorldMapButtons) prêtés à notre carte, sous le menu des icônes.
 - [x] En jeu : NeedRoll, RareScanner (icônes, zoom, bouton et menu), GatherMate2 (une fois ses données importées dans
   ses options : sa base était vide)
-- [ ] En jeu : TomTom
+- [x] En jeu : TomTom
 
 ## Questions ouvertes
 
